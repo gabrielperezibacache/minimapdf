@@ -105,15 +105,76 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
   Future<void> _capturePdf() async {
     final provider = context.read<DownloaderProvider>();
     await _scanPdfLinks();
+    if (!mounted) return;
     final current = (await _webController?.getUrl())?.toString();
-    final book = await provider.capturePdf(currentUrl: current);
+    final candidates = provider.resolveCaptureCandidates(currentUrl: current);
+
+    if (candidates.isEmpty) {
+      await provider.capturePdf(currentUrl: current);
+      if (!mounted) return;
+      await _handleResult(null, provider);
+      return;
+    }
+
+    String? chosen = candidates.first;
+    if (candidates.length > 1) {
+      chosen = await _pickPdfUrl(candidates);
+      if (!mounted || chosen == null) return;
+    }
+
+    final book = await provider.downloadUrl(chosen);
     if (!mounted) return;
     await _handleResult(book, provider);
   }
 
+  Future<String?> _pickPdfUrl(List<String> urls) async {
+    final colors = HermesColors.of(context);
+    return showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: colors.panel,
+      builder: (context) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Text(
+                  'Elige un PDF',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              for (final url in urls)
+                ListTile(
+                  leading: Icon(Icons.picture_as_pdf, color: colors.accent),
+                  title: Text(
+                    Uri.tryParse(url)?.pathSegments.lastOrNull ?? url,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    url,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  onTap: () => Navigator.pop(context, url),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _downloadPdfLink(String href) async {
     final provider = context.read<DownloaderProvider>();
-    if (provider.downloading) return;
+    if (provider.downloading) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ya hay una descarga en curso.')),
+      );
+      return;
+    }
     final book = await provider.downloadUrl(href);
     if (!mounted) return;
     await _handleResult(book, provider);
@@ -231,6 +292,39 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                 ),
               ),
             ),
+          if (downloader.hasDetectedPdfs)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 140),
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                itemCount: downloader.detectedPdfUrls.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 2),
+                itemBuilder: (context, index) {
+                  final url = downloader.detectedPdfUrls[index];
+                  final name =
+                      Uri.tryParse(url)?.pathSegments.lastOrNull ?? url;
+                  return ListTile(
+                    dense: true,
+                    leading: Icon(
+                      Icons.picture_as_pdf_outlined,
+                      color: colors.accent,
+                      size: 20,
+                    ),
+                    title: Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: TextButton(
+                      onPressed: downloader.downloading
+                          ? null
+                          : () => _downloadPdfLink(url),
+                      child: const Text('Descargar'),
+                    ),
+                  );
+                },
+              ),
+            ),
           Divider(height: 1, color: colors.border),
           _BrowserChrome(
             controller: _browserUrlController,
@@ -267,11 +361,11 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                       onLoadStart: (controller, url) {
                         if (!mounted) return;
                         setState(() => _pageProgress = 0.05);
+                        final provider = context.read<DownloaderProvider>();
+                        provider.setDetectedPdfUrls(const []);
                         if (url != null) {
                           _browserUrlController.text = url.toString();
-                          context
-                              .read<DownloaderProvider>()
-                              .setBrowserUrl(url.toString());
+                          provider.setBrowserUrl(url.toString());
                         }
                       },
                       onProgressChanged: (controller, progress) {
@@ -300,11 +394,6 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                         }
                         final href = uri.toString();
                         if (PdfUrlUtils.looksLikePdfUrl(href)) {
-                          final provider = context.read<DownloaderProvider>();
-                          provider.setDetectedPdfUrls([
-                            href,
-                            ...provider.detectedPdfUrls,
-                          ]);
                           // Evita abrir el PDF dentro del WebView (callejón sin salida).
                           unawaited(_downloadPdfLink(href));
                           return NavigationActionPolicy.CANCEL;
@@ -317,11 +406,6 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                         final isPdf = PdfUrlUtils.looksLikePdfUrl(href) ||
                             mime.contains('pdf');
                         if (!isPdf) return null;
-                        final provider = context.read<DownloaderProvider>();
-                        provider.setDetectedPdfUrls([
-                          href,
-                          ...provider.detectedPdfUrls,
-                        ]);
                         unawaited(_downloadPdfLink(href));
                         return null;
                       },

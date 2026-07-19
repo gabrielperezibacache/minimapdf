@@ -95,11 +95,15 @@ class PdfImportService {
         await libraryDir.create(recursive: true);
       }
 
-      final existing = await libraryDir
-          .list()
-          .where((entity) => entity is File)
-          .map((entity) => p.basename(entity.path).toLowerCase())
-          .toSet();
+      final onDisk = <String>{};
+      await for (final entity in libraryDir.list()) {
+        if (entity is! File) continue;
+        final base = p.basename(entity.path).toLowerCase();
+        if (base.endsWith('.part')) continue;
+        onDisk.add(base);
+      }
+      final reserved = await _datasource.listReservedLibraryBasenames();
+      final existing = {...onDisk, ...reserved};
 
       final unique = FileNameSanitizer.uniqueName(sanitized, existing);
       final destination = p.join(libraryDir.path, unique);

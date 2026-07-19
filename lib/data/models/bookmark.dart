@@ -42,12 +42,28 @@ class Bookmark {
   }
 
   factory Bookmark.fromMap(Map<String, Object?> map) {
+    final bookIdRaw = map['book_id'];
+    final bookId = bookIdRaw is int
+        ? bookIdRaw
+        : int.tryParse('$bookIdRaw') ?? 0;
+
+    final pageRaw = map['page_number'];
+    final pageNumber = pageRaw is int
+        ? pageRaw
+        : int.tryParse('$pageRaw') ?? 1;
+
+    final createdRaw = map['created_at'];
+    final createdAt = createdRaw is String && createdRaw.isNotEmpty
+        ? (DateTime.tryParse(createdRaw) ??
+            DateTime.fromMillisecondsSinceEpoch(0))
+        : DateTime.fromMillisecondsSinceEpoch(0);
+
     return Bookmark(
       id: map['id'] as int?,
-      bookId: map['book_id'] as int,
-      pageNumber: map['page_number'] as int,
+      bookId: bookId,
+      pageNumber: pageNumber < 1 ? 1 : pageNumber,
       noteText: map['note_text'] as String?,
-      createdAt: DateTime.parse(map['created_at'] as String),
+      createdAt: createdAt,
     );
   }
 

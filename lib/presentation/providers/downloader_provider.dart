@@ -170,10 +170,8 @@ class DownloaderProvider extends ChangeNotifier {
 
   Future<Book?> downloadFromInput() => downloadUrl(_urlInput);
 
-  /// Captura solo URLs que parezcan PDF (nunca HTML genérico).
-  ///
-  /// Si hay varios candidatos, no elige al azar: pide elegir de la lista.
-  Future<Book?> capturePdf({String? currentUrl}) async {
+  /// Candidatos PDF únicos para captura (URL actual + detectados).
+  List<String> resolveCaptureCandidates({String? currentUrl}) {
     final candidates = <String>[
       if (currentUrl != null && PdfUrlUtils.looksLikePdfUrl(currentUrl))
         currentUrl,
@@ -187,6 +185,14 @@ class DownloaderProvider extends ChangeNotifier {
         unique.add(normalized);
       }
     }
+    return unique.toList(growable: false);
+  }
+
+  /// Captura solo URLs que parezcan PDF (nunca HTML genérico).
+  ///
+  /// Si hay varios candidatos, no elige al azar: pide elegir de la lista.
+  Future<Book?> capturePdf({String? currentUrl}) async {
+    final unique = resolveCaptureCandidates(currentUrl: currentUrl);
 
     if (unique.isEmpty) {
       _error = 'No se encontró un enlace PDF en esta página.';
@@ -195,7 +201,7 @@ class DownloaderProvider extends ChangeNotifier {
     }
 
     if (unique.length > 1) {
-      _detectedPdfUrls = unique.toList(growable: false);
+      _detectedPdfUrls = unique;
       _error =
           'Hay ${unique.length} PDFs detectados. Elige uno de la lista.';
       _statusMessage = null;

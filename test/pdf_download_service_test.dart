@@ -8,6 +8,7 @@ import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
 import 'package:minimal_pdf/data/datasources/library_local_datasource.dart';
 import 'package:minimal_pdf/data/datasources/pdf_download_service.dart';
+import 'package:minimal_pdf/data/models/book.dart';
 import 'package:minimal_pdf/data/models/collection.dart';
 import 'package:minimal_pdf/presentation/providers/downloader_provider.dart';
 import 'package:path/path.dart' as p;
@@ -146,6 +147,61 @@ void main() {
     final book = await provider.downloadUrl('https://example.com/slow.pdf');
     expect(book, isNull);
     expect(provider.error, contains('Tiempo de espera'));
+    service.dispose();
+  });
+
+  test('download evita UNIQUE de fila huérfana con mismo basename', () async {
+    final libraryDir = Directory(p.join(tempDir.path, 'library'));
+    await libraryDir.create(recursive: true);
+    final ghostPath = p.join(libraryDir.path, 'guide.pdf');
+    await datasource.insertBook(
+      Book(
+        title: 'Ghost',
+        filePath: ghostPath,
+        fileSize: 1,
+        addedAt: DateTime(2026, 7, 1),
+      ),
+    );
+
+    final client = MockClient((request) async {
+      return http.Response.bytes(
+        const [0x25, 0x50, 0x44, 0x46, 0x2D, 0x31],
+        200,
+        headers: {'content-type': 'application/pdf'},
+      );
+    });
+
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: client,
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+
+    final book = await service.downloadFromUrl('https://example.com/guide.pdf');
+    expect(book.filePath, isNot(equals(ghostPath)));
+    expect(p.basename(book.filePath).toLowerCase(), contains('guide'));
+    expect(File(book.filePath).existsSync(), isTrue);
+    service.dispose();
+  });
+
+  test('resolveCaptureCandidates agrupa URL actual y detectados', () {
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: MockClient((_) async => http.Response('', 404)),
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+    final provider = DownloaderProvider(service)
+      ..setDetectedPdfUrls([
+        'https://cdn.example.com/a.pdf',
+        'https://cdn.example.com/b.pdf',
+      ]);
+
+    final candidates = provider.resolveCaptureCandidates(
+      currentUrl: 'https://cdn.example.com/a.pdf',
+    );
+    expect(candidates.length, 2);
     service.dispose();
   });
 

@@ -13,6 +13,10 @@ class LibraryLocalDatasource {
 
   Future<Book?> findBookByPath(String path) => _db.getBookByFilePath(path);
 
+  /// Nombres de archivo ya usados en DB (evita UNIQUE tras filas huérfanas).
+  Future<Set<String>> listReservedLibraryBasenames() =>
+      _db.listReservedLibraryBasenames();
+
   Future<List<Book>> listRecentBooks({int? limit}) =>
       _db.getRecentBooks(limit: limit);
 

@@ -254,11 +254,14 @@ class PdfDownloadService {
     final fileName = FileNameSanitizer.sanitize(
       PdfUrlUtils.fileNameFromUrl(url),
     );
+    // Nombre temporal único: evita colisiones con leftovers de cancel/kill.
+    final stagingName =
+        '${DateTime.now().microsecondsSinceEpoch}_$fileName';
 
     final taskId = await FlutterDownloader.enqueue(
       url: url,
       savedDir: tempDir.path,
-      fileName: fileName,
+      fileName: stagingName,
       showNotification: false,
       openFileFromNotification: false,
       requiresStorageNotLow: false,
@@ -268,7 +271,7 @@ class PdfDownloadService {
       throw StateError('No se pudo encolar la descarga nativa');
     }
 
-    final expectedPath = p.join(tempDir.path, fileName);
+    final expectedPath = p.join(tempDir.path, stagingName);
     _activeNativeTaskId = taskId;
     try {
       _throwIfCancelled();
@@ -366,7 +369,10 @@ class PdfDownloadService {
   }) async {
     return LibraryFileCoordinator.runExclusive(() async {
       final libraryDir = await _ensureLibraryDir();
-      final existing = await _existingFileNames(libraryDir);
+      await _sweepOrphanPartFiles(libraryDir, keepPath: source.path);
+      final onDisk = await _existingFileNames(libraryDir);
+      final reserved = await _datasource.listReservedLibraryBasenames();
+      final existing = {...onDisk, ...reserved};
       final unique = FileNameSanitizer.uniqueName(fileName, existing);
       final destination = p.join(libraryDir.path, unique);
       final destinationFile = File(destination);
@@ -412,11 +418,30 @@ class PdfDownloadService {
   }
 
   Future<Set<String>> _existingFileNames(Directory libraryDir) async {
-    return libraryDir
-        .list()
-        .where((entity) => entity is File)
-        .map((entity) => p.basename(entity.path).toLowerCase())
-        .toSet();
+    final names = <String>{};
+    await for (final entity in libraryDir.list()) {
+      if (entity is! File) continue;
+      final base = p.basename(entity.path).toLowerCase();
+      if (base.endsWith('.part')) continue;
+      names.add(base);
+    }
+    return names;
+  }
+
+  Future<void> _sweepOrphanPartFiles(
+    Directory libraryDir, {
+    String? keepPath,
+  }) async {
+    try {
+      await for (final entity in libraryDir.list()) {
+        if (entity is! File) continue;
+        if (!entity.path.toLowerCase().endsWith('.part')) continue;
+        if (keepPath != null && p.equals(entity.path, keepPath)) continue;
+        await _deleteQuietly(entity);
+      }
+    } catch (_) {
+      // Limpieza best-effort.
+    }
   }
 
   Future<void> _deleteQuietly(File file) async {

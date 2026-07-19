@@ -54,6 +54,19 @@ void main() {
     });
   });
 
+  test('listReservedLibraryBasenames incluye filas huérfanas', () async {
+    await library.createBook(
+      Book(
+        title: 'Ghost',
+        filePath: '/missing/library/paper.pdf',
+        fileSize: 1,
+        addedAt: DateTime(2026, 1, 1),
+      ),
+    );
+    final reserved = await library.listReservedLibraryBasenames();
+    expect(reserved, contains('paper.pdf'));
+  });
+
   group('Books CRUD', () {
     test('crear, listar recientes, actualizar progreso y borrar', () async {
       final collection = await library.createCollection(
