@@ -5,6 +5,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_theme_option.dart';
 import '../../data/models/book.dart';
+import '../downloader/downloader_screen.dart';
 import '../providers/library_provider.dart';
 import '../providers/theme_provider.dart';
 import '../reader/reader_screen.dart';
@@ -136,6 +137,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
       appBar: AppBar(
         title: const Text(AppConstants.appName),
         actions: [
+          IconButton(
+            tooltip: 'Descargas / navegador',
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const DownloaderScreen(),
+                ),
+              );
+              if (!context.mounted) return;
+              await context.read<LibraryProvider>().load();
+            },
+            icon: Icon(Icons.download_outlined, color: colors.accent),
+          ),
           IconButton(
             tooltip: library.gridMode ? 'Vista lista' : 'Vista cuadrícula',
             onPressed: () => library.setGridMode(!library.gridMode),

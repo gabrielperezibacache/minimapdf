@@ -6,13 +6,16 @@ import 'core/database/app_database.dart';
 import 'core/database/library_database.dart';
 import 'core/theme/app_theme.dart';
 import 'data/datasources/library_local_datasource.dart';
+import 'data/datasources/pdf_download_service.dart';
 import 'data/datasources/pdf_import_service.dart';
 import 'presentation/library/library_screen.dart';
+import 'presentation/providers/downloader_provider.dart';
 import 'presentation/providers/library_provider.dart';
 import 'presentation/providers/theme_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await PdfDownloadService.ensureNativeInitialized();
 
   final appDatabase = AppDatabase();
   await appDatabase.open();
@@ -52,10 +55,21 @@ class MinimalPdfApp extends StatelessWidget {
             context.read<LibraryLocalDatasource>(),
           ),
         ),
+        Provider<PdfDownloadService>(
+          create: (context) => PdfDownloadService(
+            context.read<LibraryLocalDatasource>(),
+          ),
+          dispose: (_, service) => service.dispose(),
+        ),
         ChangeNotifierProvider<LibraryProvider>(
           create: (context) => LibraryProvider(
             datasource: context.read<LibraryLocalDatasource>(),
             importService: context.read<PdfImportService>(),
+          ),
+        ),
+        ChangeNotifierProvider<DownloaderProvider>(
+          create: (context) => DownloaderProvider(
+            context.read<PdfDownloadService>(),
           ),
         ),
       ],
