@@ -84,5 +84,8 @@ class LibraryLocalDatasource {
     return _db.getSignaturesForPage(bookId, pageNumber);
   }
 
+  Future<int> saveSignature(DocumentSignature signature) =>
+      _db.updateSignature(signature);
+
   Future<int> removeSignature(int id) => _db.deleteSignature(id);
 }

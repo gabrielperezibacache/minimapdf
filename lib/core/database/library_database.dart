@@ -302,6 +302,19 @@ class LibraryDatabase {
     return rows.map(DocumentSignature.fromMap).toList();
   }
 
+  Future<int> updateSignature(DocumentSignature signature) async {
+    final id = signature.id;
+    if (id == null) {
+      throw ArgumentError('DocumentSignature.id es obligatorio para actualizar');
+    }
+    return _db.update(
+      DatabaseConfig.tableSignatures,
+      signature.toMap()..remove('id'),
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<int> deleteSignature(int id) async {
     return _db.delete(
       DatabaseConfig.tableSignatures,

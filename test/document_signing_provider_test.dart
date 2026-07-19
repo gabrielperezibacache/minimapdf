@@ -104,4 +104,27 @@ void main() {
     expect(saved, isNull);
     expect(signing.error, contains('Dibuja'));
   });
+
+  test('moveSignature actualiza offsets y lastSignerName', () async {
+    final saved = await signing.signPage(
+      pageNumber: 1,
+      draft: const SignatureDraft(
+        type: SignatureType.typed,
+        signerName: 'Nora',
+        typedText: 'Nora',
+      ),
+    );
+
+    expect(signing.lastSignerName, 'Nora');
+
+    await signing.moveSignature(
+      signature: saved!,
+      offsetX: 0.2,
+      offsetY: 0.3,
+    );
+
+    final moved = signing.signaturesForPage(1).first;
+    expect(moved.offsetX, closeTo(0.2, 0.001));
+    expect(moved.offsetY, closeTo(0.3, 0.001));
+  });
 }

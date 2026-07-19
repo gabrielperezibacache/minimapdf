@@ -4,6 +4,122 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/document_signature.dart';
 import '../../data/models/signature_type.dart';
+import 'ink_stroke_painter.dart';
+
+/// Capa de firmas posicionadas de forma relativa sobre el área del PDF.
+class SignatureLayer extends StatelessWidget {
+  const SignatureLayer({
+    super.key,
+    required this.signatures,
+    required this.onMove,
+    required this.onDelete,
+    this.bottomReserve = 0,
+    this.topReserve = 0,
+  });
+
+  final List<DocumentSignature> signatures;
+  final void Function(DocumentSignature signature, double x, double y) onMove;
+  final ValueChanged<DocumentSignature> onDelete;
+  final double bottomReserve;
+  final double topReserve;
+
+  static const double stampWidth = 196;
+  static const double stampHeightEstimate = 118;
+
+  @override
+  Widget build(BuildContext context) {
+    if (signatures.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final usableWidth = constraints.maxWidth;
+        final usableHeight =
+            (constraints.maxHeight - topReserve - bottomReserve)
+                .clamp(1.0, constraints.maxHeight);
+        final maxLeft = (usableWidth - stampWidth).clamp(0.0, usableWidth);
+        final maxTop =
+            (usableHeight - stampHeightEstimate).clamp(0.0, usableHeight);
+
+        return Stack(
+          children: [
+            for (final signature in signatures)
+              _PositionedSignature(
+                key: ValueKey(signature.id ?? identityHashCode(signature)),
+                signature: signature,
+                maxLeft: maxLeft,
+                maxTop: maxTop,
+                topReserve: topReserve,
+                onMove: onMove,
+                onDelete: onDelete,
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PositionedSignature extends StatefulWidget {
+  const _PositionedSignature({
+    super.key,
+    required this.signature,
+    required this.maxLeft,
+    required this.maxTop,
+    required this.topReserve,
+    required this.onMove,
+    required this.onDelete,
+  });
+
+  final DocumentSignature signature;
+  final double maxLeft;
+  final double maxTop;
+  final double topReserve;
+  final void Function(DocumentSignature signature, double x, double y) onMove;
+  final ValueChanged<DocumentSignature> onDelete;
+
+  @override
+  State<_PositionedSignature> createState() => _PositionedSignatureState();
+}
+
+class _PositionedSignatureState extends State<_PositionedSignature> {
+  Offset _dragDelta = Offset.zero;
+
+  @override
+  void didUpdateWidget(covariant _PositionedSignature oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.signature.offsetX != widget.signature.offsetX ||
+        oldWidget.signature.offsetY != widget.signature.offsetY) {
+      _dragDelta = Offset.zero;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final baseLeft = widget.signature.offsetX * widget.maxLeft;
+    final baseTop = widget.signature.offsetY * widget.maxTop;
+    final left = (baseLeft + _dragDelta.dx).clamp(0.0, widget.maxLeft);
+    final top = (baseTop + _dragDelta.dy).clamp(0.0, widget.maxTop);
+
+    return Positioned(
+      left: left,
+      top: widget.topReserve + top,
+      child: SignatureOverlay(
+        signature: widget.signature,
+        onDelete: () => widget.onDelete(widget.signature),
+        onDragUpdate: (delta) {
+          setState(() => _dragDelta += delta);
+        },
+        onDragEnd: () {
+          final nextX =
+              widget.maxLeft <= 0 ? 0.0 : left / widget.maxLeft;
+          final nextY = widget.maxTop <= 0 ? 0.0 : top / widget.maxTop;
+          _dragDelta = Offset.zero;
+          widget.onMove(widget.signature, nextX, nextY);
+        },
+      ),
+    );
+  }
+}
 
 /// Sello visual de una firma electrónica sobre la página del PDF.
 class SignatureOverlay extends StatelessWidget {
@@ -11,150 +127,143 @@ class SignatureOverlay extends StatelessWidget {
     super.key,
     required this.signature,
     this.onDelete,
+    this.onDragUpdate,
+    this.onDragEnd,
   });
 
   final DocumentSignature signature;
   final VoidCallback? onDelete;
+  final ValueChanged<Offset>? onDragUpdate;
+  final VoidCallback? onDragEnd;
 
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
-    final dateLabel = _formatDate(signature.signedAt);
+    final dateLabel = formatSignatureDate(signature.signedAt);
+    final canDrag = onDragUpdate != null && onDragEnd != null;
 
-    return Material(
-      color: colors.panel.withValues(alpha: 0.94),
-      child: Container(
-        width: 200,
-        padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.obsidianAccent, width: 1),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  signature.type == SignatureType.typed
-                      ? Icons.text_fields
-                      : Icons.gesture,
-                  size: 14,
-                  color: AppColors.obsidianAccent,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    signature.type.labelEs,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.obsidianAccent,
-                        ),
+    return GestureDetector(
+      onPanUpdate: canDrag ? (details) => onDragUpdate!(details.delta) : null,
+      onPanEnd: canDrag ? (_) => onDragEnd!() : null,
+      onPanCancel: canDrag ? onDragEnd : null,
+      child: Material(
+        color: colors.panel.withValues(alpha: 0.96),
+        elevation: 0,
+        child: Container(
+          width: SignatureLayer.stampWidth,
+          padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.obsidianAccent, width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    signature.type == SignatureType.typed
+                        ? Icons.text_fields
+                        : Icons.gesture,
+                    size: 14,
+                    color: AppColors.obsidianAccent,
                   ),
-                ),
-                if (onDelete != null)
-                  IconButton(
-                    tooltip: 'Eliminar firma',
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints(minWidth: 24, minHeight: 24),
-                    onPressed: onDelete,
-                    icon: Icon(Icons.close, size: 14, color: colors.textMuted),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Firmado electrónicamente',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: AppColors.obsidianAccent,
+                          ),
+                    ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            if (signature.type == SignatureType.typed)
-              Text(
-                signature.displayText,
-                style: TextStyle(
-                  fontFamily: 'serif',
-                  fontStyle: FontStyle.italic,
-                  fontSize: 22,
-                  height: 1.1,
-                  letterSpacing: 0.4,
-                  color: colors.text,
-                ),
-              )
-            else
-              SizedBox(
-                height: 48,
-                child: CustomPaint(
-                  painter: _StoredInkPainter(
-                    strokes: signature.inkStrokes,
+                  if (onDelete != null)
+                    IconButton(
+                      tooltip: 'Eliminar firma',
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 24, minHeight: 24),
+                      onPressed: onDelete,
+                      icon:
+                          Icon(Icons.close, size: 14, color: colors.textMuted),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              if (signature.type == SignatureType.typed)
+                Text(
+                  signature.displayText,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'serif',
+                    fontStyle: FontStyle.italic,
+                    fontSize: 22,
+                    height: 1.1,
+                    letterSpacing: 0.4,
                     color: colors.text,
                   ),
-                ),
-              ),
-            const SizedBox(height: 6),
-            Text(
-              signature.signerName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-            Text(
-              dateLabel,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colors.textMuted,
+                )
+              else
+                SizedBox(
+                  height: 48,
+                  child: CustomPaint(
+                    painter: InkStrokePainter(
+                      strokes: signature.inkStrokes,
+                      color: colors.text,
+                      strokeWidth: 1.9,
+                    ),
                   ),
-            ),
-            if (signature.reason != null && signature.reason!.isNotEmpty) ...[
-              const SizedBox(height: 2),
+                ),
+              const SizedBox(height: 6),
               Text(
-                signature.reason!,
-                maxLines: 2,
+                signature.signerName,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+              Text(
+                dateLabel,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: colors.textMuted,
                     ),
               ),
+              if (signature.reason != null && signature.reason!.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  signature.reason!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colors.textMuted,
+                      ),
+                ),
+              ],
+              if (canDrag) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Arrastra para colocar',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colors.textMuted,
+                        fontSize: 10,
+                      ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
   }
-
-  String _formatDate(DateTime value) {
-    final local = value.toLocal();
-    final dd = local.day.toString().padLeft(2, '0');
-    final mm = local.month.toString().padLeft(2, '0');
-    final yyyy = local.year.toString();
-    final hh = local.hour.toString().padLeft(2, '0');
-    final min = local.minute.toString().padLeft(2, '0');
-    return '$dd/$mm/$yyyy $hh:$min';
-  }
 }
 
-class _StoredInkPainter extends CustomPainter {
-  _StoredInkPainter({required this.strokes, required this.color});
-
-  final List<List<List<double>>> strokes;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.8
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    for (final stroke in strokes) {
-      if (stroke.length < 2) continue;
-      final path = Path()
-        ..moveTo(stroke.first[0] * size.width, stroke.first[1] * size.height);
-      for (var i = 1; i < stroke.length; i++) {
-        path.lineTo(stroke[i][0] * size.width, stroke[i][1] * size.height);
-      }
-      canvas.drawPath(path, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _StoredInkPainter oldDelegate) {
-    return oldDelegate.strokes != strokes || oldDelegate.color != color;
-  }
+String formatSignatureDate(DateTime value) {
+  final local = value.toLocal();
+  final dd = local.day.toString().padLeft(2, '0');
+  final mm = local.month.toString().padLeft(2, '0');
+  final yyyy = local.year.toString();
+  final hh = local.hour.toString().padLeft(2, '0');
+  final min = local.minute.toString().padLeft(2, '0');
+  return '$dd/$mm/$yyyy $hh:$min';
 }

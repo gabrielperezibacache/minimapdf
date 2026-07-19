@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/bookmark.dart';
+import '../../../data/models/document_signature.dart';
+import '../../../data/models/signature_type.dart';
+import '../../signing/signature_overlay.dart';
 import '../pdf_toc_entry.dart';
 
-/// Panel lateral deslizable estilo Hermes WebUI (índice + marcadores).
+/// Panel lateral deslizable estilo Hermes WebUI (índice + marcadores + firmas).
 class ReaderSidebar extends StatelessWidget {
   const ReaderSidebar({
     super.key,
@@ -13,18 +16,22 @@ class ReaderSidebar extends StatelessWidget {
     required this.pagesCount,
     required this.currentPage,
     required this.bookmarks,
+    this.signatures = const [],
     required this.onClose,
     required this.onOpenPage,
     required this.onDeleteBookmark,
+    this.onDeleteSignature,
   });
 
   final bool visible;
   final int pagesCount;
   final int currentPage;
   final List<Bookmark> bookmarks;
+  final List<DocumentSignature> signatures;
   final VoidCallback onClose;
   final ValueChanged<int> onOpenPage;
   final ValueChanged<Bookmark> onDeleteBookmark;
+  final ValueChanged<DocumentSignature>? onDeleteSignature;
 
   @override
   Widget build(BuildContext context) {
@@ -65,16 +72,19 @@ class ReaderSidebar extends StatelessWidget {
                   _SidebarHeader(onClose: onClose),
                   Expanded(
                     child: DefaultTabController(
-                      length: 2,
+                      length: 3,
                       child: Column(
                         children: [
                           TabBar(
                             labelColor: AppColors.obsidianAccent,
                             unselectedLabelColor: colors.textMuted,
                             indicatorColor: AppColors.obsidianAccent,
+                            isScrollable: true,
+                            tabAlignment: TabAlignment.start,
                             tabs: const [
                               Tab(text: 'Índice'),
                               Tab(text: 'Marcadores'),
+                              Tab(text: 'Firmas'),
                             ],
                           ),
                           Expanded(
@@ -90,6 +100,12 @@ class ReaderSidebar extends StatelessWidget {
                                   currentPage: currentPage,
                                   onOpenPage: onOpenPage,
                                   onDelete: onDeleteBookmark,
+                                ),
+                                _SignaturesPane(
+                                  signatures: signatures,
+                                  currentPage: currentPage,
+                                  onOpenPage: onOpenPage,
+                                  onDelete: onDeleteSignature,
                                 ),
                               ],
                             ),
@@ -323,6 +339,76 @@ class _BookmarksPane extends StatelessWidget {
             onPressed: () => onDelete(bookmark),
             icon: Icon(Icons.delete_outline, color: colors.textMuted, size: 20),
           ),
+        );
+      },
+    );
+  }
+}
+
+class _SignaturesPane extends StatelessWidget {
+  const _SignaturesPane({
+    required this.signatures,
+    required this.currentPage,
+    required this.onOpenPage,
+    this.onDelete,
+  });
+
+  final List<DocumentSignature> signatures;
+  final int currentPage;
+  final ValueChanged<int> onOpenPage;
+  final ValueChanged<DocumentSignature>? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = HermesColors.of(context);
+
+    if (signatures.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Sin firmas.\nUsa el icono de firma en la barra del lector.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      itemCount: signatures.length,
+      separatorBuilder: (_, _) => Divider(height: 1, color: colors.border),
+      itemBuilder: (context, index) {
+        final signature = signatures[index];
+        final selected = signature.pageNumber == currentPage;
+
+        return ListTile(
+          selected: selected,
+          selectedColor: AppColors.obsidianAccent,
+          leading: Icon(
+            signature.type == SignatureType.typed
+                ? Icons.text_fields
+                : Icons.gesture,
+            color: AppColors.obsidianAccent,
+          ),
+          title: Text(signature.signerName),
+          subtitle: Text(
+            'Pág. ${signature.pageNumber} · ${signature.type.labelEs}\n'
+            '${formatSignatureDate(signature.signedAt)}',
+          ),
+          isThreeLine: true,
+          onTap: () => onOpenPage(signature.pageNumber),
+          trailing: onDelete == null
+              ? null
+              : IconButton(
+                  tooltip: 'Eliminar',
+                  onPressed: () => onDelete!(signature),
+                  icon: Icon(
+                    Icons.delete_outline,
+                    color: colors.textMuted,
+                    size: 20,
+                  ),
+                ),
         );
       },
     );

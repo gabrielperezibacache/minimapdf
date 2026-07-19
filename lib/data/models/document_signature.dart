@@ -16,8 +16,8 @@ class DocumentSignature {
     this.typedText,
     this.inkJson,
     this.reason,
-    this.offsetX = 0.55,
-    this.offsetY = 0.72,
+    this.offsetX = 0.58,
+    this.offsetY = 0.70,
     required this.signedAt,
   });
 
@@ -131,8 +131,8 @@ class DocumentSignature {
       typedText: map['typed_text'] as String?,
       inkJson: map['ink_json'] as String?,
       reason: map['reason'] as String?,
-      offsetX: (map['offset_x'] as num?)?.toDouble() ?? 0.55,
-      offsetY: (map['offset_y'] as num?)?.toDouble() ?? 0.72,
+      offsetX: (map['offset_x'] as num?)?.toDouble() ?? 0.58,
+      offsetY: (map['offset_y'] as num?)?.toDouble() ?? 0.70,
       signedAt: DateTime.parse(map['signed_at'] as String),
     );
   }

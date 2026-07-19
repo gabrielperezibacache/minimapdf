@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -10,6 +11,7 @@ import 'signature_pad.dart';
 Future<SignatureDraft?> showSignatureSheet(
   BuildContext context, {
   required int pageNumber,
+  String? initialSignerName,
 }) {
   return showModalBottomSheet<SignatureDraft>(
     context: context,
@@ -18,57 +20,67 @@ Future<SignatureDraft?> showSignatureSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
     ),
-    builder: (context) => _SignatureForm(pageNumber: pageNumber),
+    builder: (context) => _SignatureForm(
+      pageNumber: pageNumber,
+      initialSignerName: initialSignerName,
+    ),
   );
 }
 
 class _SignatureForm extends StatefulWidget {
-  const _SignatureForm({required this.pageNumber});
+  const _SignatureForm({
+    required this.pageNumber,
+    this.initialSignerName,
+  });
 
   final int pageNumber;
+  final String? initialSignerName;
 
   @override
   State<_SignatureForm> createState() => _SignatureFormState();
 }
 
 class _SignatureFormState extends State<_SignatureForm> {
+  static const _service = ElectronicSignatureService();
+
   late final TextEditingController _nameController;
   late final TextEditingController _typedController;
   late final TextEditingController _reasonController;
-  final GlobalKey<SignaturePadState> _padKey = GlobalKey<SignaturePadState>();
 
   SignatureType _type = SignatureType.typed;
   List<List<List<double>>> _inkStrokes = const [];
   String? _validationError;
+  String _lastAutoTyped = '';
+  bool _typedDirty = false;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController();
-    _typedController = TextEditingController();
+    final initial = widget.initialSignerName?.trim() ?? '';
+    _nameController = TextEditingController(text: initial);
+    _typedController = TextEditingController(text: initial);
     _reasonController = TextEditingController();
+    _lastAutoTyped = initial;
     _nameController.addListener(_syncTypedFromName);
     _typedController.addListener(_onTypedChanged);
   }
 
   void _onTypedChanged() {
+    if (_typedController.text != _lastAutoTyped) {
+      _typedDirty = true;
+    }
     if (mounted) setState(() {});
   }
 
   void _syncTypedFromName() {
-    if (_type != SignatureType.typed) return;
-    if (_typedController.text.trim().isEmpty ||
-        _typedController.text == _lastAutoTyped) {
-      final value = _nameController.text;
-      _lastAutoTyped = value;
-      _typedController.value = TextEditingValue(
-        text: value,
-        selection: TextSelection.collapsed(offset: value.length),
-      );
-    }
+    if (_type != SignatureType.typed || _typedDirty) return;
+    final value = _nameController.text;
+    _lastAutoTyped = value;
+    _typedController.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
   }
-
-  String _lastAutoTyped = '';
 
   @override
   void dispose() {
@@ -80,25 +92,19 @@ class _SignatureFormState extends State<_SignatureForm> {
     super.dispose();
   }
 
+  SignatureDraft get _draft => SignatureDraft(
+        type: _type,
+        signerName: _nameController.text,
+        typedText: _typedController.text,
+        inkStrokes: _inkStrokes,
+        reason: _reasonController.text,
+      );
+
   void _submit() {
     setState(() => _validationError = null);
-    final draft = SignatureDraft(
-      type: _type,
-      signerName: _nameController.text,
-      typedText: _typedController.text,
-      inkStrokes: _inkStrokes,
-      reason: _reasonController.text,
-    );
-
     try {
-      // Validación previa con el servicio de dominio (bookId/page dummy OK
-      // salvo pageNumber; usamos page real y bookId=1 solo para validar forma).
-      const ElectronicSignatureService().signDocument(
-        bookId: 1,
-        pageNumber: widget.pageNumber,
-        draft: draft,
-      );
-      Navigator.of(context).pop(draft);
+      _service.validateDraft(_draft, pageNumber: widget.pageNumber);
+      Navigator.of(context).pop(_draft);
     } on SignatureValidationException catch (error) {
       setState(() => _validationError = error.message);
     }
@@ -108,6 +114,7 @@ class _SignatureFormState extends State<_SignatureForm> {
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final narrow = MediaQuery.sizeOf(context).width < 380;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomInset),
@@ -128,23 +135,24 @@ class _SignatureFormState extends State<_SignatureForm> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Firma electrónica simple, local y offline.',
+              'Firma electrónica simple, local y offline. '
+              'No sustituye una firma cualificada con certificado.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colors.textMuted,
                   ),
             ),
             const SizedBox(height: 16),
             SegmentedButton<SignatureType>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: SignatureType.typed,
-                  label: Text('Mecanografiada'),
-                  icon: Icon(Icons.text_fields, size: 18),
+                  label: Text(narrow ? 'Texto' : 'Mecanografiada'),
+                  icon: const Icon(Icons.text_fields, size: 18),
                 ),
                 ButtonSegment(
                   value: SignatureType.drawn,
-                  label: Text('Dibujada'),
-                  icon: Icon(Icons.gesture, size: 18),
+                  label: Text(narrow ? 'Trazo' : 'Dibujada'),
+                  icon: const Icon(Icons.gesture, size: 18),
                 ),
               ],
               selected: {_type},
@@ -173,9 +181,17 @@ class _SignatureFormState extends State<_SignatureForm> {
             TextField(
               controller: _nameController,
               textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+              maxLength: ElectronicSignatureService.maxSignerNameLength,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(
+                  ElectronicSignatureService.maxSignerNameLength,
+                ),
+              ],
               decoration: const InputDecoration(
                 labelText: 'Nombre del firmante',
                 hintText: 'Nombre y apellidos',
+                counterText: '',
               ),
             ),
             const SizedBox(height: 12),
@@ -183,13 +199,22 @@ class _SignatureFormState extends State<_SignatureForm> {
               TextField(
                 controller: _typedController,
                 textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
+                maxLength: ElectronicSignatureService.maxTypedTextLength,
+                inputFormatters: [
+                  LengthLimitingTextInputFormatter(
+                    ElectronicSignatureService.maxTypedTextLength,
+                  ),
+                ],
                 decoration: const InputDecoration(
                   labelText: 'Texto de la firma',
                   hintText: 'Cómo se verá la rúbrica',
+                  counterText: '',
                 ),
               ),
               const SizedBox(height: 12),
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 18,
@@ -228,18 +253,29 @@ class _SignatureFormState extends State<_SignatureForm> {
               ),
             ] else ...[
               SignaturePad(
-                key: _padKey,
                 onStrokesChanged: (strokes) {
-                  setState(() => _inkStrokes = strokes);
+                  setState(() {
+                    _inkStrokes = strokes;
+                    _validationError = null;
+                  });
                 },
               ),
             ],
             const SizedBox(height: 12),
             TextField(
               controller: _reasonController,
+              textInputAction: TextInputAction.done,
+              maxLength: ElectronicSignatureService.maxReasonLength,
+              onSubmitted: (_) => _submit(),
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(
+                  ElectronicSignatureService.maxReasonLength,
+                ),
+              ],
               decoration: const InputDecoration(
                 labelText: 'Motivo (opcional)',
                 hintText: 'p. ej. Conformidad, autorización…',
+                counterText: '',
               ),
             ),
             if (_validationError != null) ...[

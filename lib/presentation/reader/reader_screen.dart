@@ -11,6 +11,7 @@ import '../../core/theme/hermes_pdf_filter.dart';
 import '../../data/datasources/library_local_datasource.dart';
 import '../../data/models/book.dart';
 import '../../data/models/bookmark.dart';
+import '../../data/models/document_signature.dart';
 import '../../data/models/signature_type.dart';
 import '../providers/document_signing_provider.dart';
 import '../providers/reader_annotations_provider.dart';
@@ -188,6 +189,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     final draft = await showSignatureSheet(
       context,
       pageNumber: _currentPage,
+      initialSignerName: _signing?.lastSignerName,
     );
     if (draft == null || !mounted) return;
 
@@ -209,10 +211,44 @@ class _ReaderScreenState extends State<ReaderScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Documento firmado (${saved.type.labelEs.toLowerCase()}).',
+          'Documento firmado (${saved.type.labelEs.toLowerCase()}). '
+          'Arrastra el sello para colocarlo.',
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDeleteSignature(DocumentSignature signature) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final colors = HermesColors.of(context);
+        return AlertDialog(
+          backgroundColor: colors.panel,
+          title: const Text('Eliminar firma'),
+          content: Text(
+            '¿Eliminar la firma de ${signature.signerName} '
+            'en la página ${signature.pageNumber}?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('Cancelar', style: TextStyle(color: colors.text)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text(
+                'Eliminar',
+                style: TextStyle(color: AppColors.obsidianAccent),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed == true) {
+      await _signing?.deleteSignature(signature);
+    }
   }
 
   Future<void> _deleteBookmark(Bookmark bookmark) async {
@@ -270,16 +306,21 @@ class _ReaderScreenState extends State<ReaderScreen>
                       onDismiss: () => setState(() => _noteDismissed = true),
                     ),
                   ),
-                for (final signature in pageSignatures)
-                  Positioned(
-                    left: 16 + (signature.offsetX * 40),
-                    bottom: (_controlsVisible ? 72 : 24) +
-                        (signature.offsetY * 20),
-                    child: SignatureOverlay(
-                      signature: signature,
-                      onDelete: () => _signing?.deleteSignature(signature),
-                    ),
+                Positioned.fill(
+                  child: SignatureLayer(
+                    signatures: pageSignatures,
+                    topReserve: _controlsVisible ? 56 : 8,
+                    bottomReserve: _controlsVisible ? 56 : 8,
+                    onMove: (signature, x, y) {
+                      _signing?.moveSignature(
+                        signature: signature,
+                        offsetX: x,
+                        offsetY: y,
+                      );
+                    },
+                    onDelete: _confirmDeleteSignature,
                   ),
+                ),
                 if (_controlsVisible) _buildTopBar(colors, isBookmarked),
                 if (_controlsVisible) _buildBottomBar(colors, isBookmarked),
                 if (!_controlsVisible)
@@ -300,9 +341,11 @@ class _ReaderScreenState extends State<ReaderScreen>
                   pagesCount: _pagesCount,
                   currentPage: _currentPage,
                   bookmarks: annotations?.bookmarks ?? const [],
+                  signatures: signing?.signatures ?? const [],
                   onClose: () => setState(() => _sidebarVisible = false),
                   onOpenPage: _jumpToPage,
                   onDeleteBookmark: _deleteBookmark,
+                  onDeleteSignature: _confirmDeleteSignature,
                 ),
               ],
             ),
