@@ -131,6 +131,24 @@ void main() {
       expect(PageAnnotation.fromMap(annotation.toMap()), annotation);
       expect(annotation.type.label, 'Marcado');
     });
+
+    test('PageAnnotation.tryFromMap ignora filas corruptas', () {
+      expect(PageAnnotation.tryFromMap(const {}), isNull);
+      expect(
+        PageAnnotation.tryFromMap({
+          'book_id': 1,
+          'page_number': 0,
+          'type': 'highlight',
+          'x': 0.1,
+          'y': 0.2,
+          'width': 0.3,
+          'height': 0.04,
+          'color_value': 1,
+          'created_at': 'bad',
+        }),
+        isNull,
+      );
+    });
   });
 
   group('DocumentSignature serialization', () {
@@ -181,6 +199,20 @@ void main() {
         [0.1, 0.2],
         [0.3, 0.4],
       ]);
+    });
+
+    test('DocumentSignature.tryFromMap ignora filas corruptas', () {
+      expect(DocumentSignature.tryFromMap(const {}), isNull);
+      expect(
+        DocumentSignature.tryFromMap({
+          'book_id': 1,
+          'page_number': 1,
+          'type': 'typed',
+          'signer_name': '',
+          'signed_at': '2026-07-19T00:00:00.000Z',
+        }),
+        isNull,
+      );
     });
   });
 }

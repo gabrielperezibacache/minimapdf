@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -126,14 +125,18 @@ class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
   late bool _showWelcome = widget.showWelcomeInitially;
   bool _finishingWelcome = false;
 
-  void _finishWelcome() {
+  Future<void> _finishWelcome() async {
     if (_finishingWelcome || !_showWelcome) return;
     _finishingWelcome = true;
-    setState(() => _showWelcome = false);
     final prefs = context.read<AppPreferences?>();
-    if (prefs != null) {
-      unawaited(prefs.markWelcomeSeen());
+    try {
+      await prefs?.markWelcomeSeen();
+    } catch (_) {
+      // Si falla la persistencia, no bloqueamos el acceso a la biblioteca;
+      // la bienvenida podría repetirse en el próximo arranque.
     }
+    if (!mounted) return;
+    setState(() => _showWelcome = false);
   }
 
   @override

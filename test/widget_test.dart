@@ -27,6 +27,8 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({
       'has_seen_welcome': true,
+      // Fija español para aserciones de UI estables en CI.
+      'app_locale': 'es',
     });
     preferences = await AppPreferences.open();
     tempDir = await Directory.systemTemp.createTemp('minimal_pdf_widget_');

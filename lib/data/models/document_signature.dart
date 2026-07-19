@@ -153,22 +153,86 @@ class DocumentSignature {
     };
   }
 
+  /// Parseo estricto; lanza si faltan campos obligatorios.
   factory DocumentSignature.fromMap(Map<String, Object?> map) {
-    return DocumentSignature(
-      id: map['id'] as int?,
-      bookId: map['book_id'] as int,
-      pageNumber: map['page_number'] as int,
-      type: SignatureTypeX.fromStorage(map['type'] as String),
-      signerName: map['signer_name'] as String,
-      typedText: map['typed_text'] as String?,
-      inkJson: map['ink_json'] as String?,
-      reason: map['reason'] as String?,
-      role: SignatureRoleX.fromStorage(map['role'] as String?),
-      signingOrder: (map['signing_order'] as num?)?.toInt() ?? 1,
-      offsetX: (map['offset_x'] as num?)?.toDouble() ?? 0.58,
-      offsetY: (map['offset_y'] as num?)?.toDouble() ?? 0.70,
-      signedAt: DateTime.parse(map['signed_at'] as String),
-    );
+    final signature = DocumentSignature.tryFromMap(map);
+    if (signature == null) {
+      throw FormatException('Fila de firma inválida o corrupta');
+    }
+    return signature;
+  }
+
+  /// Parseo tolerante: filas corruptas → null (no tumba la carga del lector).
+  static DocumentSignature? tryFromMap(Map<String, Object?> map) {
+    try {
+      final bookId = _asInt(map['book_id']);
+      final pageNumber = _asInt(map['page_number']);
+      final signerName = _asNonEmptyString(map['signer_name']);
+      final signedAt = _asDateTime(map['signed_at']);
+      if (bookId == null ||
+          pageNumber == null ||
+          pageNumber < 1 ||
+          signerName == null ||
+          signedAt == null) {
+        return null;
+      }
+
+      final typeRaw = map['type'];
+      if (typeRaw is! String || typeRaw.isEmpty) return null;
+
+      return DocumentSignature(
+        id: _asInt(map['id']),
+        bookId: bookId,
+        pageNumber: pageNumber,
+        type: SignatureTypeX.fromStorage(typeRaw),
+        signerName: signerName,
+        typedText: _asNullableString(map['typed_text']),
+        inkJson: _asNullableString(map['ink_json']),
+        reason: _asNullableString(map['reason']),
+        role: SignatureRoleX.fromStorage(
+          map['role'] is String ? map['role'] as String : null,
+        ),
+        signingOrder: _asInt(map['signing_order']) ?? 1,
+        offsetX: _asDouble(map['offset_x']) ?? 0.58,
+        offsetY: _asDouble(map['offset_y']) ?? 0.70,
+        signedAt: signedAt,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static int? _asInt(Object? value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  static double? _asDouble(Object? value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
+  }
+
+  static String? _asNonEmptyString(Object? value) {
+    if (value is! String) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static String? _asNullableString(Object? value) {
+    if (value == null) return null;
+    if (value is! String) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static DateTime? _asDateTime(Object? value) {
+    if (value == null) return null;
+    if (value is! String || value.isEmpty) return null;
+    return DateTime.tryParse(value);
   }
 
   @override

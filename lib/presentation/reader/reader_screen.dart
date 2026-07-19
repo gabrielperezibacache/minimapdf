@@ -25,7 +25,6 @@ import 'reading_progress_saver.dart';
 import 'widgets/annotation_toolbox.dart';
 import 'widgets/floating_page_note.dart';
 import 'widgets/note_edit_sheet.dart';
-import 'widgets/page_annotations_layer.dart';
 import 'widgets/reader_sidebar.dart';
 import 'widgets/signed_pdf_page.dart';
 
@@ -290,6 +289,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _createAnnotationRect({
+    required int pageNumber,
     required double x,
     required double y,
     required double width,
@@ -299,12 +299,13 @@ class _ReaderScreenState extends State<ReaderScreen>
     final tool = provider?.activeTool;
     final type = tool?.annotationType;
     if (provider == null || tool == null || type == null) return;
+    if (pageNumber < 1) return;
 
     String? text;
     if (tool.needsText) {
       text = await showNoteEditSheet(
         context,
-        pageNumber: _currentPage,
+        pageNumber: pageNumber,
         title: type.label,
         hintText: 'Escribe ${type.label.toLowerCase()}…',
       );
@@ -313,7 +314,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     }
 
     final created = await provider.addAnnotation(
-      pageNumber: _currentPage,
+      pageNumber: pageNumber,
       type: type,
       x: x,
       y: y,
@@ -337,7 +338,7 @@ class _ReaderScreenState extends State<ReaderScreen>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${type.label} guardado en página $_currentPage'),
+        content: Text('${type.label} guardado en página $pageNumber'),
         duration: const Duration(milliseconds: 1400),
         behavior: SnackBarBehavior.floating,
       ),
@@ -465,6 +466,7 @@ class _ReaderScreenState extends State<ReaderScreen>
         );
       },
     );
+    if (!mounted || action == null) return;
     if (action == _AnnotationAction.delete) {
       await _confirmDeleteAnnotation(annotation);
     }
@@ -527,13 +529,14 @@ class _ReaderScreenState extends State<ReaderScreen>
     setState(() {});
   }
 
-  Future<void> _openSignatureSheetAt(double x, double y) async {
+  Future<void> _openSignatureSheetAt(int pageNumber, double x, double y) async {
     if (_signing?.saving == true || _signing?.exporting == true) return;
+    if (pageNumber < 1) return;
     _signing?.placeSignatureAt(offsetX: x, offsetY: y);
 
     final draft = await showSignatureSheet(
       context,
-      pageNumber: _currentPage,
+      pageNumber: pageNumber,
       initialSignerName: _signing?.lastSignerName,
       initialRole: _signing?.lastRole,
       initialOffsetX: x,
@@ -551,7 +554,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (_signing?.saving == true) return;
 
     final saved = await _signing?.signPage(
-      pageNumber: _currentPage,
+      pageNumber: pageNumber,
       draft: draft,
     );
     if (!mounted) return;
@@ -728,10 +731,6 @@ class _ReaderScreenState extends State<ReaderScreen>
     final activeTool = annotations?.activeTool ?? AnnotationTool.none;
     final pageAnnotations =
         annotations?.annotationsForPage(_currentPage) ?? const [];
-    final placementMode = signing?.placementMode ?? false;
-    // Si hay colocación de firma o sidebar, la capa no captura gestos
-    // (PageAnnotationsLayer solo dibuja cuando activeTool != none).
-    final annotationsLayerEnabled = !placementMode && !_sidebarVisible;
 
     return PopScope(
       canPop: false,
@@ -764,17 +763,6 @@ class _ReaderScreenState extends State<ReaderScreen>
             child: Stack(
               children: [
                 Positioned.fill(child: _buildPdfView(colors)),
-                Positioned.fill(
-                  child: PageAnnotationsLayer(
-                    key: ValueKey('annot-page-$_currentPage'),
-                    annotations: pageAnnotations,
-                    activeTool: activeTool,
-                    enabled: annotationsLayerEnabled,
-                    onCreateRect: _createAnnotationRect,
-                    onOpenAnnotation: _openAnnotation,
-                    onDeleteAnnotation: _confirmDeleteAnnotation,
-                  ),
-                ),
                 if (hasNote && !_noteDismissed)
                   Positioned(
                     right: 12,
@@ -900,6 +888,10 @@ class _ReaderScreenState extends State<ReaderScreen>
     final isVertical = _scrollMode.isVertical;
 
     final signing = _signing;
+    final annotations = _annotations;
+    final activeTool = annotations?.activeTool ?? AnnotationTool.none;
+    final placementMode = signing?.placementMode ?? false;
+    final annotationsLayerEnabled = !placementMode && !_sidebarVisible;
     final scaffoldBg =
         _ebonyFilter ? EbonyPdfFilter.background : colors.background;
 
@@ -958,15 +950,27 @@ class _ReaderScreenState extends State<ReaderScreen>
         pageBuilder: (context, pageImage, index, document) {
           final pageNumber = index + 1;
           final pageSize = _pageSizes[pageNumber] ?? const Size(595, 842);
+          // Solo la página actual captura gestos de dibujo; el resto muestra
+          // anotaciones y permite abrir/eliminar sin bloquear el scroll.
+          final pageTool = pageNumber == _currentPage && annotationsLayerEnabled
+              ? activeTool
+              : AnnotationTool.none;
           return PhotoViewGalleryPageOptions.customChild(
             child: SignedPdfPage(
               pageImageFuture: pageImage,
               pageNumber: pageNumber,
               fallbackSize: pageSize,
               signatures: signing?.signaturesForPage(pageNumber) ?? const [],
+              annotations:
+                  annotations?.annotationsForPage(pageNumber) ?? const [],
+              activeTool: pageTool,
+              annotationsEnabled: annotationsLayerEnabled,
               ebonyFilter: _ebonyFilter,
               placementMode: signing?.placementMode ?? false,
               onPlaceTap: _openSignatureSheetAt,
+              onCreateAnnotation: _createAnnotationRect,
+              onOpenAnnotation: _openAnnotation,
+              onDeleteAnnotation: _confirmDeleteAnnotation,
               onMove: (signature, x, y) {
                 final future = _signing?.moveSignature(
                   signature: signature,
@@ -977,6 +981,7 @@ class _ReaderScreenState extends State<ReaderScreen>
               },
               onDelete: _confirmDeleteSignature,
             ),
+            // Debe coincidir con el SizedBox de SignedPdfPage (puntos PDF).
             childSize: pageSize,
             initialScale: PhotoViewComputedScale.contained * 1.0,
             minScale: PhotoViewComputedScale.contained * 1.0,

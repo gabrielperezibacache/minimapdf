@@ -5,11 +5,16 @@ import 'package:pdfx/pdfx.dart';
 
 import '../../../core/theme/ebony_pdf_filter.dart';
 import '../../../data/models/document_signature.dart';
+import '../../../data/models/page_annotation.dart';
+import '../../providers/reader_annotations_provider.dart';
 import '../../signing/signature_overlay.dart';
+import 'page_annotations_layer.dart';
 
-/// Página PDF con sellos de firma anclados al rectángulo de la página.
+/// Página PDF con sellos de firma y anotaciones anclados al rectángulo de la página.
 ///
-/// El filtro Ébano se aplica solo a la imagen, no a los sellos.
+/// El filtro Ébano se aplica solo a la imagen, no a los sellos ni anotaciones.
+/// El tamaño del widget usa [fallbackSize] (puntos PDF) para coincidir con
+/// PhotoView `childSize` y con la geometría de exportación.
 class SignedPdfPage extends StatelessWidget {
   const SignedPdfPage({
     super.key,
@@ -21,6 +26,12 @@ class SignedPdfPage extends StatelessWidget {
     required this.onPlaceTap,
     required this.onMove,
     required this.onDelete,
+    this.annotations = const [],
+    this.activeTool = AnnotationTool.none,
+    this.annotationsEnabled = true,
+    this.onCreateAnnotation,
+    this.onOpenAnnotation,
+    this.onDeleteAnnotation,
     this.fallbackSize = const Size(595, 842),
   });
 
@@ -29,9 +40,21 @@ class SignedPdfPage extends StatelessWidget {
   final List<DocumentSignature> signatures;
   final bool ebonyFilter;
   final bool placementMode;
-  final void Function(double x, double y) onPlaceTap;
+  final void Function(int pageNumber, double x, double y) onPlaceTap;
   final void Function(DocumentSignature signature, double x, double y) onMove;
   final ValueChanged<DocumentSignature> onDelete;
+  final List<PageAnnotation> annotations;
+  final AnnotationTool activeTool;
+  final bool annotationsEnabled;
+  final Future<void> Function({
+    required int pageNumber,
+    required double x,
+    required double y,
+    required double width,
+    required double height,
+  })? onCreateAnnotation;
+  final ValueChanged<PageAnnotation>? onOpenAnnotation;
+  final ValueChanged<PageAnnotation>? onDeleteAnnotation;
   final Size fallbackSize;
 
   @override
@@ -59,13 +82,11 @@ class SignedPdfPage extends StatelessWidget {
           );
         }
 
-        final width = (image.width ?? fallbackSize.width).toDouble();
-        final height = (image.height ?? fallbackSize.height).toDouble();
         final bytes = Uint8List.fromList(image.bytes);
 
         return SizedBox(
-          width: width,
-          height: height,
+          width: fallbackSize.width,
+          height: fallbackSize.height,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -78,12 +99,36 @@ class SignedPdfPage extends StatelessWidget {
                   filterQuality: FilterQuality.medium,
                 ),
               ),
+              if (onCreateAnnotation != null &&
+                  onOpenAnnotation != null &&
+                  onDeleteAnnotation != null)
+                PageAnnotationsLayer(
+                  annotations: annotations,
+                  activeTool: activeTool,
+                  enabled: annotationsEnabled && !placementMode,
+                  onCreateRect: ({
+                    required double x,
+                    required double y,
+                    required double width,
+                    required double height,
+                  }) {
+                    return onCreateAnnotation!(
+                      pageNumber: pageNumber,
+                      x: x,
+                      y: y,
+                      width: width,
+                      height: height,
+                    );
+                  },
+                  onOpenAnnotation: onOpenAnnotation!,
+                  onDeleteAnnotation: onDeleteAnnotation!,
+                ),
               SignatureLayer(
                 signatures: signatures,
                 topReserve: 0,
                 bottomReserve: 0,
                 placementMode: placementMode,
-                onPlaceTap: onPlaceTap,
+                onPlaceTap: (x, y) => onPlaceTap(pageNumber, x, y),
                 onMove: onMove,
                 onDelete: onDelete,
               ),

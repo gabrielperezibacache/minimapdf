@@ -312,7 +312,7 @@ class LibraryDatabase {
       limit: 1,
     );
     if (rows.isEmpty) return null;
-    return DocumentSignature.fromMap(rows.first);
+    return DocumentSignature.tryFromMap(rows.first);
   }
 
   Future<List<DocumentSignature>> getSignaturesForBook(int bookId) async {
@@ -322,7 +322,7 @@ class LibraryDatabase {
       whereArgs: [bookId],
       orderBy: 'signing_order ASC, page_number ASC, signed_at ASC',
     );
-    return rows.map(DocumentSignature.fromMap).toList();
+    return _parseSignatures(rows);
   }
 
   Future<List<DocumentSignature>> getSignaturesForPage(
@@ -335,7 +335,16 @@ class LibraryDatabase {
       whereArgs: [bookId, pageNumber],
       orderBy: 'signing_order ASC, signed_at ASC',
     );
-    return rows.map(DocumentSignature.fromMap).toList();
+    return _parseSignatures(rows);
+  }
+
+  List<DocumentSignature> _parseSignatures(List<Map<String, Object?>> rows) {
+    final signatures = <DocumentSignature>[];
+    for (final row in rows) {
+      final signature = DocumentSignature.tryFromMap(row);
+      if (signature != null) signatures.add(signature);
+    }
+    return signatures;
   }
 
   Future<int> nextSigningOrder(int bookId) async {
@@ -389,7 +398,12 @@ class LibraryDatabase {
       DatabaseConfig.tableSignatureTemplates,
       orderBy: 'created_at DESC',
     );
-    return rows.map(SignatureTemplate.fromMap).toList();
+    final templates = <SignatureTemplate>[];
+    for (final row in rows) {
+      final template = SignatureTemplate.tryFromMap(row);
+      if (template != null) templates.add(template);
+    }
+    return templates;
   }
 
   Future<int> deleteSignatureTemplate(int id) async {
@@ -420,7 +434,7 @@ class LibraryDatabase {
       whereArgs: [bookId],
       orderBy: 'page_number ASC, created_at ASC',
     );
-    return rows.map(PageAnnotation.fromMap).toList();
+    return _parsePageAnnotations(rows);
   }
 
   Future<List<PageAnnotation>> getPageAnnotationsForPage(
@@ -433,7 +447,16 @@ class LibraryDatabase {
       whereArgs: [bookId, pageNumber],
       orderBy: 'created_at ASC',
     );
-    return rows.map(PageAnnotation.fromMap).toList();
+    return _parsePageAnnotations(rows);
+  }
+
+  List<PageAnnotation> _parsePageAnnotations(List<Map<String, Object?>> rows) {
+    final annotations = <PageAnnotation>[];
+    for (final row in rows) {
+      final annotation = PageAnnotation.tryFromMap(row);
+      if (annotation != null) annotations.add(annotation);
+    }
+    return annotations;
   }
 
   Future<int> updatePageAnnotation(PageAnnotation annotation) async {

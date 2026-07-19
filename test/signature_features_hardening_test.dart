@@ -552,6 +552,7 @@ class _SlowFailingExport extends SignedPdfExportService {
   Future<SignedPdfExportResult> exportSignedPdf({
     required Book book,
     required List<DocumentSignature> signatures,
+    Set<String> reservedBasenames = const {},
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
     throw StateError('export fail');

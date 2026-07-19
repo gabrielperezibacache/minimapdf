@@ -14,15 +14,18 @@ void main() {
   });
 
   group('LocaleProvider', () {
-    test('por defecto es español', () {
-      final provider = LocaleProvider();
+    test('sin preferencia usa fallback explícito', () {
+      final provider = LocaleProvider(fallback: AppLocale.es);
       expect(provider.appLocale, AppLocale.es);
       expect(provider.locale.languageCode, 'es');
     });
 
     test('setLocale persiste y notifica el cambio', () async {
       final prefs = await AppPreferences.open();
-      final provider = LocaleProvider(preferences: prefs);
+      final provider = LocaleProvider(
+        preferences: prefs,
+        fallback: AppLocale.es,
+      );
       var notified = 0;
       provider.addListener(() => notified++);
 
@@ -46,11 +49,23 @@ void main() {
     test('attachPreferences sincroniza el idioma almacenado', () async {
       SharedPreferences.setMockInitialValues({'app_locale': 'de'});
       final prefs = await AppPreferences.open();
-      final provider = LocaleProvider();
+      final provider = LocaleProvider(fallback: AppLocale.es);
       expect(provider.appLocale, AppLocale.es);
 
       provider.attachPreferences(prefs);
       expect(provider.appLocale, AppLocale.de);
+    });
+
+    test('preferencias vacías no fuerzan español si hay fallback de plataforma',
+        () async {
+      final prefs = await AppPreferences.open();
+      expect(prefs.storedAppLocale, isNull);
+
+      final provider = LocaleProvider(
+        preferences: prefs,
+        fallback: AppLocale.en,
+      );
+      expect(provider.appLocale, AppLocale.en);
     });
   });
 

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 
 import '../../core/preferences/app_preferences.dart';
 import '../../data/datasources/library_local_datasource.dart';
@@ -283,6 +284,19 @@ class LibraryProvider extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) {
         debugPrint('LibraryProvider._deleteBookFile: $e');
+      }
+    }
+
+    // Manifiesto compañero de exportaciones firmadas (`*.firmas.json`).
+    try {
+      final manifestPath = '${p.withoutExtension(filePath)}.firmas.json';
+      final manifest = File(manifestPath);
+      if (await manifest.exists()) {
+        await manifest.delete();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('LibraryProvider._deleteBookFile manifest: $e');
       }
     }
   }

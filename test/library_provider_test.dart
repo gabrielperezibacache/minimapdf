@@ -105,6 +105,21 @@ void main() {
     expect(File(book.filePath).existsSync(), isFalse);
   });
 
+  test('deleteBook también elimina manifiesto .firmas.json compañero', () async {
+    final book = await provider.importPdf();
+    expect(book, isNotNull);
+
+    final manifestPath =
+        '${p.withoutExtension(book!.filePath)}.firmas.json';
+    await File(manifestPath).writeAsString('{"version":1}');
+    expect(File(manifestPath).existsSync(), isTrue);
+
+    await provider.deleteBook(book);
+
+    expect(File(book.filePath).existsSync(), isFalse);
+    expect(File(manifestPath).existsSync(), isFalse);
+  });
+
   test('updateBookMetadata puede asignar colección', () async {
     final book = await provider.importPdf();
     final collection = await provider.createCollection('Técnicos');

@@ -26,7 +26,10 @@ void main() {
   });
 
   setUp(() async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      // Biblioteca post-onboarding se aserta en español.
+      'app_locale': 'es',
+    });
     preferences = await AppPreferences.open();
     tempDir = await Directory.systemTemp.createTemp('minimal_pdf_welcome_');
     appDatabase = AppDatabase(

@@ -50,6 +50,7 @@ class SignedPdfExportService {
   Future<SignedPdfExportResult> exportSignedPdf({
     required Book book,
     required List<DocumentSignature> signatures,
+    Set<String> reservedBasenames = const {},
   }) async {
     if (signatures.isEmpty) {
       throw StateError('No hay firmas para exportar.');
@@ -67,6 +68,9 @@ class SignedPdfExportService {
     }
 
     final existing = await _existingNames(libraryDir);
+    for (final name in reservedBasenames) {
+      existing.add(name.toLowerCase());
+    }
     final sanitized = FileNameSanitizer.sanitize('${book.title}_firmado');
     final pdfName = FileNameSanitizer.uniqueName(sanitized, existing);
     final pdfPath = p.join(libraryDir.path, pdfName);
@@ -279,8 +283,9 @@ class SignedPdfExportService {
     header.paint(canvas, content.topLeft);
 
     var cursorY = content.top + header.height + 4 * scale;
+    TextPainter? rubrica;
     if (signature.type == SignatureType.typed) {
-      final rubrica = TextPainter(
+      rubrica = TextPainter(
         text: TextSpan(
           text: signature.displayText,
           style: TextStyle(
@@ -326,6 +331,9 @@ class SignedPdfExportService {
       ellipsis: '…',
     )..layout(maxWidth: content.width);
     meta.paint(canvas, Offset(content.left, cursorY));
+    header.dispose();
+    rubrica?.dispose();
+    meta.dispose();
   }
 
   void _paintInk(
