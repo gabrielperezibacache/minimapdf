@@ -8,11 +8,13 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'core/constants/app_constants.dart';
 import 'core/database/app_database.dart';
 import 'core/database/library_database.dart';
+import 'core/preferences/app_preferences.dart';
 import 'core/theme/app_theme.dart';
 import 'data/datasources/library_local_datasource.dart';
 import 'data/datasources/pdf_download_service.dart';
 import 'data/datasources/pdf_import_service.dart';
 import 'presentation/library/library_screen.dart';
+import 'presentation/onboarding/welcome_screen.dart';
 import 'presentation/providers/downloader_provider.dart';
 import 'presentation/providers/library_provider.dart';
 import 'presentation/providers/theme_provider.dart';
@@ -30,11 +32,13 @@ Future<void> main() async {
 
   final appDatabase = AppDatabase();
   await appDatabase.open();
+  final preferences = await AppPreferences.open();
 
   runApp(
     MinimalPdfApp(
       appDatabase: appDatabase,
       libraryDatabase: LibraryDatabase(appDatabase),
+      preferences: preferences,
     ),
   );
 }
@@ -44,16 +48,19 @@ class MinimalPdfApp extends StatelessWidget {
     super.key,
     required this.appDatabase,
     required this.libraryDatabase,
+    required this.preferences,
   });
 
   final AppDatabase appDatabase;
   final LibraryDatabase libraryDatabase;
+  final AppPreferences preferences;
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        Provider<AppPreferences>.value(value: preferences),
         Provider<AppDatabase>.value(value: appDatabase),
         Provider<LibraryDatabase>.value(value: libraryDatabase),
         Provider<LibraryLocalDatasource>(
@@ -84,13 +91,29 @@ class MinimalPdfApp extends StatelessWidget {
           ),
         ),
       ],
-      child: const _MinimalPdfRoot(),
+      child: _MinimalPdfRoot(
+        showWelcomeInitially: !preferences.hasSeenWelcome,
+      ),
     );
   }
 }
 
-class _MinimalPdfRoot extends StatelessWidget {
-  const _MinimalPdfRoot();
+class _MinimalPdfRoot extends StatefulWidget {
+  const _MinimalPdfRoot({required this.showWelcomeInitially});
+
+  final bool showWelcomeInitially;
+
+  @override
+  State<_MinimalPdfRoot> createState() => _MinimalPdfRootState();
+}
+
+class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
+  late bool _showWelcome = widget.showWelcomeInitially;
+
+  void _finishWelcome() {
+    context.read<AppPreferences>().markWelcomeSeen();
+    setState(() => _showWelcome = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,7 +123,9 @@ class _MinimalPdfRoot extends StatelessWidget {
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.of(themeOption),
-      home: const LibraryScreen(),
+      home: _showWelcome
+          ? WelcomeScreen(onFinished: _finishWelcome)
+          : const LibraryScreen(),
     );
   }
 }

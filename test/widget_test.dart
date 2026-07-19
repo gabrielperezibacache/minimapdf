@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:minimal_pdf/core/constants/app_constants.dart';
 import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
+import 'package:minimal_pdf/core/preferences/app_preferences.dart';
 import 'package:minimal_pdf/main.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -14,6 +15,7 @@ void main() {
 
   late Directory tempDir;
   late AppDatabase appDatabase;
+  late AppPreferences preferences;
 
   setUpAll(() {
     sqfliteFfiInit();
@@ -27,6 +29,8 @@ void main() {
       databasePath: p.join(tempDir.path, 'test.db'),
     );
     await appDatabase.open();
+    preferences = await AppPreferences.open(directory: tempDir);
+    preferences.markWelcomeSeen();
   });
 
   tearDown(() async {
@@ -42,6 +46,7 @@ void main() {
       MinimalPdfApp(
         appDatabase: appDatabase,
         libraryDatabase: LibraryDatabase(appDatabase),
+        preferences: preferences,
       ),
     );
     await tester.pump(); // ejecuta post-frame → LibraryProvider.load()
