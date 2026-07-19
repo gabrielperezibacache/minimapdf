@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'signature_role.dart';
 import 'signature_type.dart';
 
 /// Firma electrónica asociada a una página de un PDF local.
@@ -16,6 +17,8 @@ class DocumentSignature {
     this.typedText,
     this.inkJson,
     this.reason,
+    this.role = SignatureRole.signer,
+    this.signingOrder = 1,
     this.offsetX = 0.58,
     this.offsetY = 0.70,
     required this.signedAt,
@@ -35,6 +38,10 @@ class DocumentSignature {
   final String? inkJson;
 
   final String? reason;
+  final SignatureRole role;
+
+  /// Orden relativo entre firmas del documento (1 = primera).
+  final int signingOrder;
 
   /// Posición relativa del sello en la página (0–1).
   final double offsetX;
@@ -84,6 +91,8 @@ class DocumentSignature {
     String? typedText,
     String? inkJson,
     String? reason,
+    SignatureRole? role,
+    int? signingOrder,
     double? offsetX,
     double? offsetY,
     DateTime? signedAt,
@@ -100,6 +109,8 @@ class DocumentSignature {
       typedText: clearTypedText ? null : (typedText ?? this.typedText),
       inkJson: clearInkJson ? null : (inkJson ?? this.inkJson),
       reason: clearReason ? null : (reason ?? this.reason),
+      role: role ?? this.role,
+      signingOrder: signingOrder ?? this.signingOrder,
       offsetX: offsetX ?? this.offsetX,
       offsetY: offsetY ?? this.offsetY,
       signedAt: signedAt ?? this.signedAt,
@@ -116,9 +127,28 @@ class DocumentSignature {
       'typed_text': typedText,
       'ink_json': inkJson,
       'reason': reason,
+      'role': role.storageValue,
+      'signing_order': signingOrder,
       'offset_x': offsetX,
       'offset_y': offsetY,
       'signed_at': signedAt.toIso8601String(),
+    };
+  }
+
+  Map<String, Object?> toManifestMap() {
+    return {
+      'id': id,
+      'pageNumber': pageNumber,
+      'type': type.storageValue,
+      'signerName': signerName,
+      'typedText': typedText,
+      'reason': reason,
+      'role': role.storageValue,
+      'signingOrder': signingOrder,
+      'offsetX': offsetX,
+      'offsetY': offsetY,
+      'signedAt': signedAt.toIso8601String(),
+      'hasInk': inkJson != null && inkJson!.isNotEmpty,
     };
   }
 
@@ -132,6 +162,8 @@ class DocumentSignature {
       typedText: map['typed_text'] as String?,
       inkJson: map['ink_json'] as String?,
       reason: map['reason'] as String?,
+      role: SignatureRoleX.fromStorage(map['role'] as String?),
+      signingOrder: (map['signing_order'] as num?)?.toInt() ?? 1,
       offsetX: (map['offset_x'] as num?)?.toDouble() ?? 0.58,
       offsetY: (map['offset_y'] as num?)?.toDouble() ?? 0.70,
       signedAt: DateTime.parse(map['signed_at'] as String),
@@ -149,6 +181,8 @@ class DocumentSignature {
         other.typedText == typedText &&
         other.inkJson == inkJson &&
         other.reason == reason &&
+        other.role == role &&
+        other.signingOrder == signingOrder &&
         other.offsetX == offsetX &&
         other.offsetY == offsetY &&
         other.signedAt == signedAt;
@@ -164,6 +198,8 @@ class DocumentSignature {
         typedText,
         inkJson,
         reason,
+        role,
+        signingOrder,
         offsetX,
         offsetY,
         signedAt,

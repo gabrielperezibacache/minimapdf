@@ -88,4 +88,18 @@ class LibraryLocalDatasource {
       _db.updateSignature(signature);
 
   Future<int> removeSignature(int id) => _db.deleteSignature(id);
+
+  Future<int> nextSigningOrder(int bookId) => _db.nextSigningOrder(bookId);
+
+  Future<SignatureTemplate> insertSignatureTemplate(
+    SignatureTemplate template,
+  ) {
+    return _db.createSignatureTemplate(template);
+  }
+
+  Future<List<SignatureTemplate>> listSignatureTemplates() =>
+      _db.getSignatureTemplates();
+
+  Future<int> removeSignatureTemplate(int id) =>
+      _db.deleteSignatureTemplate(id);
 }

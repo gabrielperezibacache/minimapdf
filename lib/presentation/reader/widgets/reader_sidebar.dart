@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/bookmark.dart';
 import '../../../data/models/document_signature.dart';
+import '../../../data/models/signature_role.dart';
 import '../../../data/models/signature_type.dart';
 import '../../signing/signature_overlay.dart';
 import '../pdf_toc_entry.dart';
@@ -393,8 +394,9 @@ class _SignaturesPane extends StatelessWidget {
           ),
           title: Text(signature.signerName),
           subtitle: Text(
-            'Pág. ${signature.pageNumber} · ${signature.type.labelEs}\n'
-            '${formatSignatureDate(signature.signedAt)}',
+            'Pág. ${signature.pageNumber} · ${signature.role.labelEs} '
+            '#${signature.signingOrder}\n'
+            '${signature.type.labelEs} · ${formatSignatureDate(signature.signedAt)}',
           ),
           isThreeLine: true,
           onTap: () => onOpenPage(signature.pageNumber),

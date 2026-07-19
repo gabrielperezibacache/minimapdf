@@ -163,7 +163,7 @@ void main() {
         ),
       );
       signing = DocumentSigningProvider(datasource);
-      await signing.loadForBook(book.id!);
+      await signing.loadForBook(book);
     });
 
     tearDown(() async {
@@ -267,6 +267,11 @@ void main() {
     });
 
     testWidgets('sheet: modo dibujada sin trazo muestra error', (tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.of(AppThemeOption.obsidian),
@@ -298,7 +303,14 @@ void main() {
       await tester.tap(drawn.evaluate().isEmpty ? stroke : drawn);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Firmar'));
+      final firmar = find.widgetWithText(FilledButton, 'Firmar');
+      await tester.scrollUntilVisible(
+        firmar,
+        120,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(firmar);
       await tester.pumpAndSettle();
 
       expect(find.text('Dibuja tu firma antes de guardar.'), findsOneWidget);

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/document_signature.dart';
+import '../../data/models/signature_role.dart';
 import '../../data/models/signature_type.dart';
 import 'ink_stroke_painter.dart';
 
@@ -13,6 +14,8 @@ class SignatureLayer extends StatelessWidget {
     required this.signatures,
     required this.onMove,
     required this.onDelete,
+    this.onPlaceTap,
+    this.placementMode = false,
     this.bottomReserve = 0,
     this.topReserve = 0,
   });
@@ -20,6 +23,10 @@ class SignatureLayer extends StatelessWidget {
   final List<DocumentSignature> signatures;
   final void Function(DocumentSignature signature, double x, double y) onMove;
   final ValueChanged<DocumentSignature> onDelete;
+
+  /// Tap en zona vacía con coordenadas normalizadas (0–1).
+  final void Function(double x, double y)? onPlaceTap;
+  final bool placementMode;
   final double bottomReserve;
   final double topReserve;
 
@@ -28,7 +35,9 @@ class SignatureLayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (signatures.isEmpty) return const SizedBox.shrink();
+    if (signatures.isEmpty && !placementMode) {
+      return const SizedBox.shrink();
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -48,6 +57,37 @@ class SignatureLayer extends StatelessWidget {
 
         return Stack(
           children: [
+            if (placementMode && onPlaceTap != null)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (details) {
+                    final dx = details.localPosition.dx;
+                    final dy = details.localPosition.dy - effectiveTopReserve;
+                    final x = maxLeft <= 0 ? 0.0 : (dx / maxLeft).clamp(0.0, 1.0);
+                    final y = maxTop <= 0
+                        ? 0.0
+                        : (dy / maxTop).clamp(0.0, 1.0);
+                    onPlaceTap!(x.toDouble(), y.toDouble());
+                  },
+                  child: ColoredBox(
+                    color: AppColors.obsidianAccent.withValues(alpha: 0.08),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Padding(
+                        padding: EdgeInsets.only(top: effectiveTopReserve + 12),
+                        child: Text(
+                          'Toca donde quieres colocar la firma',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelLarge
+                              ?.copyWith(color: AppColors.obsidianAccent),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             for (final signature in signatures)
               _PositionedSignature(
                 key: ValueKey(signature.id ?? identityHashCode(signature)),
@@ -196,7 +236,7 @@ class SignatureOverlay extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Firmado electrónicamente',
+                      '${signature.role.labelEs} · #${signature.signingOrder}',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: AppColors.obsidianAccent,
                           ),

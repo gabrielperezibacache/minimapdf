@@ -1,0 +1,316 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:pdf/pdf.dart' as pw;
+import 'package:pdf/widgets.dart' as pdf;
+import 'package:pdfx/pdfx.dart';
+
+import '../core/utils/app_paths.dart';
+import '../core/utils/file_name_sanitizer.dart';
+import '../data/models/book.dart';
+import '../data/models/document_signature.dart';
+import '../data/models/signature_role.dart';
+import '../data/models/signature_type.dart';
+import 'document_hash_service.dart';
+import 'signature_manifest.dart';
+
+/// Resultado de exportar un PDF con sellos de firma incrustados.
+class SignedPdfExportResult {
+  const SignedPdfExportResult({
+    required this.pdfPath,
+    required this.manifestPath,
+    required this.manifest,
+  });
+
+  final String pdfPath;
+  final String manifestPath;
+  final SignatureManifest manifest;
+}
+
+/// Exporta una copia del PDF con firmas aplanadas + manifiesto SHA-256.
+///
+/// Flujo offline: renderiza cada página (pdfx), dibuja los sellos y
+/// reconstruye un PDF nuevo (paquete `pdf`). No usa PKI.
+class SignedPdfExportService {
+  SignedPdfExportService({
+    this._hashService = const DocumentHashService(),
+    Future<Directory> Function()? documentsDirectory,
+  }) : _documentsDirectory =
+            documentsDirectory ?? AppPaths.documentsDirectory;
+
+  final DocumentHashService _hashService;
+  final Future<Directory> Function() _documentsDirectory;
+
+  static const double _stampWidthFactor = 0.34;
+  static const double _renderScale = 1.6;
+
+  Future<SignedPdfExportResult> exportSignedPdf({
+    required Book book,
+    required List<DocumentSignature> signatures,
+  }) async {
+    if (signatures.isEmpty) {
+      throw StateError('No hay firmas para exportar.');
+    }
+    final source = File(book.filePath);
+    if (!await source.exists()) {
+      throw StateError('El PDF original no existe.');
+    }
+
+    final sourceSha = await _hashService.sha256File(book.filePath);
+    final docs = await _documentsDirectory();
+    final libraryDir = Directory(p.join(docs.path, 'library'));
+    if (!await libraryDir.exists()) {
+      await libraryDir.create(recursive: true);
+    }
+
+    final existing = await _existingNames(libraryDir);
+    final sanitized = FileNameSanitizer.sanitize('${book.title}_firmado');
+    final pdfName = FileNameSanitizer.uniqueName(sanitized, existing);
+    final pdfPath = p.join(libraryDir.path, pdfName);
+    final manifestPath =
+        '${p.withoutExtension(pdfPath)}.firmas.json';
+
+    final document = await PdfDocument.openFile(book.filePath);
+    try {
+      final output = pdf.Document();
+      final byPage = <int, List<DocumentSignature>>{};
+      for (final signature in signatures) {
+        byPage.putIfAbsent(signature.pageNumber, () => []).add(signature);
+      }
+
+      for (var pageNumber = 1; pageNumber <= document.pagesCount; pageNumber++) {
+        final page = await document.getPage(pageNumber);
+        try {
+          final rendered = await page.render(
+            width: page.width * _renderScale,
+            height: page.height * _renderScale,
+            format: PdfPageImageFormat.png,
+          );
+          if (rendered == null) {
+            throw StateError('No se pudo renderizar la página $pageNumber.');
+          }
+
+          final stampedBytes = await _stampPageImage(
+            pageBytes: rendered.bytes,
+            width: rendered.width ?? (page.width * _renderScale).round(),
+            height: rendered.height ?? (page.height * _renderScale).round(),
+            signatures: byPage[pageNumber] ?? const [],
+          );
+
+          final pageFormat = pw.PdfPageFormat(
+            page.width,
+            page.height,
+            marginAll: 0,
+          );
+          output.addPage(
+            pdf.Page(
+              pageFormat: pageFormat,
+              build: (_) => pdf.Image(
+                pdf.MemoryImage(stampedBytes),
+                fit: pdf.BoxFit.fill,
+              ),
+            ),
+          );
+        } finally {
+          await page.close();
+        }
+      }
+
+      final pdfBytes = await output.save();
+      await File(pdfPath).writeAsBytes(pdfBytes, flush: true);
+      final signedSha = _hashService.sha256Bytes(pdfBytes);
+
+      final manifest = SignatureManifest(
+        version: 1,
+        exportedAt: DateTime.now().toUtc(),
+        sourceFileName: p.basename(book.filePath),
+        sourceSha256: sourceSha,
+        signedFileName: pdfName,
+        signedSha256: signedSha,
+        signatures: List<DocumentSignature>.from(signatures),
+      );
+      await File(manifestPath).writeAsString(manifest.encodePretty());
+
+      return SignedPdfExportResult(
+        pdfPath: pdfPath,
+        manifestPath: manifestPath,
+        manifest: manifest,
+      );
+    } finally {
+      await document.close();
+    }
+  }
+
+  Future<Set<String>> _existingNames(Directory libraryDir) async {
+    if (!await libraryDir.exists()) return <String>{};
+    return libraryDir
+        .listSync()
+        .whereType<File>()
+        .map((file) => p.basename(file.path).toLowerCase())
+        .toSet();
+  }
+
+  Future<Uint8List> _stampPageImage({
+    required List<int> pageBytes,
+    required int width,
+    required int height,
+    required List<DocumentSignature> signatures,
+  }) async {
+    final codec = await ui.instantiateImageCodec(Uint8List.fromList(pageBytes));
+    final frame = await codec.getNextFrame();
+    final pageImage = frame.image;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final size = Size(width.toDouble(), height.toDouble());
+    canvas.drawImage(pageImage, Offset.zero, Paint());
+
+    final stampWidth = size.width * _stampWidthFactor;
+    final stampHeight = stampWidth * 0.58;
+    final maxLeft = (size.width - stampWidth).clamp(0.0, size.width);
+    final maxTop = (size.height - stampHeight).clamp(0.0, size.height);
+
+    for (final signature in signatures) {
+      final left = signature.offsetX * maxLeft;
+      final top = signature.offsetY * maxTop;
+      _paintStamp(
+        canvas,
+        Rect.fromLTWH(left, top, stampWidth, stampHeight),
+        signature,
+      );
+    }
+
+    final picture = recorder.endRecording();
+    final stamped = await picture.toImage(width, height);
+    final byteData =
+        await stamped.toByteData(format: ui.ImageByteFormat.png);
+    pageImage.dispose();
+    stamped.dispose();
+    if (byteData == null) {
+      throw StateError('No se pudo codificar la página firmada.');
+    }
+    return byteData.buffer.asUint8List();
+  }
+
+  void _paintStamp(Canvas canvas, Rect rect, DocumentSignature signature) {
+    final bg = Paint()..color = const Color(0xF5F3ECDD);
+    final border = Paint()
+      ..color = const Color(0xFFC89A5A)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawRect(rect, bg);
+    canvas.drawRect(rect, border);
+
+    final padding = rect.width * 0.06;
+    final content = Rect.fromLTRB(
+      rect.left + padding,
+      rect.top + padding,
+      rect.right - padding,
+      rect.bottom - padding,
+    );
+
+    final header = TextPainter(
+      text: TextSpan(
+        text: '${signature.role.labelEs} · #${signature.signingOrder}',
+        style: const TextStyle(
+          color: Color(0xFFC89A5A),
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: content.width);
+    header.paint(canvas, content.topLeft);
+
+    var cursorY = content.top + header.height + 4;
+    if (signature.type == SignatureType.typed) {
+      final rubrica = TextPainter(
+        text: TextSpan(
+          text: signature.displayText,
+          style: const TextStyle(
+            color: Color(0xFF121D18),
+            fontSize: 20,
+            fontStyle: FontStyle.italic,
+            fontFamily: 'serif',
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        maxLines: 2,
+        ellipsis: '…',
+      )..layout(maxWidth: content.width);
+      rubrica.paint(canvas, Offset(content.left, cursorY));
+      cursorY += rubrica.height + 4;
+    } else {
+      final inkRect = Rect.fromLTWH(
+        content.left,
+        cursorY,
+        content.width,
+        content.height * 0.38,
+      );
+      _paintInk(canvas, inkRect, signature.inkStrokes);
+      cursorY = inkRect.bottom + 4;
+    }
+
+    final meta = TextPainter(
+      text: TextSpan(
+        text: [
+          signature.signerName,
+          _formatDate(signature.signedAt),
+          if (signature.reason != null && signature.reason!.isNotEmpty)
+            signature.reason!,
+        ].join('\n'),
+        style: const TextStyle(
+          color: Color(0xFF3D4A44),
+          fontSize: 10,
+          height: 1.2,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 3,
+      ellipsis: '…',
+    )..layout(maxWidth: content.width);
+    meta.paint(canvas, Offset(content.left, cursorY));
+  }
+
+  void _paintInk(
+    Canvas canvas,
+    Rect rect,
+    List<List<List<double>>> strokes,
+  ) {
+    final paint = Paint()
+      ..color = const Color(0xFF121D18)
+      ..strokeWidth = 1.8
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    for (final stroke in strokes) {
+      if (stroke.length < 2) continue;
+      final path = Path()
+        ..moveTo(
+          rect.left + stroke.first[0] * rect.width,
+          rect.top + stroke.first[1] * rect.height,
+        );
+      for (var i = 1; i < stroke.length; i++) {
+        path.lineTo(
+          rect.left + stroke[i][0] * rect.width,
+          rect.top + stroke[i][1] * rect.height,
+        );
+      }
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  String _formatDate(DateTime value) {
+    final local = value.toLocal();
+    final dd = local.day.toString().padLeft(2, '0');
+    final mm = local.month.toString().padLeft(2, '0');
+    final yyyy = local.year.toString();
+    final hh = local.hour.toString().padLeft(2, '0');
+    final min = local.minute.toString().padLeft(2, '0');
+    return '$dd/$mm/$yyyy $hh:$min';
+  }
+}

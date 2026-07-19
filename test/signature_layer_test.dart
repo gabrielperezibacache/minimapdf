@@ -45,7 +45,7 @@ void main() {
     final topLeft = tester.getTopLeft(overlay);
     expect(topLeft.dx, closeTo(0, 0.5));
     expect(topLeft.dy, closeTo(0, 0.5));
-    expect(find.text('Firmado electrónicamente'), findsOneWidget);
+    expect(find.textContaining('Firmante'), findsOneWidget);
     expect(find.text('Ana'), findsWidgets);
   });
 

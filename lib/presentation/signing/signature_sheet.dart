@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/models/signature_role.dart';
+import '../../data/models/signature_template.dart';
 import '../../data/models/signature_type.dart';
 import '../../domain/electronic_signature_service.dart';
 import 'signature_pad.dart';
@@ -12,6 +14,10 @@ Future<SignatureDraft?> showSignatureSheet(
   BuildContext context, {
   required int pageNumber,
   String? initialSignerName,
+  SignatureRole? initialRole,
+  double? initialOffsetX,
+  double? initialOffsetY,
+  List<SignatureTemplate> templates = const [],
 }) {
   return showModalBottomSheet<SignatureDraft>(
     context: context,
@@ -23,6 +29,10 @@ Future<SignatureDraft?> showSignatureSheet(
     builder: (context) => _SignatureForm(
       pageNumber: pageNumber,
       initialSignerName: initialSignerName,
+      initialRole: initialRole ?? SignatureRole.signer,
+      initialOffsetX: initialOffsetX,
+      initialOffsetY: initialOffsetY,
+      templates: templates,
     ),
   );
 }
@@ -31,10 +41,18 @@ class _SignatureForm extends StatefulWidget {
   const _SignatureForm({
     required this.pageNumber,
     this.initialSignerName,
+    required this.initialRole,
+    this.initialOffsetX,
+    this.initialOffsetY,
+    this.templates = const [],
   });
 
   final int pageNumber;
   final String? initialSignerName;
+  final SignatureRole initialRole;
+  final double? initialOffsetX;
+  final double? initialOffsetY;
+  final List<SignatureTemplate> templates;
 
   @override
   State<_SignatureForm> createState() => _SignatureFormState();
@@ -46,13 +64,16 @@ class _SignatureFormState extends State<_SignatureForm> {
   late final TextEditingController _nameController;
   late final TextEditingController _typedController;
   late final TextEditingController _reasonController;
+  late final TextEditingController _templateNameController;
 
   SignatureType _type = SignatureType.typed;
+  SignatureRole _role = SignatureRole.signer;
   List<List<List<double>>> _inkStrokes = const [];
   String? _validationError;
   String _lastAutoTyped = '';
   bool _typedDirty = false;
   bool _submitting = false;
+  bool _saveAsTemplate = false;
 
   @override
   void initState() {
@@ -62,7 +83,9 @@ class _SignatureFormState extends State<_SignatureForm> {
     _nameController = TextEditingController(text: initial);
     _typedController = TextEditingController(text: initial);
     _reasonController = TextEditingController();
+    _templateNameController = TextEditingController();
     _lastAutoTyped = initial;
+    _role = widget.initialRole;
     _nameController.addListener(_syncTypedFromName);
     _typedController.addListener(_onTypedChanged);
   }
@@ -84,6 +107,20 @@ class _SignatureFormState extends State<_SignatureForm> {
     );
   }
 
+  void _applyTemplate(SignatureTemplate template) {
+    setState(() {
+      _type = template.type;
+      _role = template.role;
+      _nameController.text = template.signerName;
+      _typedController.text = template.displayText;
+      _lastAutoTyped = template.displayText;
+      _typedDirty = template.type == SignatureType.typed &&
+          template.displayText != template.signerName;
+      _inkStrokes = template.inkStrokes;
+      _validationError = null;
+    });
+  }
+
   @override
   void dispose() {
     _nameController.removeListener(_syncTypedFromName);
@@ -91,6 +128,7 @@ class _SignatureFormState extends State<_SignatureForm> {
     _nameController.dispose();
     _typedController.dispose();
     _reasonController.dispose();
+    _templateNameController.dispose();
     super.dispose();
   }
 
@@ -100,6 +138,11 @@ class _SignatureFormState extends State<_SignatureForm> {
         typedText: _service.normalizePersonText(_typedController.text),
         inkStrokes: _inkStrokes,
         reason: _service.normalizeOptionalText(_reasonController.text),
+        role: _role,
+        offsetX: widget.initialOffsetX,
+        offsetY: widget.initialOffsetY,
+        saveAsTemplate: _saveAsTemplate,
+        templateName: _templateNameController.text,
       );
 
   void _submit() {
@@ -143,14 +186,43 @@ class _SignatureFormState extends State<_SignatureForm> {
                     color: AppColors.obsidianAccent,
                   ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Firma electrónica simple, local y offline. '
-              'No sustituye una firma cualificada con certificado.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.textMuted,
-                  ),
-            ),
+            if (widget.initialOffsetX != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Zona seleccionada en la página.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colors.textMuted,
+                    ),
+              ),
+            ],
+            if (widget.templates.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Plantillas',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: colors.textMuted,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 40,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: widget.templates.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final template = widget.templates[index];
+                    return ActionChip(
+                      label: Text(template.name),
+                      onPressed: () => _applyTemplate(template),
+                      side: BorderSide(color: colors.border),
+                      backgroundColor: colors.surface,
+                      labelStyle: TextStyle(color: colors.text),
+                    );
+                  },
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             SegmentedButton<SignatureType>(
               segments: [
@@ -187,7 +259,24 @@ class _SignatureFormState extends State<_SignatureForm> {
                 }),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<SignatureRole>(
+              key: ValueKey(_role),
+              initialValue: _role,
+              decoration: const InputDecoration(labelText: 'Rol'),
+              items: [
+                for (final role in SignatureRole.values)
+                  DropdownMenuItem(
+                    value: role,
+                    child: Text(role.labelEs),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _role = value);
+              },
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _nameController,
               textCapitalization: TextCapitalization.words,
@@ -288,8 +377,31 @@ class _SignatureFormState extends State<_SignatureForm> {
                 counterText: '',
               ),
             ),
+            const SizedBox(height: 8),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _saveAsTemplate,
+              activeColor: AppColors.obsidianAccent,
+              title: Text(
+                'Guardar como plantilla',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              onChanged: (value) {
+                setState(() => _saveAsTemplate = value ?? false);
+              },
+            ),
+            if (_saveAsTemplate) ...[
+              TextField(
+                controller: _templateNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre de la plantilla',
+                  hintText: 'p. ej. Mi rúbrica',
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             if (_validationError != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Text(
                 _validationError!,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(

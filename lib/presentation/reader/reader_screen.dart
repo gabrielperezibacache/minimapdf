@@ -12,7 +12,7 @@ import '../../data/datasources/library_local_datasource.dart';
 import '../../data/models/book.dart';
 import '../../data/models/bookmark.dart';
 import '../../data/models/document_signature.dart';
-import '../../data/models/signature_type.dart';
+import '../../data/models/signature_role.dart';
 import '../providers/document_signing_provider.dart';
 import '../providers/reader_annotations_provider.dart';
 import '../signing/signature_overlay.dart';
@@ -90,9 +90,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (_signing == null) {
       final signing = DocumentSigningProvider(datasource);
       _signing = signing;
-      if (bookId != null) {
-        signing.loadForBook(bookId);
-      }
+      signing.loadForBook(widget.book);
       signing.addListener(_onSigningChanged);
     }
   }
@@ -187,13 +185,29 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Future<void> _signDocument() async {
     if (_signing?.saving == true) return;
+    // Primero colocar zona en la página; luego se abre el formulario.
+    _signing?.beginPlacementMode();
+    setState(() {});
+  }
+
+  Future<void> _openSignatureSheetAt(double x, double y) async {
+    if (_signing?.saving == true) return;
+    _signing?.placeSignatureAt(offsetX: x, offsetY: y);
 
     final draft = await showSignatureSheet(
       context,
       pageNumber: _currentPage,
       initialSignerName: _signing?.lastSignerName,
+      initialRole: _signing?.lastRole,
+      initialOffsetX: x,
+      initialOffsetY: y,
+      templates: _signing?.templates ?? const [],
     );
-    if (draft == null || !mounted) return;
+    if (!mounted) return;
+    if (draft == null) {
+      _signing?.clearPendingPlacement();
+      return;
+    }
     if (_signing?.saving == true) return;
 
     final saved = await _signing?.signPage(
@@ -214,8 +228,37 @@ class _ReaderScreenState extends State<ReaderScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Documento firmado (${saved.type.labelEs.toLowerCase()}). '
-          'Arrastra el sello para colocarlo.',
+          'Firmado como ${saved.role.labelEs.toLowerCase()} '
+          '(#${saved.signingOrder}). Puedes arrastrar el sello.',
+        ),
+        action: SnackBarAction(
+          label: 'Exportar',
+          onPressed: _exportSignedPdf,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportSignedPdf() async {
+    if (_signing?.exporting == true) return;
+    final result = await _signing?.exportSignedPdf();
+    if (!mounted) return;
+    if (result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _signing?.error ?? 'No se pudo exportar el PDF firmado.',
+          ),
+        ),
+      );
+      _signing?.clearError();
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'PDF firmado exportado con manifiesto SHA-256.\n'
+          '${result.manifest.signedFileName}',
         ),
       ),
     );
@@ -285,6 +328,11 @@ class _ReaderScreenState extends State<ReaderScreen>
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        if (_signing?.placementMode == true) {
+          _signing?.cancelPlacementMode();
+          setState(() {});
+          return;
+        }
         if (_sidebarVisible) {
           setState(() => _sidebarVisible = false);
           return;
@@ -324,6 +372,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                     signatures: pageSignatures,
                     topReserve: _controlsVisible ? 56 : 8,
                     bottomReserve: _controlsVisible ? 56 : 8,
+                    placementMode: signing?.placementMode ?? false,
+                    onPlaceTap: _openSignatureSheetAt,
                     onMove: (signature, x, y) {
                       _signing?.moveSignature(
                         signature: signature,
@@ -334,7 +384,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                     onDelete: _confirmDeleteSignature,
                   ),
                 ),
-                if (_controlsVisible) _buildTopBar(colors, isBookmarked),
+                if (_controlsVisible)
+                  _buildTopBar(colors, isBookmarked, signing),
                 if (_controlsVisible)
                   _buildBottomBar(
                     colors,
@@ -435,7 +486,14 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
   }
 
-  Widget _buildTopBar(HermesColors colors, bool isBookmarked) {
+  Widget _buildTopBar(
+    HermesColors colors,
+    bool isBookmarked,
+    DocumentSigningProvider? signing,
+  ) {
+    final placement = signing?.placementMode == true;
+    final canExport = signing != null && signing.hasSignatures;
+
     return Positioned(
       top: 0,
       left: 0,
@@ -488,11 +546,36 @@ class _ReaderScreenState extends State<ReaderScreen>
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Firmar documento',
-                      onPressed: _signDocument,
-                      icon: const Icon(
-                        Icons.draw_outlined,
+                      tooltip: placement
+                          ? 'Cancelar colocación'
+                          : 'Firmar documento',
+                      onPressed: signing?.saving == true
+                          ? null
+                          : () {
+                              if (placement) {
+                                signing?.cancelPlacementMode();
+                                setState(() {});
+                                return;
+                              }
+                              _signDocument();
+                            },
+                      icon: Icon(
+                        placement ? Icons.close : Icons.draw_outlined,
                         color: AppColors.obsidianAccent,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Exportar PDF firmado',
+                      onPressed: signing == null ||
+                              !signing.hasSignatures ||
+                              signing.exporting
+                          ? null
+                          : _exportSignedPdf,
+                      icon: Icon(
+                        Icons.ios_share_outlined,
+                        color: canExport
+                            ? AppColors.obsidianAccent
+                            : colors.textMuted,
                       ),
                     ),
                     IconButton(

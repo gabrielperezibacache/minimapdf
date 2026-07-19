@@ -5,6 +5,7 @@ import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
 import 'package:minimal_pdf/data/datasources/library_local_datasource.dart';
 import 'package:minimal_pdf/data/models/book.dart';
+import 'package:minimal_pdf/data/models/signature_role.dart';
 import 'package:minimal_pdf/data/models/signature_type.dart';
 import 'package:minimal_pdf/domain/electronic_signature_service.dart';
 import 'package:minimal_pdf/presentation/providers/document_signing_provider.dart';
@@ -42,7 +43,7 @@ void main() {
       ),
     );
     signing = DocumentSigningProvider(datasource);
-    await signing.loadForBook(book.id!);
+    await signing.loadForBook(book);
   });
 
   tearDown(() async {
@@ -167,5 +168,77 @@ void main() {
       offsetY: saved.offsetY,
     );
     expect(signing.signaturesForPage(1).first.offsetX, before);
+  });
+
+  test('roles y orden de firma incrementan por documento', () async {
+    final first = await signing.signPage(
+      pageNumber: 1,
+      draft: const SignatureDraft(
+        type: SignatureType.typed,
+        signerName: 'Ana',
+        typedText: 'Ana',
+        role: SignatureRole.signer,
+      ),
+    );
+    final second = await signing.signPage(
+      pageNumber: 1,
+      draft: const SignatureDraft(
+        type: SignatureType.typed,
+        signerName: 'Bruno',
+        typedText: 'Bruno',
+        role: SignatureRole.witness,
+        offsetX: 0.1,
+        offsetY: 0.1,
+      ),
+    );
+
+    expect(first!.signingOrder, 1);
+    expect(first.role, SignatureRole.signer);
+    expect(second!.signingOrder, 2);
+    expect(second.role, SignatureRole.witness);
+    expect(signing.lastRole, SignatureRole.witness);
+  });
+
+  test('guarda plantilla reutilizable al firmar', () async {
+    final saved = await signing.signPage(
+      pageNumber: 1,
+      draft: const SignatureDraft(
+        type: SignatureType.typed,
+        signerName: 'Clara Ruiz',
+        typedText: 'C. Ruiz',
+        role: SignatureRole.reviewer,
+        saveAsTemplate: true,
+        templateName: 'Mi rúbrica',
+      ),
+    );
+
+    expect(saved, isNotNull);
+    expect(signing.templates, hasLength(1));
+    expect(signing.templates.first.name, 'Mi rúbrica');
+    expect(signing.templates.first.role, SignatureRole.reviewer);
+    expect(signing.templates.first.displayText, 'C. Ruiz');
+  });
+
+  test('placement mode registra offsets y sale del modo', () async {
+    signing.beginPlacementMode();
+    expect(signing.placementMode, isTrue);
+
+    signing.placeSignatureAt(offsetX: 0.25, offsetY: 0.75);
+    expect(signing.placementMode, isFalse);
+    expect(signing.pendingOffsetX, closeTo(0.25, 0.001));
+    expect(signing.pendingOffsetY, closeTo(0.75, 0.001));
+
+    final saved = await signing.signPage(
+      pageNumber: 2,
+      draft: const SignatureDraft(
+        type: SignatureType.typed,
+        signerName: 'Diego',
+        typedText: 'Diego',
+      ),
+    );
+
+    expect(saved!.offsetX, closeTo(0.25, 0.001));
+    expect(saved.offsetY, closeTo(0.75, 0.001));
+    expect(signing.pendingOffsetX, isNull);
   });
 }

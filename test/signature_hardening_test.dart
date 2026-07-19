@@ -10,6 +10,7 @@ import 'package:minimal_pdf/core/theme/app_theme_option.dart';
 import 'package:minimal_pdf/data/datasources/library_local_datasource.dart';
 import 'package:minimal_pdf/data/models/book.dart';
 import 'package:minimal_pdf/data/models/document_signature.dart';
+import 'package:minimal_pdf/data/models/signature_role.dart';
 import 'package:minimal_pdf/data/models/signature_type.dart';
 import 'package:minimal_pdf/domain/electronic_signature_service.dart';
 import 'package:minimal_pdf/presentation/providers/document_signing_provider.dart';
@@ -148,6 +149,19 @@ void main() {
       );
       expect(tables, isNotEmpty);
 
+      final templateTables = await appDatabase.database.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+        [DatabaseConfig.tableSignatureTemplates],
+      );
+      expect(templateTables, isNotEmpty);
+
+      final columns = await appDatabase.database.rawQuery(
+        'PRAGMA table_info(${DatabaseConfig.tableSignatures})',
+      );
+      final names = columns.map((row) => row['name'] as String).toSet();
+      expect(names, contains('role'));
+      expect(names, contains('signing_order'));
+
       final library = LibraryDatabase(appDatabase);
       final book = await library.createBook(
         Book(
@@ -168,6 +182,8 @@ void main() {
         ),
       );
       expect(signature.id, isNotNull);
+      expect(signature.role.storageValue, 'signer');
+      expect(signature.signingOrder, 1);
       await appDatabase.close();
     });
   });
@@ -202,7 +218,7 @@ void main() {
       );
       bookId = book.id!;
       signing = DocumentSigningProvider(datasource);
-      await signing.loadForBook(bookId);
+      await signing.loadForBookId(bookId);
     });
 
     tearDown(() async {
@@ -222,11 +238,11 @@ void main() {
           typedText: 'Race',
         ),
       );
-      final loadFuture = signing.loadForBook(bookId);
+      final loadFuture = signing.loadForBookId(bookId);
       final saved = await savedFuture;
       await loadFuture;
 
-      await signing.loadForBook(bookId);
+      await signing.loadForBookId(bookId);
       expect(saved, isNotNull);
       expect(signing.signaturesForPage(1), isNotEmpty);
     });

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import '../data/models/document_signature.dart';
+import '../data/models/signature_role.dart';
 import '../data/models/signature_type.dart';
 
 /// Borrador de firma electrónica antes de persistir.
@@ -12,8 +13,11 @@ class SignatureDraft {
     this.typedText,
     this.inkStrokes = const [],
     this.reason,
+    this.role = SignatureRole.signer,
     this.offsetX,
     this.offsetY,
+    this.saveAsTemplate = false,
+    this.templateName,
   });
 
   final SignatureType type;
@@ -21,8 +25,11 @@ class SignatureDraft {
   final String? typedText;
   final List<List<List<double>>> inkStrokes;
   final String? reason;
+  final SignatureRole role;
   final double? offsetX;
   final double? offsetY;
+  final bool saveAsTemplate;
+  final String? templateName;
 }
 
 /// Errores de validación al firmar un documento.
@@ -110,6 +117,7 @@ class ElectronicSignatureService {
     required SignatureDraft draft,
     DateTime? signedAt,
     List<DocumentSignature> existingOnPage = const [],
+    int signingOrder = 1,
   }) {
     if (bookId < 1) {
       throw SignatureValidationException('Documento no válido para firmar.');
@@ -128,6 +136,7 @@ class ElectronicSignatureService {
       draft.offsetY ?? suggested.$2,
       fallback: defaultOffsetY,
     );
+    final order = signingOrder < 1 ? 1 : signingOrder;
 
     switch (draft.type) {
       case SignatureType.typed:
@@ -139,6 +148,8 @@ class ElectronicSignatureService {
           signerName: signerName,
           typedText: typed,
           reason: reason,
+          role: draft.role,
+          signingOrder: order,
           offsetX: offsetX,
           offsetY: offsetY,
           signedAt: when,
@@ -153,6 +164,8 @@ class ElectronicSignatureService {
           signerName: signerName,
           inkJson: jsonEncode(strokes),
           reason: reason,
+          role: draft.role,
+          signingOrder: order,
           offsetX: offsetX,
           offsetY: offsetY,
           signedAt: when,
