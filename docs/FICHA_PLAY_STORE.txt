@@ -142,8 +142,8 @@ Estos archivos no se generan en este documento; prepare y suba en Console:
 
 [x] Gráfico de funciones (feature graphic)
     1024 × 500 px — archivo: docs/store/feature_graphic.png
-    Copy visual: «Minimal PDF» + «Offline · Privado · Ébano»
-    Paleta Ébano (#0F1714 / #C89A5A / #F3ECDD)
+    Copy visual: «Minimal PDF» + «Offline · Sin anuncios · 100% privado»
+    Paleta Ébano (#0F1714 / #C89A5A / #F3ECDD), composición limpia sin marco decorativo
     Subir en Play Console → Presencia en Google Play → Gráfico de funciones
 
 [ ] Capturas de teléfono (mínimo 2; recomendado 4–8)
