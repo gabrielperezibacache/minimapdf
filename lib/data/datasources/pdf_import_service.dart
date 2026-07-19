@@ -116,13 +116,20 @@ class PdfImportService {
             : await destinationFile.length();
         final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
 
+        int? resolvedCollectionId = collectionId;
+        if (resolvedCollectionId != null) {
+          final found =
+              await _datasource.findCollectionById(resolvedCollectionId);
+          resolvedCollectionId = found?.id;
+        }
+
         return await _datasource.insertBook(
           Book(
             title: title,
             filePath: destination,
             fileSize: size,
             addedAt: DateTime.now(),
-            collectionId: collectionId,
+            collectionId: resolvedCollectionId,
           ),
         );
       } catch (e) {

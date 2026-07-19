@@ -48,6 +48,8 @@ class PdfDownloadService {
   bool _cancelRequested = false;
   String? _activeNativeTaskId;
   Future<Book>? _activeDownload;
+  StreamSubscription<List<int>>? _httpSubscription;
+  Completer<void>? _httpDone;
 
   static bool get _defaultNativeFlag {
     if (kIsWeb) return false;
@@ -74,6 +76,14 @@ class PdfDownloadService {
   /// Cancela la descarga HTTP/nativa en curso (si hay).
   Future<void> cancelActiveDownload() async {
     _cancelRequested = true;
+    final done = _httpDone;
+    if (done != null && !done.isCompleted) {
+      done.completeError(const DownloadCancelledException());
+    }
+    final subscription = _httpSubscription;
+    if (subscription != null) {
+      await subscription.cancel();
+    }
     final taskId = _activeNativeTaskId;
     if (taskId != null) {
       await _cancelNativeTask(taskId);
@@ -190,22 +200,70 @@ class PdfDownloadService {
       final total = response.contentLength ?? 0;
 
       sink = tempFile.openWrite();
-      await for (final chunk in response.stream.timeout(
+      final done = Completer<void>();
+      _httpDone = done;
+      final timedStream = response.stream.timeout(
         const Duration(seconds: 60),
-        onTimeout: (sink) {
-          sink.addError(
+        onTimeout: (eventSink) {
+          eventSink.addError(
             TimeoutException('Tiempo de espera de descarga agotado'),
           );
-          sink.close();
+          eventSink.close();
         },
-      )) {
-        _throwIfCancelled();
-        sink.add(chunk);
-        received += chunk.length;
-        if (total > 0) {
-          onProgress?.call((received / total).clamp(0.0, 1.0));
+      );
+
+      final subscription = timedStream.listen(
+        (chunk) {
+          if (_cancelRequested) {
+            if (!done.isCompleted) {
+              done.completeError(const DownloadCancelledException());
+            }
+            return;
+          }
+          try {
+            sink!.add(chunk);
+            received += chunk.length;
+            if (total > 0) {
+              onProgress?.call((received / total).clamp(0.0, 1.0));
+            }
+          } catch (e, st) {
+            if (!done.isCompleted) {
+              done.completeError(e, st);
+            }
+          }
+        },
+        onError: (Object e, StackTrace st) {
+          if (done.isCompleted) return;
+          if (_cancelRequested) {
+            done.completeError(const DownloadCancelledException());
+          } else {
+            done.completeError(e, st);
+          }
+        },
+        onDone: () {
+          if (done.isCompleted) return;
+          if (_cancelRequested) {
+            done.completeError(const DownloadCancelledException());
+          } else {
+            done.complete();
+          }
+        },
+        cancelOnError: true,
+      );
+      _httpSubscription = subscription;
+
+      try {
+        await done.future;
+      } finally {
+        if (identical(_httpDone, done)) {
+          _httpDone = null;
+        }
+        await subscription.cancel();
+        if (identical(_httpSubscription, subscription)) {
+          _httpSubscription = null;
         }
       }
+
       await sink.flush();
       await sink.close();
       sink = null;
@@ -392,13 +450,15 @@ class PdfDownloadService {
 
         final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
         final size = await destinationFile.length();
+        final resolvedCollectionId =
+            await _resolveCollectionId(collectionId);
         return await _datasource.insertBook(
           Book(
             title: title,
             filePath: destination,
             fileSize: size,
             addedAt: DateTime.now(),
-            collectionId: collectionId,
+            collectionId: resolvedCollectionId,
           ),
         );
       } catch (e) {
@@ -406,6 +466,13 @@ class PdfDownloadService {
         rethrow;
       }
     });
+  }
+
+  /// Si la colección se borró durante la descarga, evita fallo FK.
+  Future<int?> _resolveCollectionId(int? collectionId) async {
+    if (collectionId == null) return null;
+    final found = await _datasource.findCollectionById(collectionId);
+    return found?.id;
   }
 
   Future<Directory> _ensureLibraryDir() async {
@@ -456,6 +523,11 @@ class PdfDownloadService {
 
   void dispose() {
     _cancelRequested = true;
+    final subscription = _httpSubscription;
+    if (subscription != null) {
+      unawaited(subscription.cancel());
+      _httpSubscription = null;
+    }
     _http.close();
   }
 }

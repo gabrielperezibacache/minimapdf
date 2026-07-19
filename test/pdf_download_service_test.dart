@@ -291,6 +291,68 @@ void main() {
     service.dispose();
   });
 
+  test('colección borrada durante descarga se ignora (sin FK)', () async {
+    final collection = await datasource.insertCollection(
+      Collection(name: 'Temporal', createdAt: DateTime(2026, 7, 1)),
+    );
+
+    final client = MockClient((request) async {
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      return http.Response.bytes(
+        const [0x25, 0x50, 0x44, 0x46, 0x2D, 0x31],
+        200,
+        headers: {'content-type': 'application/pdf'},
+      );
+    });
+
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: client,
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+
+    final download = service.downloadFromUrl(
+      'https://example.com/keep.pdf',
+      collectionId: collection.id,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await datasource.removeCollection(collection.id!);
+
+    final book = await download;
+    expect(book.collectionId, isNull);
+    expect(File(book.filePath).existsSync(), isTrue);
+    service.dispose();
+  });
+
+  test('cancelActiveDownload corta stream HTTP colgado', () async {
+    final client = MockClient.streaming((request, _) async {
+      final stream = Stream<List<int>>.periodic(
+        const Duration(milliseconds: 200),
+        (_) => const [0x25, 0x50, 0x44, 0x46],
+      );
+      return http.StreamedResponse(
+        stream,
+        200,
+        headers: {'content-type': 'application/pdf'},
+      );
+    });
+
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: client,
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+
+    final download = service.downloadFromUrl('https://example.com/hang.pdf');
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    await service.cancelActiveDownload();
+
+    await expectLater(download, throwsA(isA<DownloadCancelledException>()));
+    service.dispose();
+  });
+
   test('cancelActiveDownload interrumpe descarga HTTP', () async {
     final client = MockClient((request) async {
       await Future<void>.delayed(const Duration(milliseconds: 80));

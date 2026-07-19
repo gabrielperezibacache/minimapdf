@@ -27,6 +27,8 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
   PullToRefreshController? _pullToRefreshController;
   double _pageProgress = 0;
   bool _pullToRefreshReady = false;
+  bool _browserReady = false;
+  int _scanGeneration = 0;
 
   /// WebView embebido soportado principalmente en Android/iOS.
   bool get _supportsEmbeddedBrowser {
@@ -56,11 +58,22 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final provider = context.read<DownloaderProvider>();
       _urlController.text = provider.urlInput;
       _browserUrlController.text = provider.browserUrl;
+
+      // Limpia caché antes de montar el WebView (evita carrera con la 1ª carga).
+      if (_supportsEmbeddedBrowser) {
+        try {
+          await InAppWebViewController.clearAllCache(includeDiskFiles: true);
+        } catch (_) {
+          // Best-effort.
+        }
+      }
+      if (!mounted) return;
+      setState(() => _browserReady = true);
     });
   }
 
@@ -214,6 +227,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
   Future<void> _scanPdfLinks() async {
     final controller = _webController;
     if (controller == null) return;
+    final generation = _scanGeneration;
 
     try {
       final result = await controller.evaluateJavascript(
@@ -225,7 +239,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
           if (item != null) urls.add(item.toString());
         }
       }
-      if (!mounted) return;
+      if (!mounted || generation != _scanGeneration) return;
       context.read<DownloaderProvider>().setDetectedPdfUrls(urls);
     } catch (_) {
       // Página sin JS o acceso restringido.
@@ -237,7 +251,21 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
     final colors = HermesColors.of(context);
     final downloader = context.watch<DownloaderProvider>();
 
-    return Scaffold(
+    return PopScope(
+      canPop: !downloader.downloading,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (downloader.downloading) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Hay una descarga en curso. Cancélala o espera a que termine.',
+              ),
+            ),
+          );
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Descargas'),
         actions: [
@@ -342,8 +370,21 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                   top: BorderSide(color: colors.border, width: 1),
                 ),
               ),
-              child: _supportsEmbeddedBrowser
-                  ? InAppWebView(
+              child: !_supportsEmbeddedBrowser
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'El mini-navegador está disponible en Android e iOS.\n'
+                          'En escritorio puedes usar la URL directa de arriba.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    )
+                  : !_browserReady
+                      ? const Center(child: CircularProgressIndicator())
+                      : InAppWebView(
                       key: const ValueKey('minimal-pdf-browser'),
                       initialUrlRequest: URLRequest(
                         url: WebUri(downloader.browserUrl),
@@ -352,14 +393,10 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                       pullToRefreshController: _pullToRefreshController,
                       onWebViewCreated: (controller) {
                         _webController = controller;
-                        unawaited(
-                          InAppWebViewController.clearAllCache(
-                            includeDiskFiles: true,
-                          ),
-                        );
                       },
                       onLoadStart: (controller, url) {
                         if (!mounted) return;
+                        _scanGeneration++;
                         setState(() => _pageProgress = 0.05);
                         final provider = context.read<DownloaderProvider>();
                         provider.setDetectedPdfUrls(const []);
@@ -423,22 +460,12 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                           );
                         }
                       },
-                    )
-                  : Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          'El mini-navegador está disponible en Android e iOS.\n'
-                          'En escritorio puedes usar la URL directa de arriba.',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
                     ),
             ),
           ),
         ],
       ),
+    ),
     );
   }
 }
