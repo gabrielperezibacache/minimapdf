@@ -9,7 +9,7 @@ void main() {
   group('AppTheme', () {
     test('Claro usa fondo #F4EEE7 y texto #121D18', () {
       final theme = AppTheme.light;
-      final colors = theme.extension<HermesColors>()!;
+      final colors = theme.extension<AppPalette>()!;
 
       expect(colors.background, AppColors.lightBackground);
       expect(colors.text, AppColors.lightText);
@@ -18,16 +18,16 @@ void main() {
 
     test('Sepia define paleta cálida distinta del claro', () {
       final theme = AppTheme.sepia;
-      final colors = theme.extension<HermesColors>()!;
+      final colors = theme.extension<AppPalette>()!;
 
       expect(colors.background, AppColors.sepiaBackground);
       expect(colors.accent, AppColors.sepiaAccent);
       expect(colors.background, isNot(AppColors.lightBackground));
     });
 
-    test('Obsidian usa fondo #0F1714, paneles y acento bronce', () {
-      final theme = AppTheme.obsidian;
-      final colors = theme.extension<HermesColors>()!;
+    test('Ébano usa fondo #0F1714, paneles y acento bronce', () {
+      final theme = AppTheme.ebony;
+      final colors = theme.extension<AppPalette>()!;
 
       expect(colors.background, const Color(0xFF0F1714));
       expect(colors.panel, const Color(0xFF121D18));
@@ -39,9 +39,9 @@ void main() {
   });
 
   group('ThemeProvider', () {
-    test('ciclo Claro → Sepia → Obsidian → Claro', () {
+    test('ciclo Claro → Sepia → Ébano → Claro', () {
       final provider = ThemeProvider();
-      expect(provider.option, AppThemeOption.obsidian);
+      expect(provider.option, AppThemeOption.ebony);
 
       provider.setTheme(AppThemeOption.light);
       expect(provider.option, AppThemeOption.light);
@@ -50,7 +50,7 @@ void main() {
       expect(provider.option, AppThemeOption.sepia);
 
       provider.cycleTheme();
-      expect(provider.option, AppThemeOption.obsidian);
+      expect(provider.option, AppThemeOption.ebony);
 
       provider.cycleTheme();
       expect(provider.option, AppThemeOption.light);

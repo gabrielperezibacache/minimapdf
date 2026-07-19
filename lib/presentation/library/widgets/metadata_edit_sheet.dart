@@ -24,7 +24,7 @@ Future<BookMetadataDraft?> showMetadataEditSheet(
   return showModalBottomSheet<BookMetadataDraft>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: HermesColors.of(context).panel,
+    backgroundColor: AppPalette.of(context).panel,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
     ),
@@ -83,7 +83,7 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return Padding(

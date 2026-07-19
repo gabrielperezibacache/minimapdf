@@ -2,13 +2,13 @@
 enum AppThemeOption {
   light,
   sepia,
-  obsidian,
+  ebony,
 }
 
 extension AppThemeOptionX on AppThemeOption {
   String get label => switch (this) {
         AppThemeOption.light => 'Claro',
         AppThemeOption.sepia => 'Sepia',
-        AppThemeOption.obsidian => 'Hermes Obsidian',
+        AppThemeOption.ebony => 'Ébano',
       };
 }

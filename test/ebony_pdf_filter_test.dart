@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:minimal_pdf/core/theme/hermes_pdf_filter.dart';
+import 'package:minimal_pdf/core/theme/ebony_pdf_filter.dart';
 
 void main() {
-  group('HermesPdfFilter', () {
-    test('matriz remapea negro a pergamino y blanco a fondo Obsidian', () {
-      final matrix = HermesPdfFilter.obsidianMatrix;
+  group('EbonyPdfFilter', () {
+    test('matriz remapea negro a pergamino y blanco a fondo Ébano', () {
+      final matrix = EbonyPdfFilter.ebonyMatrix;
 
       double apply(int channel, double input) {
         // Matriz 5×4 fila-mayor: a_ii en [row*5 + col], bias en [row*5 + 4].
@@ -25,9 +25,9 @@ void main() {
       expect(apply(2, 255).round(), 0x14);
     });
 
-    test('constantes coinciden con la spec Hermes Obsidian', () {
-      expect(HermesPdfFilter.background, const Color(0xFF0F1714));
-      expect(HermesPdfFilter.text, const Color(0xFFF3ECDD));
+    test('constantes coinciden con la paleta Ébano', () {
+      expect(EbonyPdfFilter.background, const Color(0xFF0F1714));
+      expect(EbonyPdfFilter.text, const Color(0xFFF3ECDD));
     });
   });
 }

@@ -5,7 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/models/bookmark.dart';
 import '../pdf_toc_entry.dart';
 
-/// Panel lateral deslizable estilo Hermes WebUI (índice + marcadores).
+/// Panel lateral deslizable (índice + marcadores).
 class ReaderSidebar extends StatelessWidget {
   const ReaderSidebar({
     super.key,
@@ -28,7 +28,7 @@ class ReaderSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final width = MediaQuery.sizeOf(context).width * 0.82;
 
     return Stack(
@@ -69,9 +69,9 @@ class ReaderSidebar extends StatelessWidget {
                       child: Column(
                         children: [
                           TabBar(
-                            labelColor: AppColors.obsidianAccent,
+                            labelColor: AppColors.ebonyAccent,
                             unselectedLabelColor: colors.textMuted,
-                            indicatorColor: AppColors.obsidianAccent,
+                            indicatorColor: AppColors.ebonyAccent,
                             tabs: const [
                               Tab(text: 'Índice'),
                               Tab(text: 'Marcadores'),
@@ -115,7 +115,7 @@ class _SidebarHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
@@ -127,7 +127,7 @@ class _SidebarHeader extends StatelessWidget {
           Text(
             'Navegación',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.obsidianAccent,
+                  color: AppColors.ebonyAccent,
                 ),
           ),
           const Spacer(),
@@ -181,7 +181,7 @@ class _TocPaneState extends State<_TocPane> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final entries = PdfTocEntry.fromPageCount(widget.pagesCount);
 
     return Column(
@@ -205,7 +205,7 @@ class _TocPaneState extends State<_TocPane> {
               IconButton(
                 tooltip: 'Ir',
                 onPressed: _jumpFromField,
-                icon: Icon(Icons.arrow_forward, color: AppColors.obsidianAccent),
+                icon: Icon(Icons.arrow_forward, color: AppColors.ebonyAccent),
               ),
             ],
           ),
@@ -239,7 +239,7 @@ class _TocPaneState extends State<_TocPane> {
                     border: Border(
                       left: BorderSide(
                         color: selected
-                            ? AppColors.obsidianAccent
+                            ? AppColors.ebonyAccent
                             : Colors.transparent,
                         width: 2,
                       ),
@@ -249,7 +249,7 @@ class _TocPaneState extends State<_TocPane> {
                     entry.title,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: selected
-                              ? AppColors.obsidianAccent
+                              ? AppColors.ebonyAccent
                               : colors.text,
                         ),
                   ),
@@ -278,7 +278,7 @@ class _BookmarksPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     if (bookmarks.isEmpty) {
       return Center(
@@ -304,10 +304,10 @@ class _BookmarksPane extends StatelessWidget {
 
         return ListTile(
           selected: selected,
-          selectedColor: AppColors.obsidianAccent,
+          selectedColor: AppColors.ebonyAccent,
           leading: Icon(
             hasNote ? Icons.sticky_note_2 : Icons.bookmark,
-            color: AppColors.obsidianAccent,
+            color: AppColors.ebonyAccent,
           ),
           title: Text('Página ${bookmark.pageNumber}'),
           subtitle: hasNote

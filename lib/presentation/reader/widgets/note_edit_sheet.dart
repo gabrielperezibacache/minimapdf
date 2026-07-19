@@ -12,7 +12,7 @@ Future<String?> showNoteEditSheet(
   return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: HermesColors.of(context).panel,
+    backgroundColor: AppPalette.of(context).panel,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
     ),
@@ -53,7 +53,7 @@ class _NoteEditFormState extends State<_NoteEditForm> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return Padding(
@@ -69,7 +69,7 @@ class _NoteEditFormState extends State<_NoteEditForm> {
           Text(
             'Nota · página ${widget.pageNumber}',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.obsidianAccent,
+                  color: AppColors.ebonyAccent,
                 ),
           ),
           const SizedBox(height: 12),
@@ -101,8 +101,8 @@ class _NoteEditFormState extends State<_NoteEditForm> {
                   onPressed: () =>
                       Navigator.of(context).pop(_controller.text),
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.obsidianAccent,
-                    foregroundColor: AppColors.obsidianBackground,
+                    backgroundColor: AppColors.ebonyAccent,
+                    foregroundColor: AppColors.ebonyBackground,
                   ),
                   child: const Text('Guardar'),
                 ),

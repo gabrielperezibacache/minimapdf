@@ -65,7 +65,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
 
     if (_supportsEmbeddedBrowser) {
       _pullToRefreshController = PullToRefreshController(
-        settings: PullToRefreshSettings(color: AppColors.obsidianAccent),
+        settings: PullToRefreshSettings(color: AppColors.ebonyAccent),
         onRefresh: () async {
           if (defaultTargetPlatform == TargetPlatform.android) {
             await _webController?.reload();
@@ -155,7 +155,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final downloader = context.watch<DownloaderProvider>();
 
     return Scaffold(
@@ -164,8 +164,8 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: downloader.downloading ? null : _capturePdf,
-        backgroundColor: AppColors.obsidianAccent,
-        foregroundColor: AppColors.obsidianBackground,
+        backgroundColor: AppColors.ebonyAccent,
+        foregroundColor: AppColors.ebonyBackground,
         icon: downloader.downloading
             ? const SizedBox(
                 width: 18,
@@ -195,7 +195,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                 child: Text(
                   downloader.statusMessage!,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.obsidianAccent,
+                        color: AppColors.ebonyAccent,
                       ),
                 ),
               ),
@@ -310,7 +310,7 @@ class _DirectUrlBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -320,7 +320,7 @@ class _DirectUrlBar extends StatelessWidget {
           Text(
             'URL directa de PDF',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppColors.obsidianAccent,
+                  color: AppColors.ebonyAccent,
                 ),
           ),
           const SizedBox(height: 8),
@@ -343,8 +343,8 @@ class _DirectUrlBar extends StatelessWidget {
               FilledButton(
                 onPressed: downloading ? null : onDownload,
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.obsidianAccent,
-                  foregroundColor: AppColors.obsidianBackground,
+                  backgroundColor: AppColors.ebonyAccent,
+                  foregroundColor: AppColors.ebonyBackground,
                 ),
                 child: const Text('Descargar'),
               ),
@@ -354,7 +354,7 @@ class _DirectUrlBar extends StatelessWidget {
             const SizedBox(height: 10),
             LinearProgressIndicator(
               value: progress <= 0 || progress >= 1 ? null : progress,
-              color: AppColors.obsidianAccent,
+              color: AppColors.ebonyAccent,
               backgroundColor: colors.border,
             ),
           ],
@@ -385,7 +385,7 @@ class _BrowserChrome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     return Column(
       children: [
@@ -427,7 +427,7 @@ class _BrowserChrome extends StatelessWidget {
           LinearProgressIndicator(
             value: pageProgress,
             minHeight: 2,
-            color: AppColors.obsidianAccent,
+            color: AppColors.ebonyAccent,
             backgroundColor: colors.border,
           ),
         Padding(
@@ -440,7 +440,7 @@ class _BrowserChrome extends StatelessWidget {
                   : 'Mini-navegador privado · sin telemetría',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: detectedCount > 0
-                        ? AppColors.obsidianAccent
+                        ? AppColors.ebonyAccent
                         : colors.textMuted,
                   ),
             ),

@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/hermes_pdf_filter.dart';
+import '../../core/theme/ebony_pdf_filter.dart';
 import '../../data/datasources/library_local_datasource.dart';
 import '../../data/models/book.dart';
 import '../../data/models/bookmark.dart';
@@ -18,7 +18,7 @@ import 'widgets/floating_page_note.dart';
 import 'widgets/note_edit_sheet.dart';
 import 'widgets/reader_sidebar.dart';
 
-/// Lector PDF de alto rendimiento (pdfx) con filtro Hermes Obsidian.
+/// Lector PDF de alto rendimiento (pdfx) con filtro Ébano.
 class ReaderScreen extends StatefulWidget {
   const ReaderScreen({super.key, required this.book});
 
@@ -35,7 +35,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   ReaderAnnotationsProvider? _annotations;
 
   ReaderScrollMode _scrollMode = ReaderScrollMode.verticalContinuous;
-  bool _obsidianFilter = true;
+  bool _ebonyFilter = true;
   bool _controlsVisible = true;
   bool _sidebarVisible = false;
   bool _noteDismissed = false;
@@ -137,7 +137,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   void _toggleFilter() {
-    setState(() => _obsidianFilter = !_obsidianFilter);
+    setState(() => _ebonyFilter = !_ebonyFilter);
   }
 
   void _toggleControls() {
@@ -170,9 +170,9 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final scaffoldBg =
-        _obsidianFilter ? HermesPdfFilter.background : colors.background;
+        _ebonyFilter ? EbonyPdfFilter.background : colors.background;
     final annotations = _annotations;
     final currentBookmark = annotations?.bookmarkForPage(_currentPage);
     final noteText = currentBookmark?.noteText;
@@ -190,7 +190,7 @@ class _ReaderScreenState extends State<ReaderScreen>
         await _onExit();
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: _obsidianFilter
+        value: _ebonyFilter
             ? SystemUiOverlayStyle.light
             : (Theme.of(context).brightness == Brightness.dark
                 ? SystemUiOverlayStyle.light
@@ -201,8 +201,8 @@ class _ReaderScreenState extends State<ReaderScreen>
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: HermesPdfFilter.wrap(
-                    enabled: _obsidianFilter,
+                  child: EbonyPdfFilter.wrap(
+                    enabled: _ebonyFilter,
                     child: _buildPdfView(colors),
                   ),
                 ),
@@ -249,7 +249,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
   }
 
-  Widget _buildPdfView(HermesColors colors) {
+  Widget _buildPdfView(AppPalette colors) {
     if (_error != null) {
       return Center(
         child: Padding(
@@ -274,7 +274,7 @@ class _ReaderScreenState extends State<ReaderScreen>
           ? const BouncingScrollPhysics()
           : const PageScrollPhysics(),
       backgroundDecoration: BoxDecoration(
-        color: _obsidianFilter ? HermesPdfFilter.background : colors.background,
+        color: _ebonyFilter ? EbonyPdfFilter.background : colors.background,
       ),
       onPageChanged: _onPageChanged,
       onDocumentLoaded: (document) {
@@ -311,7 +311,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
   }
 
-  Widget _buildTopBar(HermesColors colors, bool isBookmarked) {
+  Widget _buildTopBar(AppPalette colors, bool isBookmarked) {
     return Positioned(
       top: 0,
       left: 0,
@@ -324,7 +324,7 @@ class _ReaderScreenState extends State<ReaderScreen>
             IconButton(
               tooltip: 'Menú / índice',
               onPressed: _toggleSidebar,
-              icon: const Icon(Icons.menu, color: AppColors.obsidianAccent),
+              icon: const Icon(Icons.menu, color: AppColors.ebonyAccent),
             ),
             IconButton(
               tooltip: 'Volver',
@@ -352,7 +352,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                       onPressed: _toggleBookmark,
                       icon: Icon(
                         isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                        color: AppColors.obsidianAccent,
+                        color: AppColors.ebonyAccent,
                       ),
                     ),
                     IconButton(
@@ -360,20 +360,20 @@ class _ReaderScreenState extends State<ReaderScreen>
                       onPressed: _editNote,
                       icon: const Icon(
                         Icons.sticky_note_2_outlined,
-                        color: AppColors.obsidianAccent,
+                        color: AppColors.ebonyAccent,
                       ),
                     ),
                     IconButton(
-                      tooltip: _obsidianFilter
-                          ? 'Desactivar filtro Obsidian'
-                          : 'Filtro Hermes Obsidian',
+                      tooltip: _ebonyFilter
+                          ? 'Desactivar filtro Ébano'
+                          : 'Filtro Ébano',
                       onPressed: _toggleFilter,
                       icon: Icon(
-                        _obsidianFilter
+                        _ebonyFilter
                             ? Icons.dark_mode
                             : Icons.dark_mode_outlined,
                         color:
-                            _obsidianFilter ? colors.accent : colors.textMuted,
+                            _ebonyFilter ? colors.accent : colors.textMuted,
                       ),
                     ),
                     IconButton(
@@ -401,7 +401,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
   }
 
-  Widget _buildBottomBar(HermesColors colors, bool isBookmarked) {
+  Widget _buildBottomBar(AppPalette colors, bool isBookmarked) {
     final label =
         _pagesCount > 0 ? '$_currentPage / $_pagesCount' : '$_currentPage';
 
@@ -415,13 +415,13 @@ class _ReaderScreenState extends State<ReaderScreen>
         child: Row(
           children: [
             if (isBookmarked) ...[
-              Icon(Icons.bookmark, size: 16, color: AppColors.obsidianAccent),
+              Icon(Icons.bookmark, size: 16, color: AppColors.ebonyAccent),
               const SizedBox(width: 6),
             ],
             Text(
               label,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.obsidianAccent,
+                    color: AppColors.ebonyAccent,
                   ),
             ),
             const Spacer(),
@@ -429,10 +429,10 @@ class _ReaderScreenState extends State<ReaderScreen>
               _scrollMode.label,
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            if (_obsidianFilter) ...[
+            if (_ebonyFilter) ...[
               const SizedBox(width: 12),
               Text(
-                'Obsidian',
+                'Ébano',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colors.accent,
                     ),

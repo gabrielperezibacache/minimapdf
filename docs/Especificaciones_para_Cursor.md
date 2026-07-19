@@ -1,4 +1,4 @@
-# **INSTRUCCIONES DE DESARROLLO: MINIMAL PDF (Hermes Obsidian)**
+# **INSTRUCCIONES DE DESARROLLO: MINIMAL PDF (Ébano)**
 
 Este documento sirve como especificación técnica y de arquitectura (PRD/Prompt Guide) para que Cursor desarrolle la aplicación móvil **Minimal PDF** de manera incremental, limpia y optimizada.
 
@@ -10,7 +10,7 @@ Este documento sirve como especificación técnica y de arquitectura (PRD/Prompt
   * **Cero IA:** No usar servicios de LLM ni procesamiento en la nube. Todo el procesamiento ocurre localmente.  
   * **Privacidad Absoluta:** No se recolectan datos del usuario ni documentos. Cero analíticas invasivas.  
   * **Rendimiento Extremo:** Carga instantánea de documentos grandes (\>500 páginas) con scroll suave a 60 FPS.  
-  * **Estética Hermes:** Basado en el diseño técnico y de bajo cansancio visual de **Hermes Agent (Nous Skin)**.
+  * **Estética Ébano:** Diseño técnico de bajo cansancio visual con fondos verdes oscuros, texto pergamino y acentos en bronce.
 
 ## **2\. Stack Tecnológico Seleccionado**
 
@@ -31,7 +31,7 @@ El proyecto debe seguir una estructura modular y limpia para facilitar su manten
 
 lib/  
 ├── core/                  \# Utilidades, constantes, temas y configuración global  
-│   ├── theme/             \# Paleta de colores (Luz Pergamino, Sepia, Oscuro Hermes Obsidian)  
+│   ├── theme/             \# Paleta de colores (Luz Pergamino, Sepia, Oscuro Ébano)  
 │   └── database/          \# Configuración de base de datos local  
 ├── data/                  \# Capa de datos (Modelos y Repositorios)  
 │   ├── models/            \# PDFBook, Collection, Bookmark, DownloadTask  
@@ -76,9 +76,9 @@ lib/
 
 *Usa estos pasos uno a uno en Cursor para guiar la generación de código:*
 
-### **Paso 1: Configuración de Base y Tema Hermes Obsidian**
+### **Paso 1: Configuración de Base y Tema Ébano**
 
-**Prompt para Cursor:** "Configura la estructura básica de un proyecto Flutter limpio. Implementa el gestor de estados (recomienda ChangeNotifier o Riverpod) y define tres temas visuales en core/theme/: Claro (Fondo cálido \#F4EEE7, texto \#121D18), Sepia, y Oscuro Hermes Obsidian (Fondo \#0F1714, paneles \#121D18/\#16211C, texto pergamino \#F3ECDD y acentos en oro bronce \#C89A5A). Agrega las dependencias de base de datos Isar o Sqflite en el pubspec.yaml."
+**Prompt para Cursor:** "Configura la estructura básica de un proyecto Flutter limpio. Implementa el gestor de estados (recomienda ChangeNotifier o Riverpod) y define tres temas visuales en core/theme/: Claro (Fondo cálido \#F4EEE7, texto \#121D18), Sepia, y Oscuro Ébano (Fondo \#0F1714, paneles \#121D18/\#16211C, texto pergamino \#F3ECDD y acentos en oro bronce \#C89A5A). Agrega las dependencias de base de datos Isar o Sqflite en el pubspec.yaml."
 
 ### **Paso 2: Base de Datos y Modelos Locales**
 
@@ -86,7 +86,7 @@ lib/
 
 ### **Paso 3: Interfaz de la Biblioteca (Gestor de Archivos)**
 
-**Prompt para Cursor:** "Desarrolla la vista de Biblioteca (presentation/library/) utilizando la paleta Hermes Obsidian. Debe incluir: 1\) Una cuadrícula/lista técnica de PDFs recientes y colecciones, con bordes \#22342C de 1px. 2\) Un botón flotante para importar archivos de forma local (usando file\_picker para seleccionar PDFs del dispositivo). 3\) Una opción para editar metadatos del archivo (Título, Autor, Tags) de forma local."
+**Prompt para Cursor:** "Desarrolla la vista de Biblioteca (presentation/library/) utilizando la paleta Ébano. Debe incluir: 1\) Una cuadrícula/lista técnica de PDFs recientes y colecciones, con bordes \#22342C de 1px. 2\) Un botón flotante para importar archivos de forma local (usando file\_picker para seleccionar PDFs del dispositivo). 3\) Una opción para editar metadatos del archivo (Título, Autor, Tags) de forma local."
 
 ### **Paso 4: El Lector de PDF de Alto Rendimiento**
 
@@ -94,12 +94,12 @@ lib/
 
 1. Carga diferida de páginas.  
 2. Implementar Scroll Continuo Vertical y modo Página a Página Horizontal.  
-3. Soporte para invertir colores nativamente (Filtro Hermes Obsidian para las páginas del PDF: fondo verde oscuro \#0F1714 y letras en pergamino \#F3ECDD).  
+3. Soporte para invertir colores nativamente (Filtro Ébano para las páginas del PDF: fondo verde oscuro \#0F1714 y letras en pergamino \#F3ECDD).  
 4. Guardado automático del progreso de lectura (página actual) en la base de datos al cerrar o pausar la pantalla."
 
 ### **Paso 5: Anotaciones y Marcadores**
 
-**Prompt para Cursor:** "Añade funciones de lectura activa al visor de PDF: 1\) Capacidad de marcar la página actual (Bookmarks) en color bronce \#C89A5A. 2\) Interfaz sencilla para añadir una nota de texto flotante en la página y guardarla en la base de datos local. 3\) Panel lateral deslizable (estilo sidebar de Hermes WebUI) para ver el índice (TOC) del PDF y el listado de marcadores guardados."
+**Prompt para Cursor:** "Añade funciones de lectura activa al visor de PDF: 1\) Capacidad de marcar la página actual (Bookmarks) en color bronce \#C89A5A. 2\) Interfaz sencilla para añadir una nota de texto flotante en la página y guardarla en la base de datos local. 3\) Panel lateral deslizable (estilo sidebar técnico) para ver el índice (TOC) del PDF y el listado de marcadores guardados."
 
 ### **Paso 6: Gestor de Descargas y Mini-Navegador**
 

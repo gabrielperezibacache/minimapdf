@@ -6,12 +6,12 @@ void main() {
     test('round-trip toMap/fromMap preserva tags y nulos', () {
       final book = Book(
         id: 7,
-        title: 'Hermes Notes',
-        filePath: '/library/hermes.pdf',
+        title: 'Reading Notes',
+        filePath: '/library/notes.pdf',
         fileSize: 4096,
         addedAt: DateTime.utc(2026, 7, 1, 12),
         lastPageRead: 3,
-        tags: const ['hermes', 'obsidian'],
+        tags: const ['reading', 'notes'],
       );
 
       final restored = Book.fromMap(book.toMap());
