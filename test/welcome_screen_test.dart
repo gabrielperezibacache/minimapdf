@@ -13,6 +13,8 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'support/mock_external_pdf_channels.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -26,6 +28,7 @@ void main() {
   });
 
   setUp(() async {
+    mockExternalPdfOpenChannels();
     SharedPreferences.setMockInitialValues({
       // Biblioteca post-onboarding se aserta en español.
       'app_locale': 'es',
@@ -40,6 +43,7 @@ void main() {
   });
 
   tearDown(() async {
+    clearExternalPdfOpenChannelMocks();
     await appDatabase.close();
     if (await tempDir.exists()) {
       await tempDir.delete(recursive: true);

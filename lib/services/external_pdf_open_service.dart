@@ -27,17 +27,23 @@ class ExternalPdfOpenService {
     if (_started) return;
     _started = true;
 
-    _subscription = _eventChannel.receiveBroadcastStream().listen(
-      (dynamic event) {
-        final path = event?.toString().trim() ?? '';
-        if (path.isNotEmpty) {
-          _controller.add(path);
-        }
-      },
-      onError: (Object error, StackTrace stack) {
-        debugPrint('ExternalPdfOpenService stream error: $error');
-      },
-    );
+    try {
+      _subscription = _eventChannel.receiveBroadcastStream().listen(
+        (dynamic event) {
+          final path = event?.toString().trim() ?? '';
+          if (path.isNotEmpty) {
+            _controller.add(path);
+          }
+        },
+        onError: (Object error, StackTrace stack) {
+          if (error is MissingPluginException) return;
+          debugPrint('ExternalPdfOpenService stream error: $error');
+        },
+        cancelOnError: false,
+      );
+    } on MissingPluginException {
+      // Desktop / tests without the native plugin.
+    }
 
     try {
       final initial = await _methodChannel.invokeMethod<String>(
