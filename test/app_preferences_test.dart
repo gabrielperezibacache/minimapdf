@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:minimal_pdf/core/preferences/app_preferences.dart';
+import 'package:path/path.dart' as p;
 
 void main() {
   late Directory tempDir;
@@ -28,5 +29,29 @@ void main() {
 
     final second = await AppPreferences.open(directory: tempDir);
     expect(second.hasSeenWelcome, isTrue);
+  });
+
+  test('markWelcomeSeen es idempotente', () async {
+    final prefs = await AppPreferences.open(directory: tempDir);
+    prefs.markWelcomeSeen();
+    prefs.markWelcomeSeen();
+    expect(prefs.hasSeenWelcome, isTrue);
+
+    final file = File(p.join(tempDir.path, AppPreferences.fileName));
+    expect(file.existsSync(), isTrue);
+    expect(file.readAsStringSync(), contains('"has_seen_welcome":true'));
+  });
+
+  test('archivo corrupto no rompe la apertura', () async {
+    final file = File(p.join(tempDir.path, AppPreferences.fileName));
+    await file.writeAsString('{no-json');
+
+    final prefs = await AppPreferences.open(directory: tempDir);
+    expect(prefs.hasSeenWelcome, isFalse);
+    prefs.markWelcomeSeen();
+    expect(prefs.hasSeenWelcome, isTrue);
+
+    final again = await AppPreferences.open(directory: tempDir);
+    expect(again.hasSeenWelcome, isTrue);
   });
 }

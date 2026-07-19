@@ -109,8 +109,11 @@ class _MinimalPdfRoot extends StatefulWidget {
 
 class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
   late bool _showWelcome = widget.showWelcomeInitially;
+  bool _finishingWelcome = false;
 
   void _finishWelcome() {
+    if (_finishingWelcome || !_showWelcome) return;
+    _finishingWelcome = true;
     context.read<AppPreferences>().markWelcomeSeen();
     setState(() => _showWelcome = false);
   }
@@ -123,9 +126,25 @@ class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.of(themeOption),
-      home: _showWelcome
-          ? WelcomeScreen(onFinished: _finishWelcome)
-          : const LibraryScreen(),
+      home: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 380),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+        child: _showWelcome
+            ? WelcomeScreen(
+                key: const ValueKey<String>('welcome'),
+                onFinished: _finishWelcome,
+              )
+            : const LibraryScreen(
+                key: ValueKey<String>('library'),
+              ),
+      ),
     );
   }
 }

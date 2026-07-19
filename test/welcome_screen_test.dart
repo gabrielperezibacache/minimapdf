@@ -57,7 +57,7 @@ void main() {
       find.text('Bienvenido a una lectura offline, privada y sin ruido.'),
       findsOneWidget,
     );
-    expect(find.text('Tu biblioteca, solo tuya'), findsOneWidget);
+    expect(find.text('Privacidad de verdad'), findsOneWidget);
     expect(find.text('Continuar'), findsOneWidget);
     expect(find.text('Omitir'), findsOneWidget);
     expect(find.text('Biblioteca'), findsNothing);
@@ -66,7 +66,8 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('páginas explican lector y descargas', (WidgetTester tester) async {
+  testWidgets('navegación explica biblioteca y lector con Atrás',
+      (WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.obsidian,
@@ -77,17 +78,24 @@ void main() {
 
     await tester.tap(find.text('Continuar'));
     await tester.pumpAndSettle();
-    expect(find.text('Lectura rápida y cómoda'), findsOneWidget);
+    expect(find.text('Biblioteca local'), findsOneWidget);
     expect(find.text('Así funciona Minimal PDF'), findsOneWidget);
+    expect(find.text('Atrás'), findsOneWidget);
+    expect(find.text('Importar · Colecciones · Descargas'), findsOneWidget);
+
+    await tester.tap(find.text('Atrás'));
+    await tester.pumpAndSettle();
+    expect(find.text('Privacidad de verdad'), findsOneWidget);
 
     await tester.tap(find.text('Continuar'));
     await tester.pumpAndSettle();
-    expect(find.text('Descargas con privacidad'), findsOneWidget);
+    await tester.tap(find.text('Continuar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lector Hermes Obsidian'), findsOneWidget);
     expect(find.text('Empezar a leer'), findsOneWidget);
-    expect(
-      find.text('Pago único · 100% offline · Cero analíticas'),
-      findsWidgets,
-    );
+    expect(find.text('Omitir'), findsNothing);
+    expect(find.text('Rápido · Cómodo · Sin distracciones'), findsOneWidget);
   });
 
   testWidgets('omitir marca bienvenida y abre biblioteca',
@@ -103,12 +111,12 @@ void main() {
 
     await tester.tap(find.text('Omitir'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
     expect(preferences.hasSeenWelcome, isTrue);
     expect(find.text('Biblioteca'), findsOneWidget);
     expect(find.byTooltip('Importar PDF'), findsOneWidget);
 
-    // Completa el load() de LibraryProvider (sqflite FFI / tiempo real).
     await tester.runAsync(() async {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     });
@@ -138,5 +146,25 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
+  });
+
+  testWidgets('Empezar a leer completa el onboarding', (WidgetTester tester) async {
+    var finished = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.obsidian,
+        home: WelcomeScreen(onFinished: () => finished = true),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Continuar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Empezar a leer'));
+    await tester.pump();
+
+    expect(finished, isTrue);
   });
 }
