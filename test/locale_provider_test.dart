@@ -57,5 +57,20 @@ void main() {
       final en = AppLocalizations(const Locale('en'));
       expect(en.imported('Demo'), 'Imported: Demo');
     });
+
+    test('incluye alemán, chino y ruso', () {
+      final de = AppLocalizations(const Locale('de'));
+      final zh = AppLocalizations(const Locale('zh'));
+      final ru = AppLocalizations(const Locale('ru'));
+
+      expect(de.library, 'Bibliothek');
+      expect(zh.library, '书库');
+      expect(ru.library, 'Библиотека');
+      expect(AppLocale.de.nativeLabel, 'Deutsch');
+      expect(AppLocale.zh.nativeLabel, '中文');
+      expect(AppLocale.ru.nativeLabel, 'Русский');
+      expect(AppLocalizations.supportedLocales.map((l) => l.languageCode),
+          containsAll(['de', 'zh', 'ru']));
+    });
   });
 }

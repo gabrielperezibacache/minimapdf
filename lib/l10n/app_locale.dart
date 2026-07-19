@@ -6,6 +6,9 @@ enum AppLocale {
   en,
   pt,
   fr,
+  de,
+  zh,
+  ru,
 }
 
 extension AppLocaleX on AppLocale {
@@ -16,6 +19,9 @@ extension AppLocaleX on AppLocale {
         AppLocale.en => 'en',
         AppLocale.pt => 'pt',
         AppLocale.fr => 'fr',
+        AppLocale.de => 'de',
+        AppLocale.zh => 'zh',
+        AppLocale.ru => 'ru',
       };
 
   /// Nombre del idioma en su propia lengua (para el selector).
@@ -24,6 +30,9 @@ extension AppLocaleX on AppLocale {
         AppLocale.en => 'English',
         AppLocale.pt => 'Português',
         AppLocale.fr => 'Français',
+        AppLocale.de => 'Deutsch',
+        AppLocale.zh => '中文',
+        AppLocale.ru => 'Русский',
       };
 
   static AppLocale fromCode(String? code) {
