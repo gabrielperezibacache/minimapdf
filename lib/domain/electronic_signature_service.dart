@@ -118,10 +118,14 @@ class ElectronicSignatureService {
     final reason = normalizeOptionalText(draft.reason);
     final when = signedAt ?? DateTime.now();
     final suggested = suggestOffset(existingOnPage);
-    final offsetX =
-        (draft.offsetX ?? suggested.$1).clamp(0.0, 1.0).toDouble();
-    final offsetY =
-        (draft.offsetY ?? suggested.$2).clamp(0.0, 1.0).toDouble();
+    final offsetX = _finiteClamp(
+      draft.offsetX ?? suggested.$1,
+      fallback: defaultOffsetX,
+    );
+    final offsetY = _finiteClamp(
+      draft.offsetY ?? suggested.$2,
+      fallback: defaultOffsetY,
+    );
 
     switch (draft.type) {
       case SignatureType.typed:
@@ -155,31 +159,22 @@ class ElectronicSignatureService {
   }
 
   /// Sugiere una posición libre en la página para no solapar firmas.
+  ///
+  /// Si no hay hueco con [minOffsetDistance], elige el candidato que
+  /// maximiza la distancia al vecino más cercano (maximin).
   (double, double) suggestOffset(List<DocumentSignature> existingOnPage) {
     if (existingOnPage.isEmpty) {
       return (defaultOffsetX, defaultOffsetY);
     }
 
-    for (var i = 0; i < 24; i++) {
-      final x = (defaultOffsetX - i * _offsetStepX).clamp(0.05, 0.85).toDouble();
-      final y = (defaultOffsetY - i * _offsetStepY).clamp(0.08, 0.85).toDouble();
-      if (_isFarFromAll(x, y, existingOnPage)) {
-        return (x, y);
+    final candidates = _offsetCandidates();
+    for (final candidate in candidates) {
+      if (_isFarFromAll(candidate.$1, candidate.$2, existingOnPage)) {
+        return candidate;
       }
     }
 
-    // Barrido secundario (rejilla) si la escalera está ocupada.
-    for (var row = 0; row < 5; row++) {
-      for (var col = 0; col < 5; col++) {
-        final x = (0.15 + col * 0.15).clamp(0.05, 0.85).toDouble();
-        final y = (0.20 + row * 0.15).clamp(0.08, 0.85).toDouble();
-        if (_isFarFromAll(x, y, existingOnPage)) {
-          return (x, y);
-        }
-      }
-    }
-
-    return (0.10, 0.12);
+    return _bestAvailableOffset(candidates, existingOnPage);
   }
 
   /// Serializa trazos dibujados a JSON (útil para previsualización / tests).
@@ -229,6 +224,54 @@ class ElectronicSignatureService {
     return normalized;
   }
 
+  List<(double, double)> _offsetCandidates() {
+    final candidates = <(double, double)>[];
+    final seen = <String>{};
+
+    void add(double x, double y) {
+      final cx = x.clamp(0.05, 0.85).toDouble();
+      final cy = y.clamp(0.08, 0.85).toDouble();
+      final key = '${cx.toStringAsFixed(3)}:${cy.toStringAsFixed(3)}';
+      if (seen.add(key)) {
+        candidates.add((cx, cy));
+      }
+    }
+
+    add(defaultOffsetX, defaultOffsetY);
+    for (var i = 1; i < 24; i++) {
+      add(defaultOffsetX - i * _offsetStepX, defaultOffsetY - i * _offsetStepY);
+    }
+    for (var row = 0; row < 8; row++) {
+      for (var col = 0; col < 8; col++) {
+        add(0.08 + col * 0.11, 0.08 + row * 0.11);
+      }
+    }
+    return candidates;
+  }
+
+  (double, double) _bestAvailableOffset(
+    List<(double, double)> candidates,
+    List<DocumentSignature> existingOnPage,
+  ) {
+    var best = candidates.first;
+    var bestScore = -1.0;
+
+    for (final candidate in candidates) {
+      var nearest = double.infinity;
+      for (final item in existingOnPage) {
+        final dx = item.offsetX - candidate.$1;
+        final dy = item.offsetY - candidate.$2;
+        final distance = math.sqrt(dx * dx + dy * dy);
+        if (distance < nearest) nearest = distance;
+      }
+      if (nearest > bestScore) {
+        bestScore = nearest;
+        best = candidate;
+      }
+    }
+    return best;
+  }
+
   bool _isFarFromAll(
     double x,
     double y,
@@ -241,5 +284,10 @@ class ElectronicSignatureService {
       if (dx * dx + dy * dy < minDist2) return false;
     }
     return true;
+  }
+
+  double _finiteClamp(double value, {required double fallback}) {
+    if (!value.isFinite) return fallback;
+    return value.clamp(0.0, 1.0).toDouble();
   }
 }

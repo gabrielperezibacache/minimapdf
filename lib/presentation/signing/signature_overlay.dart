@@ -197,15 +197,18 @@ class SignatureOverlay extends StatelessWidget {
                     ),
                   ),
                   if (onDelete != null)
-                    IconButton(
-                      tooltip: 'Eliminar firma',
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints:
-                          const BoxConstraints(minWidth: 24, minHeight: 24),
-                      onPressed: onDelete,
-                      icon:
-                          Icon(Icons.close, size: 14, color: colors.textMuted),
+                    // Evita que el pan de arrastre capture el botón cerrar.
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onDelete,
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.close,
+                          size: 14,
+                          color: colors.textMuted,
+                        ),
+                      ),
                     ),
                 ],
               ),

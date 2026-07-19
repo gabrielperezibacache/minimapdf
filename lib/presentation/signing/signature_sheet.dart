@@ -56,7 +56,8 @@ class _SignatureFormState extends State<_SignatureForm> {
   @override
   void initState() {
     super.initState();
-    final initial = widget.initialSignerName?.trim() ?? '';
+    final initial =
+        _service.normalizePersonText(widget.initialSignerName ?? '');
     _nameController = TextEditingController(text: initial);
     _typedController = TextEditingController(text: initial);
     _reasonController = TextEditingController();
@@ -94,17 +95,18 @@ class _SignatureFormState extends State<_SignatureForm> {
 
   SignatureDraft get _draft => SignatureDraft(
         type: _type,
-        signerName: _nameController.text,
-        typedText: _typedController.text,
+        signerName: _service.normalizePersonText(_nameController.text),
+        typedText: _service.normalizePersonText(_typedController.text),
         inkStrokes: _inkStrokes,
-        reason: _reasonController.text,
+        reason: _service.normalizeOptionalText(_reasonController.text),
       );
 
   void _submit() {
     setState(() => _validationError = null);
+    final draft = _draft;
     try {
-      _service.validateDraft(_draft, pageNumber: widget.pageNumber);
-      Navigator.of(context).pop(_draft);
+      _service.validateDraft(draft, pageNumber: widget.pageNumber);
+      Navigator.of(context).pop(draft);
     } on SignatureValidationException catch (error) {
       setState(() => _validationError = error.message);
     }

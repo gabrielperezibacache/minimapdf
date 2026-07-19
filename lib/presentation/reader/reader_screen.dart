@@ -335,7 +335,12 @@ class _ReaderScreenState extends State<ReaderScreen>
                   ),
                 ),
                 if (_controlsVisible) _buildTopBar(colors, isBookmarked),
-                if (_controlsVisible) _buildBottomBar(colors, isBookmarked),
+                if (_controlsVisible)
+                  _buildBottomBar(
+                    colors,
+                    isBookmarked: isBookmarked,
+                    signatureCount: pageSignatures.length,
+                  ),
                 if (!_controlsVisible)
                   Positioned(
                     top: 8,
@@ -528,7 +533,11 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
   }
 
-  Widget _buildBottomBar(HermesColors colors, bool isBookmarked) {
+  Widget _buildBottomBar(
+    HermesColors colors, {
+    required bool isBookmarked,
+    required int signatureCount,
+  }) {
     final label =
         _pagesCount > 0 ? '$_currentPage / $_pagesCount' : '$_currentPage';
 
@@ -544,6 +553,17 @@ class _ReaderScreenState extends State<ReaderScreen>
             if (isBookmarked) ...[
               Icon(Icons.bookmark, size: 16, color: AppColors.obsidianAccent),
               const SizedBox(width: 6),
+            ],
+            if (signatureCount > 0) ...[
+              Icon(Icons.draw, size: 16, color: AppColors.obsidianAccent),
+              const SizedBox(width: 4),
+              Text(
+                '$signatureCount',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: AppColors.obsidianAccent,
+                    ),
+              ),
+              const SizedBox(width: 10),
             ],
             Text(
               label,

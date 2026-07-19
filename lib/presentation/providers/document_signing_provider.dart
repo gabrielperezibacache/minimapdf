@@ -71,6 +71,11 @@ class DocumentSigningProvider extends ChangeNotifier {
       notifyListeners();
       return null;
     }
+    if (_saving) {
+      _error = 'Ya hay una firma en curso.';
+      notifyListeners();
+      return null;
+    }
 
     _saving = true;
     _error = null;
@@ -111,6 +116,7 @@ class DocumentSigningProvider extends ChangeNotifier {
   }) async {
     final id = signature.id;
     if (id == null) return;
+    if (!offsetX.isFinite || !offsetY.isFinite) return;
 
     final nextX = offsetX.clamp(0.0, 1.0).toDouble();
     final nextY = offsetY.clamp(0.0, 1.0).toDouble();
