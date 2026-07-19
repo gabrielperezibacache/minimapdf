@@ -41,6 +41,7 @@ lib/
     ├── providers/         \# Control de estado ligero (Riverpod o Bloc recomendado, o ChangeNotifier sencillo)  
     ├── library/           \# Pantallas de la biblioteca (Grid, Carpetas, Edición de Metadatos)  
     ├── reader/            \# Pantallas del visor PDF (Scroll, Modos de color, Notas, Subrayados)  
+    ├── signing/           \# Firma electrónica simple (dibujada) y mecanografiada  
     └── downloader/        \# Pantalla de descargas (Entrada de URL, mini-navegador, progreso)
 
 ## **4\. Esquema de Datos Local (Isar/SQLite)**

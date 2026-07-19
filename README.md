@@ -25,7 +25,7 @@ lib/
 ├── core/           # Temas, DB config, constantes
 ├── data/           # Modelos y datasources (Paso 2+)
 ├── domain/         # Lógica de negocio
-└── presentation/   # UI, providers, library / reader / downloader
+└── presentation/   # UI, providers, library / reader / signing / downloader
 ```
 
 ## Desarrollo

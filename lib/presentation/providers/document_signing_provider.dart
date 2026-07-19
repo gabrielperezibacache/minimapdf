@@ -8,9 +8,8 @@ import '../../domain/electronic_signature_service.dart';
 class DocumentSigningProvider extends ChangeNotifier {
   DocumentSigningProvider(
     this._datasource, {
-    ElectronicSignatureService signatureService =
-        const ElectronicSignatureService(),
-  }) : _signatureService = signatureService;
+    this._signatureService = const ElectronicSignatureService(),
+  });
 
   final LibraryLocalDatasource _datasource;
   final ElectronicSignatureService _signatureService;
