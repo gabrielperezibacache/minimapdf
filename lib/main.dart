@@ -2,22 +2,50 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/constants/app_constants.dart';
+import 'core/database/app_database.dart';
+import 'core/database/library_database.dart';
 import 'core/theme/app_theme.dart';
+import 'data/datasources/library_local_datasource.dart';
 import 'presentation/library/library_screen.dart';
 import 'presentation/providers/theme_provider.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MinimalPdfApp());
+
+  final appDatabase = AppDatabase();
+  await appDatabase.open();
+
+  runApp(
+    MinimalPdfApp(
+      appDatabase: appDatabase,
+      libraryDatabase: LibraryDatabase(appDatabase),
+    ),
+  );
 }
 
 class MinimalPdfApp extends StatelessWidget {
-  const MinimalPdfApp({super.key});
+  const MinimalPdfApp({
+    super.key,
+    required this.appDatabase,
+    required this.libraryDatabase,
+  });
+
+  final AppDatabase appDatabase;
+  final LibraryDatabase libraryDatabase;
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        Provider<AppDatabase>.value(value: appDatabase),
+        Provider<LibraryDatabase>.value(value: libraryDatabase),
+        Provider<LibraryLocalDatasource>(
+          create: (context) => LibraryLocalDatasource(
+            context.read<LibraryDatabase>(),
+          ),
+        ),
+      ],
       child: const _MinimalPdfRoot(),
     );
   }

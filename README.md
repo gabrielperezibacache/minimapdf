@@ -36,7 +36,7 @@ flutter run
 ## Plan de implementación
 
 1. ✅ Base + temas Hermes Obsidian + dependencias
-2. Base de datos y modelos locales
+2. ✅ Base de datos y modelos locales (Book, Collection, Bookmark + CRUD Sqflite)
 3. Interfaz de biblioteca
 4. Lector PDF de alto rendimiento
 5. Anotaciones y marcadores
