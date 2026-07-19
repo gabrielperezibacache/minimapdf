@@ -169,6 +169,53 @@ class LibraryProvider extends ChangeNotifier {
     }
   }
 
+  /// Importa un PDF abierto desde el sistema (Open with / compartir).
+  Future<Book?> importExternalFile(String path) async {
+    final trimmed = path.trim();
+    if (trimmed.isEmpty || _importing) return null;
+
+    _importing = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final source = File(trimmed);
+      final size = await source.exists() ? await source.length() : 0;
+      final book = await importService.importPickedFile(
+        PickedPdfFile(
+          sourcePath: trimmed,
+          displayName: p.basename(trimmed),
+          fileSize: size,
+        ),
+        collectionId: _selectedCollectionId,
+      );
+      try {
+        await load();
+      } catch (e) {
+        _error = AppMessageKeys.libraryLoadFailed;
+        if (kDebugMode) {
+          debugPrint('LibraryProvider.importExternalFile load: $e');
+        }
+      }
+      return book;
+    } catch (e) {
+      if (e is FormatException) {
+        _error = e.message;
+      } else if (e is StateError) {
+        _error = e.message;
+      } else {
+        _error = AppMessageKeys.importPdfFailed;
+      }
+      if (kDebugMode) {
+        debugPrint('LibraryProvider.importExternalFile: $e');
+      }
+      return null;
+    } finally {
+      _importing = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> updateBookMetadata({
     required Book book,
     required String title,

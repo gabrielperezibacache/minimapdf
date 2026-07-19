@@ -5,12 +5,26 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_theme_option.dart';
 import '../../l10n/app_locale.dart';
 import '../../l10n/app_localizations.dart';
+import '../../services/external_pdf_open_service.dart';
 import '../providers/locale_provider.dart';
 import '../providers/theme_provider.dart';
 
-/// Configuración: idioma de la interfaz y tema visual.
+/// Configuración: idioma, tema y lector PDF por defecto del sistema.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
+
+  Future<void> _openDefaultPdfSettings(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final opened =
+        await context.read<ExternalPdfOpenService>().openDefaultAppsSettings();
+    if (!context.mounted) return;
+    if (!opened) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.defaultPdfReaderOpenFailed)),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +52,58 @@ class SettingsScreen extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 24),
+          _SectionLabel(label: l10n.defaultPdfReader),
+          const SizedBox(height: 4),
+          Text(
+            l10n.defaultPdfReaderSubtitle,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          Material(
+            color: colors.panel,
+            child: InkWell(
+              onTap: () => _openDefaultPdfSettings(context),
+              child: Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                decoration: BoxDecoration(
+                  border: Border.all(color: colors.border, width: 1),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.picture_as_pdf_outlined,
+                      size: 20,
+                      color: colors.accent,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        l10n.defaultPdfReaderOpenSettings,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: colors.accent,
+                            ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.open_in_new,
+                      size: 18,
+                      color: colors.textMuted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.defaultPdfReaderHint,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colors.textMuted,
+                ),
+          ),
+          const SizedBox(height: 28),
           _SectionLabel(label: l10n.language),
           const SizedBox(height: 4),
           Text(

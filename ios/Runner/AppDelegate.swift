@@ -4,16 +4,123 @@ import flutter_downloader
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+  private let channelName = "minimal_pdf/external_open"
+  private var pendingPdfPath: String?
+  private var eventSink: FlutterEventSink?
+  private var methodChannel: FlutterMethodChannel?
+  private var eventChannel: FlutterEventChannel?
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     FlutterDownloaderPlugin.setPluginRegistrantCallback(registerPlugins)
+
+    if let url = launchOptions?[.url] as? URL {
+      queueOpenedPdf(url: url)
+    }
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    let messenger = engineBridge.applicationRegistrar.messenger()
+    let method = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
+    methodChannel = method
+    method.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else {
+        result(FlutterError(code: "disposed", message: nil, details: nil))
+        return
+      }
+      switch call.method {
+      case "getInitialPdfPath":
+        let path = self.pendingPdfPath
+        self.pendingPdfPath = nil
+        result(path)
+      case "openDefaultAppsSettings", "openAppSettings":
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+          UIApplication.shared.open(url, options: [:], completionHandler: nil)
+          result(true)
+        } else {
+          result(false)
+        }
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+
+    let events = FlutterEventChannel(
+      name: "\(channelName)/events",
+      binaryMessenger: messenger
+    )
+    eventChannel = events
+    events.setStreamHandler(self)
+  }
+
+  override func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    if url.isFileURL || url.pathExtension.lowercased() == "pdf" {
+      queueOpenedPdf(url: url)
+      return true
+    }
+    return super.application(app, open: url, options: options)
+  }
+
+  fileprivate func queueOpenedPdf(url: URL) {
+    guard let path = copyPdfToTemp(url: url) else { return }
+    if let sink = eventSink {
+      sink(path)
+    } else {
+      pendingPdfPath = path
+    }
+  }
+
+  private func copyPdfToTemp(url: URL) -> String? {
+    let accessed = url.startAccessingSecurityScopedResource()
+    defer {
+      if accessed {
+        url.stopAccessingSecurityScopedResource()
+      }
+    }
+
+    let name = url.lastPathComponent.isEmpty ? "documento.pdf" : url.lastPathComponent
+    let safeName = name.lowercased().hasSuffix(".pdf") ? name : "\(name).pdf"
+    let dest = FileManager.default.temporaryDirectory
+      .appendingPathComponent("external_\(Int(Date().timeIntervalSince1970 * 1000))_\(safeName)")
+
+    do {
+      if FileManager.default.fileExists(atPath: dest.path) {
+        try FileManager.default.removeItem(at: dest)
+      }
+      try FileManager.default.copyItem(at: url, to: dest)
+      return dest.path
+    } catch {
+      return nil
+    }
+  }
+}
+
+extension AppDelegate: FlutterStreamHandler {
+  public func onListen(
+    withArguments arguments: Any?,
+    eventSink events: @escaping FlutterEventSink
+  ) -> FlutterError? {
+    eventSink = events
+    if let queued = pendingPdfPath {
+      pendingPdfPath = nil
+      events(queued)
+    }
+    return nil
+  }
+
+  public func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    eventSink = nil
+    return nil
   }
 }
 

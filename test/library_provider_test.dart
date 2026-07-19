@@ -276,4 +276,16 @@ void main() {
     expect(badProvider.error, isNotNull);
     expect(badProvider.books, isEmpty);
   });
+
+  test('importExternalFile importa un PDF abierto desde el sistema', () async {
+    final external = File(p.join(tempDir.path, 'desde_sistema.pdf'));
+    await external.writeAsBytes(const [0x25, 0x50, 0x44, 0x46]);
+
+    final book = await provider.importExternalFile(external.path);
+
+    expect(book, isNotNull);
+    expect(book!.title.toLowerCase(), contains('desde'));
+    expect(provider.books, hasLength(1));
+    expect(File(book.filePath).existsSync(), isTrue);
+  });
 }

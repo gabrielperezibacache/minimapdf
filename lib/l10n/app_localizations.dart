@@ -173,6 +173,11 @@ class AppLocalizations {
   // —— Ajustes ——
   String get settingsSubtitle => _t('settingsSubtitle');
   String get languageSubtitle => _t('languageSubtitle');
+  String get defaultPdfReader => _t('defaultPdfReader');
+  String get defaultPdfReaderSubtitle => _t('defaultPdfReaderSubtitle');
+  String get defaultPdfReaderOpenSettings => _t('defaultPdfReaderOpenSettings');
+  String get defaultPdfReaderHint => _t('defaultPdfReaderHint');
+  String get defaultPdfReaderOpenFailed => _t('defaultPdfReaderOpenFailed');
 
   /// Resuelve mensajes emitidos por providers.
   String message(String key, {String? arg}) {
@@ -307,8 +312,16 @@ const Map<String, Map<String, String>> _strings = {
     'savedToLibrary': 'Guardado en biblioteca: {title}',
     'errorDownloadPdf': 'No se pudo descargar el PDF.',
     'errorNoPdfLink': 'No se encontró un enlace PDF en esta página.',
-    'settingsSubtitle': 'Idioma y apariencia de Minimal PDF',
+    'settingsSubtitle': 'Idioma, apariencia y lector PDF por defecto',
     'languageSubtitle': 'Elige el idioma de la interfaz',
+    'defaultPdfReader': 'Lector PDF por defecto',
+    'defaultPdfReaderSubtitle':
+        'Usa Minimal PDF para abrir PDFs desde el dispositivo u otras apps. El sistema te pedirá confirmar “Siempre”.',
+    'defaultPdfReaderOpenSettings': 'Abrir ajustes del sistema',
+    'defaultPdfReaderHint':
+        'En Android, elige Minimal PDF y toca “Siempre”. En iOS, abre un PDF y selecciona Minimal PDF.',
+    'defaultPdfReaderOpenFailed':
+        'No se pudieron abrir los ajustes del sistema.',
     'searchHint': 'Buscar por título, autor o etiqueta',
     'clearSearch': 'Limpiar búsqueda',
     'fileNotFound': 'Archivo no encontrado',
@@ -422,8 +435,15 @@ const Map<String, Map<String, String>> _strings = {
     'savedToLibrary': 'Saved to library: {title}',
     'errorDownloadPdf': 'Could not download the PDF.',
     'errorNoPdfLink': 'No PDF link found on this page.',
-    'settingsSubtitle': 'Language and appearance for Minimal PDF',
+    'settingsSubtitle': 'Language, appearance, and default PDF reader',
     'languageSubtitle': 'Choose the interface language',
+    'defaultPdfReader': 'Default PDF reader',
+    'defaultPdfReaderSubtitle':
+        'Use Minimal PDF to open PDFs from this device or other apps. The system will ask you to confirm “Always”.',
+    'defaultPdfReaderOpenSettings': 'Open system settings',
+    'defaultPdfReaderHint':
+        'On Android, choose Minimal PDF and tap “Always”. On iOS, open a PDF and select Minimal PDF.',
+    'defaultPdfReaderOpenFailed': 'Could not open system settings.',
     'searchHint': 'Search by title, author or tag',
     'clearSearch': 'Clear search',
     'fileNotFound': 'File not found',
@@ -537,8 +557,16 @@ const Map<String, Map<String, String>> _strings = {
     'savedToLibrary': 'Guardado na biblioteca: {title}',
     'errorDownloadPdf': 'Não foi possível transferir o PDF.',
     'errorNoPdfLink': 'Não foi encontrada nenhuma ligação PDF nesta página.',
-    'settingsSubtitle': 'Idioma e aparência do Minimal PDF',
+    'settingsSubtitle': 'Idioma, aparência e leitor PDF padrão',
     'languageSubtitle': 'Escolha o idioma da interface',
+    'defaultPdfReader': 'Leitor PDF padrão',
+    'defaultPdfReaderSubtitle':
+        'Use o Minimal PDF para abrir PDFs deste dispositivo ou de outros apps. O sistema pedirá para confirmar “Sempre”.',
+    'defaultPdfReaderOpenSettings': 'Abrir definições do sistema',
+    'defaultPdfReaderHint':
+        'No Android, escolha Minimal PDF e toque em “Sempre”. No iOS, abra um PDF e selecione Minimal PDF.',
+    'defaultPdfReaderOpenFailed':
+        'Não foi possível abrir as definições do sistema.',
     'searchHint': 'Pesquisar por título, autor ou etiqueta',
     'clearSearch': 'Limpar pesquisa',
     'fileNotFound': 'Ficheiro não encontrado',
@@ -652,8 +680,16 @@ const Map<String, Map<String, String>> _strings = {
     'savedToLibrary': 'Enregistré dans la bibliothèque : {title}',
     'errorDownloadPdf': 'Impossible de télécharger le PDF.',
     'errorNoPdfLink': 'Aucun lien PDF trouvé sur cette page.',
-    'settingsSubtitle': 'Langue et apparence de Minimal PDF',
+    'settingsSubtitle': 'Langue, apparence et lecteur PDF par défaut',
     'languageSubtitle': 'Choisissez la langue de l’interface',
+    'defaultPdfReader': 'Lecteur PDF par défaut',
+    'defaultPdfReaderSubtitle':
+        'Utilisez Minimal PDF pour ouvrir des PDF depuis l’appareil ou d’autres apps. Le système demandera de confirmer « Toujours ».',
+    'defaultPdfReaderOpenSettings': 'Ouvrir les réglages système',
+    'defaultPdfReaderHint':
+        'Sous Android, choisissez Minimal PDF et touchez « Toujours ». Sous iOS, ouvrez un PDF et sélectionnez Minimal PDF.',
+    'defaultPdfReaderOpenFailed':
+        'Impossible d’ouvrir les réglages système.',
     'searchHint': 'Rechercher par titre, auteur ou étiquette',
     'clearSearch': 'Effacer la recherche',
     'fileNotFound': 'Fichier introuvable',
@@ -769,8 +805,16 @@ const Map<String, Map<String, String>> _strings = {
     'savedToLibrary': 'In Bibliothek gespeichert: {title}',
     'errorDownloadPdf': 'PDF konnte nicht heruntergeladen werden.',
     'errorNoPdfLink': 'Auf dieser Seite wurde kein PDF-Link gefunden.',
-    'settingsSubtitle': 'Sprache und Erscheinungsbild von Minimal PDF',
+    'settingsSubtitle': 'Sprache, Erscheinungsbild und Standard-PDF-Reader',
     'languageSubtitle': 'Wählen Sie die Sprache der Oberfläche',
+    'defaultPdfReader': 'Standard-PDF-Reader',
+    'defaultPdfReaderSubtitle':
+        'Minimal PDF zum Öffnen von PDFs vom Gerät oder aus anderen Apps verwenden. Das System fragt nach „Immer“.',
+    'defaultPdfReaderOpenSettings': 'Systemeinstellungen öffnen',
+    'defaultPdfReaderHint':
+        'Unter Android Minimal PDF wählen und „Immer“ tippen. Unter iOS ein PDF öffnen und Minimal PDF auswählen.',
+    'defaultPdfReaderOpenFailed':
+        'Systemeinstellungen konnten nicht geöffnet werden.',
     'searchHint': 'Nach Titel, Autor oder Tag suchen',
     'clearSearch': 'Suche löschen',
     'fileNotFound': 'Datei nicht gefunden',
@@ -882,8 +926,15 @@ const Map<String, Map<String, String>> _strings = {
     'savedToLibrary': '已保存到书库：{title}',
     'errorDownloadPdf': '无法下载 PDF。',
     'errorNoPdfLink': '此页面未找到 PDF 链接。',
-    'settingsSubtitle': 'Minimal PDF 的语言与外观',
+    'settingsSubtitle': '语言、外观与默认 PDF 阅读器',
     'languageSubtitle': '选择界面语言',
+    'defaultPdfReader': '默认 PDF 阅读器',
+    'defaultPdfReaderSubtitle':
+        '用 Minimal PDF 打开本机或其他应用中的 PDF。系统会要求确认“始终”。',
+    'defaultPdfReaderOpenSettings': '打开系统设置',
+    'defaultPdfReaderHint':
+        '在 Android 上选择 Minimal PDF 并点“始终”。在 iOS 上打开 PDF 并选择 Minimal PDF。',
+    'defaultPdfReaderOpenFailed': '无法打开系统设置。',
     'searchHint': '按标题、作者或标签搜索',
     'clearSearch': '清除搜索',
     'fileNotFound': '未找到文件',
@@ -997,8 +1048,16 @@ const Map<String, Map<String, String>> _strings = {
     'savedToLibrary': 'Сохранено в библиотеку: {title}',
     'errorDownloadPdf': 'Не удалось скачать PDF.',
     'errorNoPdfLink': 'На этой странице не найдена ссылка на PDF.',
-    'settingsSubtitle': 'Язык и оформление Minimal PDF',
+    'settingsSubtitle': 'Язык, оформление и программа PDF по умолчанию',
     'languageSubtitle': 'Выберите язык интерфейса',
+    'defaultPdfReader': 'Программа PDF по умолчанию',
+    'defaultPdfReaderSubtitle':
+        'Открывайте PDF через Minimal PDF с устройства или из других приложений. Система попросит подтвердить «Всегда».',
+    'defaultPdfReaderOpenSettings': 'Открыть системные настройки',
+    'defaultPdfReaderHint':
+        'В Android выберите Minimal PDF и нажмите «Всегда». В iOS откройте PDF и выберите Minimal PDF.',
+    'defaultPdfReaderOpenFailed':
+        'Не удалось открыть системные настройки.',
     'searchHint': 'Поиск по названию, автору или тегу',
     'clearSearch': 'Очистить поиск',
     'fileNotFound': 'Файл не найден',

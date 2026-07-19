@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +9,7 @@ import '../../core/theme/app_theme_option.dart';
 import '../../data/models/book.dart';
 import '../../data/models/collection.dart';
 import '../../l10n/app_localizations.dart';
+import '../../services/external_pdf_open_service.dart';
 import '../downloader/downloader_screen.dart';
 import '../providers/downloader_provider.dart';
 import '../providers/library_provider.dart';
@@ -28,6 +31,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
   final _searchController = TextEditingController();
   DownloaderProvider? _downloader;
   int? _lastSeenDownloadId;
+  StreamSubscription<String>? _externalOpenSub;
+  String? _lastExternalPath;
+  bool _handlingExternal = false;
 
   @override
   void initState() {
@@ -37,14 +43,55 @@ class _LibraryScreenState extends State<LibraryScreen> {
       context.read<LibraryProvider>().load();
       _downloader = context.read<DownloaderProvider>();
       _downloader!.addListener(_onDownloaderChanged);
+      _listenForExternalPdfs();
     });
   }
 
   @override
   void dispose() {
+    _externalOpenSub?.cancel();
     _downloader?.removeListener(_onDownloaderChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _listenForExternalPdfs() async {
+    final service = context.read<ExternalPdfOpenService>();
+    _externalOpenSub = service.incomingPaths.listen(_onExternalPdf);
+    await service.start();
+  }
+
+  Future<void> _onExternalPdf(String path) async {
+    final trimmed = path.trim();
+    if (!mounted ||
+        trimmed.isEmpty ||
+        _handlingExternal ||
+        trimmed == _lastExternalPath) {
+      return;
+    }
+
+    _handlingExternal = true;
+    _lastExternalPath = trimmed;
+    final library = context.read<LibraryProvider>();
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final book = await library.importExternalFile(trimmed);
+      if (!mounted) return;
+      if (book != null) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(l10n.imported(book.title))),
+        );
+        await _openReader(book);
+      } else if (library.error != null) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(_msg(library.error!))),
+        );
+      }
+    } finally {
+      _handlingExternal = false;
+    }
   }
 
   void _onDownloaderChanged() {

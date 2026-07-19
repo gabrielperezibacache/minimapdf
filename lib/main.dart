@@ -22,6 +22,7 @@ import 'presentation/providers/downloader_provider.dart';
 import 'presentation/providers/library_provider.dart';
 import 'presentation/providers/locale_provider.dart';
 import 'presentation/providers/theme_provider.dart';
+import 'services/external_pdf_open_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -105,6 +106,10 @@ class MinimalPdfApp extends StatelessWidget {
           create: (context) => DownloaderProvider(
             context.read<PdfDownloadService>(),
           ),
+        ),
+        Provider<ExternalPdfOpenService>(
+          create: (_) => ExternalPdfOpenService(),
+          dispose: (_, service) => service.dispose(),
         ),
       ],
       child: _MinimalPdfRoot(showWelcomeInitially: showWelcome),
