@@ -31,11 +31,22 @@ void main() {
       );
     });
 
-    test('assertBytes permite content-type pdf sin magia', () {
+    test('assertBytes exige magia aunque el content-type diga pdf', () {
       expect(
         () => PdfHeader.assertBytes(
           Uint8List.fromList(const [1, 2, 3, 4]),
           contentType: 'application/pdf',
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('assertBytes permite content-type si requireMagic es false', () {
+      expect(
+        () => PdfHeader.assertBytes(
+          Uint8List.fromList(const [1, 2, 3, 4]),
+          contentType: 'application/pdf',
+          requireMagic: false,
         ),
         returnsNormally,
       );

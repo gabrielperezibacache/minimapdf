@@ -46,6 +46,7 @@ class PdfDownloadService {
 
   bool _cancelRequested = false;
   String? _activeNativeTaskId;
+  Future<Book>? _activeDownload;
 
   static bool get _defaultNativeFlag {
     if (kIsWeb) return false;
@@ -85,6 +86,30 @@ class PdfDownloadService {
   }
 
   Future<Book> downloadFromUrl(
+    String rawUrl, {
+    DownloadProgress? onProgress,
+    int? collectionId,
+  }) async {
+    if (_activeDownload != null) {
+      throw StateError('Ya hay una descarga en curso');
+    }
+
+    final future = _downloadFromUrlLocked(
+      rawUrl,
+      onProgress: onProgress,
+      collectionId: collectionId,
+    );
+    _activeDownload = future;
+    try {
+      return await future;
+    } finally {
+      if (identical(_activeDownload, future)) {
+        _activeDownload = null;
+      }
+    }
+  }
+
+  Future<Book> _downloadFromUrlLocked(
     String rawUrl, {
     DownloadProgress? onProgress,
     int? collectionId,
@@ -147,7 +172,12 @@ class PdfDownloadService {
       final request = http.Request('GET', Uri.parse(url));
       request.headers['Accept'] = 'application/pdf,*/*';
 
-      final response = await _http.send(request);
+      final response = await _http.send(request).timeout(
+        const Duration(seconds: 45),
+        onTimeout: () {
+          throw TimeoutException('Tiempo de espera de conexión agotado');
+        },
+      );
       _throwIfCancelled();
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -161,7 +191,15 @@ class PdfDownloadService {
       final total = response.contentLength ?? 0;
 
       sink = tempFile.openWrite();
-      await for (final chunk in response.stream) {
+      await for (final chunk in response.stream.timeout(
+        const Duration(seconds: 60),
+        onTimeout: (sink) {
+          sink.addError(
+            TimeoutException('Tiempo de espera de descarga agotado'),
+          );
+          sink.close();
+        },
+      )) {
         _throwIfCancelled();
         sink.add(chunk);
         received += chunk.length;

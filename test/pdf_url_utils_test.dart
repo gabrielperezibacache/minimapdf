@@ -15,7 +15,19 @@ void main() {
         isTrue,
       );
       expect(
+        PdfUrlUtils.looksLikePdfUrl('https://arxiv.org/pdf/2401.12345'),
+        isTrue,
+      );
+      expect(
+        PdfUrlUtils.looksLikePdfUrl('https://example.com/pdf/report'),
+        isTrue,
+      );
+      expect(
         PdfUrlUtils.looksLikePdfUrl('https://example.com/page'),
+        isFalse,
+      );
+      expect(
+        PdfUrlUtils.looksLikePdfUrl('https://example.com/pdf'),
         isFalse,
       );
     });

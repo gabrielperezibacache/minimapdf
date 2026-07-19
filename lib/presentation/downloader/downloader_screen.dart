@@ -304,6 +304,19 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                         }
                         return NavigationActionPolicy.ALLOW;
                       },
+                      onDownloadStartRequest: (controller, request) async {
+                        final href = request.url.toString();
+                        final mime = request.mimeType?.toLowerCase() ?? '';
+                        final isPdf = PdfUrlUtils.looksLikePdfUrl(href) ||
+                            mime.contains('pdf');
+                        if (!isPdf) return;
+                        final provider = context.read<DownloaderProvider>();
+                        provider.setDetectedPdfUrls([
+                          href,
+                          ...provider.detectedPdfUrls,
+                        ]);
+                        unawaited(_downloadPdfLink(href));
+                      },
                       onReceivedError: (controller, request, error) {
                         _pullToRefreshController?.endRefreshing();
                         if (!mounted) return;

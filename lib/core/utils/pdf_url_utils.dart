@@ -1,6 +1,11 @@
 /// Utilidades para URLs de PDF (validación y detección).
 abstract final class PdfUrlUtils {
-  static final RegExp _pdfPath = RegExp(r'\.pdf([?#]|$)', caseSensitive: false);
+  static final RegExp _pdfExtension =
+      RegExp(r'\.pdf([?#]|$)', caseSensitive: false);
+
+  /// Rutas tipo arXiv/CDN: `/pdf/1234.5678` o `/pdf/id/download`.
+  static final RegExp _pdfPathSegment =
+      RegExp(r'(^|/)pdf(/|$)', caseSensitive: false);
 
   static bool isValidHttpUrl(String raw) {
     final uri = Uri.tryParse(raw.trim());
@@ -12,8 +17,14 @@ abstract final class PdfUrlUtils {
   static bool looksLikePdfUrl(String raw) {
     final uri = Uri.tryParse(raw.trim());
     if (uri == null) return false;
-    return _pdfPath.hasMatch(uri.path) ||
-        uri.query.toLowerCase().contains('application/pdf');
+    final path = uri.path;
+    if (_pdfExtension.hasMatch(path)) return true;
+    if (uri.query.toLowerCase().contains('application/pdf')) return true;
+    // /pdf/... (arXiv y similares) sin extensión .pdf
+    if (_pdfPathSegment.hasMatch(path) && path.toLowerCase() != '/pdf') {
+      return true;
+    }
+    return false;
   }
 
   static String fileNameFromUrl(String raw, {String fallback = 'documento'}) {

@@ -167,6 +167,35 @@ void main() {
     service.dispose();
   });
 
+  test('segunda descarga concurrente se rechaza', () async {
+    final client = MockClient((request) async {
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      return http.Response.bytes(
+        const [0x25, 0x50, 0x44, 0x46],
+        200,
+        headers: {'content-type': 'application/pdf'},
+      );
+    });
+
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: client,
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+    final provider = DownloaderProvider(service);
+
+    final first = provider.downloadUrl('https://example.com/a.pdf');
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    final second = await provider.downloadUrl('https://example.com/b.pdf');
+
+    expect(second, isNull);
+    expect(provider.error, contains('curso'));
+    final book = await first;
+    expect(book, isNotNull);
+    service.dispose();
+  });
+
   test('cancelActiveDownload interrumpe descarga HTTP', () async {
     final client = MockClient((request) async {
       await Future<void>.delayed(const Duration(milliseconds: 80));

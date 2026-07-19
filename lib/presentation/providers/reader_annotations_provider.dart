@@ -13,6 +13,8 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   List<Bookmark> _bookmarks = const [];
   bool _loading = false;
   String? _error;
+  bool _disposed = false;
+  int _loadGeneration = 0;
 
   List<Bookmark> get bookmarks => _bookmarks;
   bool get loading => _loading;
@@ -27,21 +29,32 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
 
   bool isPageBookmarked(int pageNumber) => bookmarkForPage(pageNumber) != null;
 
+  void _safeNotify() {
+    if (_disposed) return;
+    notifyListeners();
+  }
+
   Future<void> loadForBook(int bookId) async {
+    final generation = ++_loadGeneration;
     _bookId = bookId;
     _loading = true;
     _error = null;
-    notifyListeners();
+    _safeNotify();
     try {
-      _bookmarks = await _datasource.listBookmarks(bookId);
+      final bookmarks = await _datasource.listBookmarks(bookId);
+      if (_disposed || generation != _loadGeneration) return;
+      _bookmarks = bookmarks;
     } catch (e) {
+      if (_disposed || generation != _loadGeneration) return;
       _error = 'No se pudieron cargar los marcadores.';
       if (kDebugMode) {
         debugPrint('ReaderAnnotationsProvider.loadForBook: $e');
       }
     } finally {
-      _loading = false;
-      notifyListeners();
+      if (!_disposed && generation == _loadGeneration) {
+        _loading = false;
+        _safeNotify();
+      }
     }
   }
 
@@ -51,7 +64,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   /// Devuelve `false` cuando se requiere confirmación.
   Future<bool> toggleBookmark(int pageNumber, {bool force = false}) async {
     final bookId = _bookId;
-    if (bookId == null || pageNumber < 1) return true;
+    if (_disposed || bookId == null || pageNumber < 1) return true;
 
     final existing = bookmarkForPage(pageNumber);
     if (existing != null) {
@@ -64,14 +77,16 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
       if (id == null) return true;
       try {
         await _datasource.removeBookmark(id);
+        if (_disposed) return true;
         _error = null;
         await loadForBook(bookId);
       } catch (e) {
+        if (_disposed) return true;
         _error = 'No se pudo quitar el marcador.';
         if (kDebugMode) {
           debugPrint('ReaderAnnotationsProvider.toggleBookmark: $e');
         }
-        notifyListeners();
+        _safeNotify();
       }
       return true;
     }
@@ -84,14 +99,16 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
           createdAt: DateTime.now(),
         ),
       );
+      if (_disposed) return true;
       _error = null;
       await loadForBook(bookId);
     } catch (e) {
+      if (_disposed) return true;
       _error = 'No se pudo crear el marcador.';
       if (kDebugMode) {
         debugPrint('ReaderAnnotationsProvider.toggleBookmark: $e');
       }
-      notifyListeners();
+      _safeNotify();
     }
     return true;
   }
@@ -102,7 +119,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     required String noteText,
   }) async {
     final bookId = _bookId;
-    if (bookId == null || pageNumber < 1) return;
+    if (_disposed || bookId == null || pageNumber < 1) return;
 
     final trimmed = noteText.trim();
     final existing = bookmarkForPage(pageNumber);
@@ -114,6 +131,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
             existing.copyWith(clearNoteText: true),
           );
         }
+        if (_disposed) return;
         _error = null;
         await loadForBook(bookId);
         return;
@@ -128,31 +146,42 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
           createdAt: existing?.createdAt ?? DateTime.now(),
         ),
       );
+      if (_disposed) return;
       _error = null;
       await loadForBook(bookId);
     } catch (e) {
+      if (_disposed) return;
       _error = 'No se pudo guardar la nota.';
       if (kDebugMode) {
         debugPrint('ReaderAnnotationsProvider.saveNote: $e');
       }
-      notifyListeners();
+      _safeNotify();
     }
   }
 
   Future<void> deleteBookmark(Bookmark bookmark) async {
     final bookId = _bookId;
     final id = bookmark.id;
-    if (bookId == null || id == null) return;
+    if (_disposed || bookId == null || id == null) return;
     try {
       await _datasource.removeBookmark(id);
+      if (_disposed) return;
       _error = null;
       await loadForBook(bookId);
     } catch (e) {
+      if (_disposed) return;
       _error = 'No se pudo eliminar el marcador.';
       if (kDebugMode) {
         debugPrint('ReaderAnnotationsProvider.deleteBookmark: $e');
       }
-      notifyListeners();
+      _safeNotify();
     }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _loadGeneration++;
+    super.dispose();
   }
 }

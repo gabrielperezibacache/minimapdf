@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 /// Validación ligera de cabecera PDF (`%PDF`).
+///
+/// Exige magia real al persistir en biblioteca (no confiar solo en Content-Type).
 abstract final class PdfHeader {
   static const List<int> magic = [0x25, 0x50, 0x44, 0x46]; // %PDF
 
@@ -17,6 +19,7 @@ abstract final class PdfHeader {
     File file, {
     String contentType = '',
     String invalidMessage = 'El archivo no es un PDF válido',
+    bool requireMagic = true,
   }) async {
     if (!await file.exists()) {
       throw FormatException(invalidMessage);
@@ -34,7 +37,8 @@ abstract final class PdfHeader {
       await raf.close();
     }
 
-    if (contentType.toLowerCase().contains('pdf')) return;
+    // Solo en casos legacy/tests: permitir content-type si no exigimos magia.
+    if (!requireMagic && contentType.toLowerCase().contains('pdf')) return;
     throw FormatException(invalidMessage);
   }
 
@@ -42,12 +46,13 @@ abstract final class PdfHeader {
     Uint8List bytes, {
     String contentType = '',
     String invalidMessage = 'El archivo no es un PDF válido',
+    bool requireMagic = true,
   }) {
     if (bytes.isEmpty) {
       throw const FormatException('PDF vacío');
     }
     if (matchesBytes(bytes)) return;
-    if (contentType.toLowerCase().contains('pdf')) return;
+    if (!requireMagic && contentType.toLowerCase().contains('pdf')) return;
     throw FormatException(invalidMessage);
   }
 }

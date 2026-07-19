@@ -231,19 +231,63 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _editNote() async {
-    final existing = _annotations?.bookmarkForPage(_currentPage);
+    final annotations = _annotations;
+    final existing = annotations?.bookmarkForPage(_currentPage);
     final result = await showNoteEditSheet(
       context,
       pageNumber: _currentPage,
       initialText: existing?.noteText,
     );
-    if (result == null || !mounted) return;
-    await _annotations?.saveNote(pageNumber: _currentPage, noteText: result);
+    if (result == null || !mounted || annotations == null) return;
+    await annotations.saveNote(pageNumber: _currentPage, noteText: result);
+    if (!mounted) return;
+    if (annotations.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(annotations.error!)),
+      );
+      return;
+    }
     setState(() => _noteDismissed = false);
   }
 
   Future<void> _deleteBookmark(Bookmark bookmark) async {
-    await _annotations?.deleteBookmark(bookmark);
+    final annotations = _annotations;
+    if (annotations == null) return;
+
+    final hasNote =
+        bookmark.noteText != null && bookmark.noteText!.trim().isNotEmpty;
+    if (hasNote) {
+      final colors = HermesColors.of(context);
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: colors.panel,
+          title: const Text('Eliminar marcador'),
+          content: Text(
+            '¿Eliminar el marcador de la página ${bookmark.pageNumber} '
+            'y su nota?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('Eliminar', style: TextStyle(color: colors.accent)),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
+    await annotations.deleteBookmark(bookmark);
+    if (annotations.error != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(annotations.error!)),
+      );
+    }
   }
 
   @override
@@ -356,10 +400,18 @@ class _ReaderScreenState extends State<ReaderScreen>
       ),
       onPageChanged: _onPageChanged,
       onDocumentLoaded: (document) {
+        final count = document.pagesCount;
         setState(() {
-          _pagesCount = document.pagesCount;
+          _pagesCount = count;
           _error = null;
         });
+        // PDF truncado/reemplazado: no quedarse más allá del final.
+        if (count >= 1 && _currentPage > count) {
+          final clamped = count;
+          _controller.jumpToPage(clamped);
+          setState(() => _currentPage = clamped);
+          _progressSaver?.onPageChanged(clamped);
+        }
       },
       onDocumentError: (error) {
         setState(() => _error = 'No se pudo abrir el PDF.\n$error');

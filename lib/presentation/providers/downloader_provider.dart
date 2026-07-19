@@ -91,6 +91,12 @@ class DownloaderProvider extends ChangeNotifier {
       return null;
     }
 
+    if (_downloading) {
+      _error = 'Ya hay una descarga en curso.';
+      notifyListeners();
+      return null;
+    }
+
     _downloading = true;
     _progress = 0;
     _error = null;
