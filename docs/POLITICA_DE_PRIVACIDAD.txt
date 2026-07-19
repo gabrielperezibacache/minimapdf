@@ -1,0 +1,203 @@
+POLÍTICA DE PRIVACIDAD
+Minimal PDF
+Aplicación: Minimal PDF (paquete Android: com.minimalpdf.minimal_pdf)
+Fecha de entrada en vigor: 19 de julio de 2026
+Última actualización: 19 de julio de 2026
+
+Esta Política de Privacidad describe cómo Minimal PDF (“la Aplicación”, “nosotros”) trata la información cuando usted utiliza la Aplicación en dispositivos Android (y, en su caso, en otras plataformas compatibles).
+
+Al usar Minimal PDF, usted acepta las prácticas descritas en este documento. Si no está de acuerdo, le pedimos que no utilice la Aplicación.
+
+
+1. RESUMEN
+-----------
+Minimal PDF es un lector de PDF y gestor de biblioteca diseñado para funcionar de forma local y respetuosa con la privacidad.
+
+- No creamos cuentas de usuario.
+- No recolectamos datos personales para publicidad, analíticas ni perfilado.
+- No vendemos ni compartimos su información con terceros con fines comerciales.
+- Sus documentos PDF, anotaciones, marcadores, firmas y preferencias se almacenan en su dispositivo.
+- El procesamiento de los documentos se realiza localmente en el dispositivo.
+
+
+2. RESPONSABLE
+--------------
+Responsable del tratamiento / desarrollador de la Aplicación:
+Gabriel Simón Pérez Ibacache
+Aplicación: Minimal PDF
+
+Correo de contacto para privacidad:
+gabrielperezibacache@gmail.com
+
+Puede escribir a esa dirección para ejercer derechos, formular preguntas o solicitar aclaraciones sobre esta Política.
+
+
+3. DATOS QUE TRATAMOS
+---------------------
+3.1. Datos que NO recopilamos
+La Aplicación no recopila ni transmite a nuestros servidores (porque no operamos un backend propio de la Aplicación para este fin):
+
+- Nombre, correo electrónico, teléfono u otros datos de identificación personal.
+- Ubicación GPS o ubicación precisa.
+- Contactos, agenda o historial de llamadas.
+- Identificadores publicitarios.
+- Datos de analítica, telemetría o seguimiento de comportamiento.
+- Contenido de sus PDFs con fines de análisis remoto, IA o entrenamiento de modelos.
+
+3.2. Datos almacenados únicamente en su dispositivo
+Para que la Aplicación funcione, se guardan de forma local (en el almacenamiento de la Aplicación / preferencias del dispositivo), entre otros:
+
+- Archivos PDF que usted importa o descarga.
+- Metadatos de biblioteca que usted introduce o genera (título, autor, etiquetas, colecciones, fechas de uso, última página leída, tamaño de archivo y rutas locales).
+- Marcadores, notas y anotaciones.
+- Firmas electrónicas locales (dibujo o texto), nombre del firmante, motivo opcional, marca temporal y datos asociados al documento firmado, cuando use esa función.
+- Preferencias de uso (tema visual, idioma, modo de vista de biblioteca, opciones del lector, estado de bienvenida, etc.).
+
+Estos datos permanecen en su dispositivo y usted puede eliminarlos borrando la Aplicación, borrando sus datos desde el sistema operativo o eliminando elementos concretos desde la propia Aplicación (cuando la función lo permita).
+
+3.3. Datos tratados de forma temporal al usar Internet
+Minimal PDF puede usar conexión a Internet solo cuando usted inicia voluntariamente una descarga o navega en el mini-navegador interno para obtener un PDF. En esos casos pueden tratarse, de forma técnica y temporal:
+
+- La URL que usted introduce o visita.
+- Datos de la conexión necesarios para descargar el archivo (por ejemplo, respuesta del servidor remoto que aloja el PDF).
+
+Nosotros no usamos esas URLs para crear perfiles ni para publicidad. El destino de la descarga es su dispositivo. Tenga en cuenta que el sitio web o servidor remoto al que se conecta puede tener su propia política de privacidad, ajena a Minimal PDF.
+
+
+4. FINALIDADES DEL TRATAMIENTO
+------------------------------
+Utilizamos la información descrita únicamente para:
+
+- Permitirle importar, organizar, leer y gestionar PDFs en el dispositivo.
+- Guardar su progreso de lectura, preferencias, anotaciones y firmas locales.
+- Facilitar la descarga de PDFs por URL o mediante el mini-navegador, cuando usted lo solicite.
+- Mantener el funcionamiento técnico de la Aplicación.
+
+No utilizamos sus datos para:
+
+- Publicidad personalizada.
+- Venta de datos.
+- Analíticas de terceros.
+- Entrenamiento de inteligencia artificial.
+
+
+5. BASE LEGAL (cuando aplique)
+------------------------------
+Cuando resulte de aplicación la normativa de protección de datos (por ejemplo, RGPD/LOPDGDD u otras leyes locales), el tratamiento se basa principalmente en:
+
+- La ejecución del servicio solicitado por usted (uso de la Aplicación y sus funciones).
+- Su consentimiento cuando inicie voluntariamente descargas o navegación hacia recursos externos.
+- Nuestro interés legítimo en mantener la seguridad y el correcto funcionamiento técnico de la Aplicación, sin menoscabo de sus derechos.
+
+
+6. COMPARTICIÓN DE DATOS CON TERCEROS
+-------------------------------------
+No vendemos, alquilamos ni compartimos sus datos personales con terceros con fines comerciales.
+
+La Aplicación puede interactuar con:
+
+- El sistema operativo del dispositivo (Android) y componentes técnicos necesarios para almacenamiento, selección de archivos y descargas.
+- Servidores de terceros únicamente cuando usted introduce o visita una URL para descargar un PDF. En ese caso, usted se conecta directamente a ese recurso externo bajo la responsabilidad de su proveedor.
+
+No integramos SDKs de publicidad ni de analítica invasiva.
+
+
+7. PERMISOS DE LA APLICACIÓN
+----------------------------
+Según la versión y el sistema operativo, Minimal PDF puede solicitar o usar permisos como:
+
+- INTERNET: para descargar PDFs por URL o usar el mini-navegador cuando usted lo solicite.
+- Acceso a archivos / almacenamiento (según la versión de Android): para importar PDFs desde el dispositivo o gestionar archivos locales necesarios para la biblioteca y las descargas.
+
+Estos permisos se usan exclusivamente para las funciones descritas. No se usan para escanear su dispositivo con fines ajenos a la biblioteca de PDFs.
+
+
+8. CONSERVACIÓN
+---------------
+Los datos locales se conservan en su dispositivo mientras mantenga instalada la Aplicación o hasta que usted los elimine.
+
+Si desinstala Minimal PDF, los datos almacenados en el espacio privado de la Aplicación suelen eliminarse conforme a las reglas del sistema operativo. Las copias que usted haya exportado o guardado fuera de la Aplicación (por ejemplo, un PDF firmado exportado a otra ubicación) seguirán existiendo bajo su control.
+
+
+9. SEGURIDAD
+------------
+Adoptamos medidas técnicas razonables propias de una aplicación offline-first:
+
+- Almacenamiento local en el dispositivo.
+- Sin cuentas en la nube gestionadas por nosotros para sincronizar su biblioteca.
+- Sin envío deliberado del contenido de sus documentos a servidores nuestros.
+
+Ningún sistema es absolutamente seguro. Usted es responsable de proteger su dispositivo (bloqueo de pantalla, actualizaciones del sistema, copias de seguridad y control de acceso físico o remoto al teléfono/tablet).
+
+
+10. MENORES DE EDAD
+-------------------
+Minimal PDF no está dirigida a menores de 13 años (o la edad mínima equivalente en su jurisdicción) y no recopilamos conscientemente datos personales de menores.
+
+Si usted es padre, madre o tutor y cree que un menor nos ha proporcionado datos personales a través de un canal de contacto, escríbanos para que podamos atender la solicitud.
+
+
+11. TRANSFERENCIAS INTERNACIONALES
+----------------------------------
+Dado que no operamos un servicio en la nube propio para almacenar su biblioteca, no realizamos transferencias internacionales de sus documentos ni de sus datos de uso a nuestros servidores.
+
+Si usted descarga un PDF desde un servidor situado en otro país, esa transferencia se produce entre usted y el proveedor del recurso remoto, no como cesión de datos de biblioteca desde Minimal PDF.
+
+
+12. SUS DERECHOS
+----------------
+Según la legislación aplicable, usted puede tener derecho a:
+
+- Acceder a sus datos.
+- Rectificar datos inexactos.
+- Suprimir datos.
+- Limitar u oponerse a determinados tratamientos.
+- Portabilidad, cuando proceda.
+- Retirar el consentimiento cuando el tratamiento se base en él.
+
+En Minimal PDF, la mayoría de estos derechos pueden ejercerse directamente en el dispositivo: editando metadatos, eliminando libros/notas/firmas o desinstalando la Aplicación.
+
+Para otras solicitudes relacionadas con esta Política, contacte en:
+gabrielperezibacache@gmail.com
+
+Si reside en el Espacio Económico Europeo o en una jurisdicción con autoridad de control, también puede presentar una reclamación ante la autoridad competente de protección de datos.
+
+
+13. COMPRAS Y MODELO DE NEGOCIO
+-------------------------------
+Minimal PDF está concebida como aplicación de pago único a través de las tiendas oficiales (por ejemplo, Google Play), sin suscripciones ni anuncios dentro de la Aplicación según el diseño del producto.
+
+El procesamiento del pago de la tienda lo realiza Google (o la plataforma correspondiente) conforme a sus propias condiciones y políticas de privacidad. Nosotros no recibimos ni almacenamos los datos completos de su tarjeta u otros métodos de pago a través de Minimal PDF.
+
+
+14. CAMBIOS EN ESTA POLÍTICA
+----------------------------
+Podemos actualizar esta Política de Privacidad para reflejar cambios en la Aplicación, en la normativa o en nuestras prácticas.
+
+La fecha de “Última actualización” indicará la versión vigente. Le recomendamos revisar este documento periódicamente. Si los cambios son sustanciales, procuraremos informarle de forma razonable (por ejemplo, mediante una nota en la ficha de la Aplicación o en una actualización).
+
+
+15. CONTACTO
+------------
+Si tiene preguntas sobre esta Política de Privacidad o sobre el tratamiento de datos en Minimal PDF, puede contactarnos en:
+
+Desarrollador: Gabriel Simón Pérez Ibacache
+Correo: gabrielperezibacache@gmail.com
+Aplicación: Minimal PDF
+Paquete Android: com.minimalpdf.minimal_pdf
+
+
+16. DECLARACIÓN PARA GOOGLE PLAY
+--------------------------------
+Para mayor claridad frente a los requisitos de Google Play y el formulario de Seguridad de los datos:
+
+- Recopilación de datos: Minimal PDF no envía datos personales del usuario a nuestros servidores.
+- Datos en el dispositivo: la biblioteca, preferencias, anotaciones y firmas se almacenan localmente.
+- Compartición de datos: no se comparten datos con terceros con fines de publicidad, analítica o venta.
+- Cifrado en tránsito: cuando usted descarga un PDF por Internet, la conexión depende del protocolo del recurso remoto (se recomienda HTTPS).
+- Eliminación de datos: puede eliminar datos desde la Aplicación (cuando esté disponible) o desinstalándola.
+
+Nota para publicación: publique este documento en una URL pública (por ejemplo, página web, GitHub Pages o un hosting estático) y use esa URL en la ficha de Google Play Console → Política de privacidad.
+
+
+FIN DEL DOCUMENTO
