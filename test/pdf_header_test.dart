@@ -1,0 +1,44 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:minimal_pdf/core/utils/pdf_header.dart';
+import 'package:path/path.dart' as p;
+
+void main() {
+  group('PdfHeader', () {
+    test('matchesBytes detecta magia %PDF', () {
+      expect(PdfHeader.matchesBytes(const [0x25, 0x50, 0x44, 0x46]), isTrue);
+      expect(PdfHeader.matchesBytes(const [0x00, 0x01, 0x02, 0x03]), isFalse);
+      expect(PdfHeader.matchesBytes(const [0x25]), isFalse);
+    });
+
+    test('assertFile acepta PDF y rechaza basura', () async {
+      final dir = await Directory.systemTemp.createTemp('pdf_header_');
+      addTearDown(() async {
+        if (await dir.exists()) await dir.delete(recursive: true);
+      });
+
+      final good = File(p.join(dir.path, 'ok.pdf'));
+      await good.writeAsBytes(const [0x25, 0x50, 0x44, 0x46, 0x2D]);
+      await PdfHeader.assertFile(good);
+
+      final bad = File(p.join(dir.path, 'bad.pdf'));
+      await bad.writeAsBytes(const [0x00, 0x01, 0x02, 0x03]);
+      expect(
+        () => PdfHeader.assertFile(bad),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('assertBytes permite content-type pdf sin magia', () {
+      expect(
+        () => PdfHeader.assertBytes(
+          Uint8List.fromList(const [1, 2, 3, 4]),
+          contentType: 'application/pdf',
+        ),
+        returnsNormally,
+      );
+    });
+  });
+}

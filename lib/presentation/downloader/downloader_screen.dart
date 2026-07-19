@@ -168,24 +168,26 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
       appBar: AppBar(
         title: const Text('Descargas'),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: downloader.downloading ? null : _capturePdf,
-        icon: downloader.downloading
-            ? SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: colors.onAccent,
-                ),
-              )
-            : const Icon(Icons.download),
-        label: Text(
-          downloader.hasDetectedPdfs
-              ? 'Capturar PDF (${downloader.detectedPdfUrls.length})'
-              : 'Capturar PDF',
-        ),
-      ),
+      floatingActionButton: _supportsEmbeddedBrowser
+          ? FloatingActionButton.extended(
+              onPressed: downloader.downloading ? null : _capturePdf,
+              icon: downloader.downloading
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colors.onAccent,
+                      ),
+                    )
+                  : const Icon(Icons.download),
+              label: Text(
+                downloader.hasDetectedPdfs
+                    ? 'Capturar PDF (${downloader.detectedPdfUrls.length})'
+                    : 'Capturar PDF',
+              ),
+            )
+          : null,
       body: Column(
         children: [
           _DirectUrlBar(

@@ -45,6 +45,12 @@ class LibraryProvider extends ChangeNotifier {
     }
   }
 
+  void clearError() {
+    if (_error == null) return;
+    _error = null;
+    notifyListeners();
+  }
+
   List<Book> get visibleBooks {
     if (_selectedCollectionId == null) return _books;
     return _books
@@ -85,6 +91,8 @@ class LibraryProvider extends ChangeNotifier {
   void selectCollection(int? collectionId) {
     if (_selectedCollectionId == collectionId) return;
     _selectedCollectionId = collectionId;
+    // Evita que un error previo oculte el empty-state de la colección.
+    _error = null;
     notifyListeners();
   }
 
@@ -102,7 +110,9 @@ class LibraryProvider extends ChangeNotifier {
       }
       return book;
     } catch (e) {
-      _error = 'No se pudo importar el PDF.';
+      _error = e is FormatException
+          ? e.message
+          : 'No se pudo importar el PDF.';
       if (kDebugMode) {
         debugPrint('LibraryProvider.importPdf: $e');
       }
@@ -138,6 +148,7 @@ class LibraryProvider extends ChangeNotifier {
 
     try {
       await datasource.saveBook(updated);
+      _error = null;
       await load();
     } catch (e) {
       _error = 'No se pudieron guardar los metadatos.';
@@ -152,11 +163,21 @@ class LibraryProvider extends ChangeNotifier {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return null;
 
-    final collection = await datasource.insertCollection(
-      Collection(name: trimmed, createdAt: DateTime.now()),
-    );
-    await load();
-    return collection;
+    try {
+      final collection = await datasource.insertCollection(
+        Collection(name: trimmed, createdAt: DateTime.now()),
+      );
+      _error = null;
+      await load();
+      return collection;
+    } catch (e) {
+      _error = 'No se pudo crear la colección.';
+      if (kDebugMode) {
+        debugPrint('LibraryProvider.createCollection: $e');
+      }
+      notifyListeners();
+      return null;
+    }
   }
 
   Future<void> deleteCollection(Collection collection) async {
@@ -167,6 +188,7 @@ class LibraryProvider extends ChangeNotifier {
       if (_selectedCollectionId == id) {
         _selectedCollectionId = null;
       }
+      _error = null;
       await load();
     } catch (e) {
       _error = 'No se pudo eliminar la colección.';
@@ -185,6 +207,7 @@ class LibraryProvider extends ChangeNotifier {
     try {
       await datasource.removeBook(id);
       await _deleteBookFile(book.filePath);
+      _error = null;
       await load();
     } catch (e) {
       _error = 'No se pudo eliminar el PDF.';

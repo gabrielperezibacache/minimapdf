@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../core/utils/app_paths.dart';
 import '../../core/utils/file_name_sanitizer.dart';
+import '../../core/utils/pdf_header.dart';
 import '../models/book.dart';
 import 'library_local_datasource.dart';
 
@@ -69,6 +70,16 @@ class PdfImportService {
     PickedPdfFile picked, {
     int? collectionId,
   }) async {
+    final source = File(picked.sourcePath);
+    if (!await source.exists()) {
+      throw StateError('El archivo seleccionado no existe: ${picked.sourcePath}');
+    }
+
+    await PdfHeader.assertFile(
+      source,
+      invalidMessage: 'El archivo seleccionado no es un PDF válido',
+    );
+
     final docs = await _documentsDirectory();
     final libraryDir = Directory(p.join(docs.path, 'library'));
     if (!await libraryDir.exists()) {
@@ -84,26 +95,32 @@ class PdfImportService {
     final sanitized = FileNameSanitizer.sanitize(picked.displayName);
     final unique = FileNameSanitizer.uniqueName(sanitized, existing);
     final destination = p.join(libraryDir.path, unique);
+    final destinationFile = File(destination);
 
-    final source = File(picked.sourcePath);
-    if (!await source.exists()) {
-      throw StateError('El archivo seleccionado no existe: ${picked.sourcePath}');
+    try {
+      await source.copy(destination);
+      final size =
+          picked.fileSize > 0 ? picked.fileSize : await destinationFile.length();
+      final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
+
+      return await _datasource.insertBook(
+        Book(
+          title: title,
+          filePath: destination,
+          fileSize: size,
+          addedAt: DateTime.now(),
+          collectionId: collectionId,
+        ),
+      );
+    } catch (e) {
+      try {
+        if (await destinationFile.exists()) {
+          await destinationFile.delete();
+        }
+      } catch (_) {
+        // Limpieza best-effort.
+      }
+      rethrow;
     }
-
-    await source.copy(destination);
-    final copied = File(destination);
-    final size = picked.fileSize > 0 ? picked.fileSize : await copied.length();
-
-    final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
-
-    return _datasource.insertBook(
-      Book(
-        title: title,
-        filePath: destination,
-        fileSize: size,
-        addedAt: DateTime.now(),
-        collectionId: collectionId,
-      ),
-    );
   }
 }

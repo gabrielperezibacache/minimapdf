@@ -159,7 +159,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
     controller.dispose();
     if (name == null || !mounted) return;
 
-    await context.read<LibraryProvider>().createCollection(name);
+    final library = context.read<LibraryProvider>();
+    await library.createCollection(name);
+    if (!mounted) return;
+    if (library.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(library.error!)),
+      );
+    }
   }
 
   Future<void> _confirmDeleteCollection(Collection collection) async {
@@ -284,13 +291,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ),
               ),
             ),
-            if (library.error != null && library.books.isEmpty)
+            if (library.error != null)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: _LibraryErrorBanner(
                     message: library.error!,
                     onRetry: library.load,
+                    onDismiss: library.clearError,
                   ),
                 ),
               ),
@@ -312,7 +320,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 child: _EmptyLibrary(
                   onImport: _importPdf,
                   filtered: library.selectedCollectionId != null,
-                  hasError: library.error != null,
+                  // Solo oculta empty global si no hay libros y hay error de carga.
+                  hasError:
+                      library.error != null && library.books.isEmpty,
                 ),
               )
             else if (library.gridMode)
@@ -477,10 +487,12 @@ class _LibraryErrorBanner extends StatelessWidget {
   const _LibraryErrorBanner({
     required this.message,
     required this.onRetry,
+    this.onDismiss,
   });
 
   final String message;
   final Future<void> Function() onRetry;
+  final VoidCallback? onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -488,7 +500,7 @@ class _LibraryErrorBanner extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
       decoration: BoxDecoration(
         color: colors.surface,
         border: Border.all(color: colors.border, width: 1),
@@ -507,6 +519,12 @@ class _LibraryErrorBanner extends StatelessWidget {
             onPressed: onRetry,
             child: const Text('Reintentar'),
           ),
+          if (onDismiss != null)
+            IconButton(
+              tooltip: 'Cerrar',
+              onPressed: onDismiss,
+              icon: Icon(Icons.close, size: 18, color: colors.textMuted),
+            ),
         ],
       ),
     );

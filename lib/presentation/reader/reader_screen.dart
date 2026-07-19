@@ -108,7 +108,11 @@ class _ReaderScreenState extends State<ReaderScreen>
     _annotations?.removeListener(_onAnnotationsChanged);
     _annotations?.dispose();
     // El guardado fiable ocurre en _onExit / lifecycle; aquí best-effort.
-    unawaited(_progressSaver?.saveNow(page: _currentPage) ?? Future.value());
+    final saver = _progressSaver;
+    if (saver != null) {
+      unawaited(saver.saveNow(page: _currentPage));
+      saver.dispose();
+    }
     _controller.dispose();
     super.dispose();
   }

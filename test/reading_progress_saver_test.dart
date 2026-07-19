@@ -16,7 +16,6 @@ void main() {
   late AppDatabase appDatabase;
   late LibraryLocalDatasource datasource;
   late Book book;
-  late ReadingProgressSaver saver;
 
   setUpAll(() {
     sqfliteFfiInit();
@@ -41,9 +40,6 @@ void main() {
         lastPageRead: 1,
       ),
     );
-
-    saver = ReadingProgressSaver(datasource);
-    saver.attach(bookId: book.id!, initialPage: 1);
   });
 
   tearDown(() async {
@@ -54,22 +50,30 @@ void main() {
   });
 
   test('saveNow persiste la página al cerrar/pausar', () async {
+    final saver = ReadingProgressSaver(datasource);
+    saver.attach(bookId: book.id!, initialPage: 1);
     saver.onPageChanged(12);
     await saver.saveNow();
 
     final updated = await datasource.findBookById(book.id!);
     expect(updated?.lastPageRead, 12);
     expect(updated?.lastReadAt, isNotNull);
+    saver.dispose();
   });
 
   test('no escribe si no hubo cambio de página (saveIfNeeded)', () async {
+    final saver = ReadingProgressSaver(datasource);
+    saver.attach(bookId: book.id!, initialPage: 1);
     await saver.saveIfNeeded();
     final unchanged = await datasource.findBookById(book.id!);
     expect(unchanged?.lastPageRead, 1);
     expect(unchanged?.lastReadAt, isNull);
+    saver.dispose();
   });
 
   test('no pierde página si cambia durante un guardado en vuelo', () async {
+    final saver = ReadingProgressSaver(datasource);
+    saver.attach(bookId: book.id!, initialPage: 1);
     saver.onPageChanged(5);
     final first = saver.saveNow();
     saver.onPageChanged(10);
@@ -79,5 +83,22 @@ void main() {
     final updated = await datasource.findBookById(book.id!);
     expect(updated?.lastPageRead, 10);
     expect(saver.isDirty, isFalse);
+    saver.dispose();
+  });
+
+  test('autosave diferido persiste tras cambio de página', () async {
+    final saver = ReadingProgressSaver(
+      datasource,
+      autosaveDelay: const Duration(milliseconds: 40),
+    );
+    saver.attach(bookId: book.id!, initialPage: 1);
+    saver.onPageChanged(7);
+
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+
+    final updated = await datasource.findBookById(book.id!);
+    expect(updated?.lastPageRead, 7);
+    expect(saver.isDirty, isFalse);
+    saver.dispose();
   });
 }

@@ -110,11 +110,76 @@ void main() {
       documentsDirectory: () async => tempDir,
       useFlutterDownloader: false,
     );
-    final provider = DownloaderProvider(service)..setTargetCollectionId(collection.id);
+    final provider = DownloaderProvider(service)
+      ..setTargetCollectionId(collection.id);
 
     final book = await provider.downloadUrl('https://example.com/doc.pdf');
     expect(book, isNotNull);
     expect(book!.collectionId, collection.id);
+    service.dispose();
+  });
+
+  test('downloadFromUrl limpia archivo si no es PDF', () async {
+    final client = MockClient((request) async {
+      return http.Response.bytes(
+        const [0x00, 0x01, 0x02, 0x03],
+        200,
+        headers: {'content-type': 'text/plain'},
+      );
+    });
+
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: client,
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+
+    await expectLater(
+      service.downloadFromUrl('https://example.com/not-a-pdf.pdf'),
+      throwsA(isA<FormatException>()),
+    );
+
+    final libraryDir = Directory(p.join(tempDir.path, 'library'));
+    if (await libraryDir.exists()) {
+      final leftovers = await libraryDir.list().toList();
+      expect(leftovers, isEmpty);
+    }
+    service.dispose();
+  });
+
+  test('DownloaderProvider limita notificaciones de progreso', () async {
+    var notifyCount = 0;
+    final client = MockClient((request) async {
+      return http.Response.bytes(
+        List<int>.filled(64 * 1024, 0x20)
+          ..[0] = 0x25
+          ..[1] = 0x50
+          ..[2] = 0x44
+          ..[3] = 0x46,
+        200,
+        headers: {
+          'content-type': 'application/pdf',
+          'content-length': '${64 * 1024}',
+        },
+      );
+    });
+
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: client,
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+    final provider = DownloaderProvider(
+      service,
+      progressThrottle: const Duration(milliseconds: 50),
+    )..addListener(() => notifyCount++);
+
+    final book = await provider.downloadUrl('https://example.com/big.pdf');
+    expect(book, isNotNull);
+    // Con throttle no debería notificar una vez por cada chunk pequeño.
+    expect(notifyCount, lessThan(40));
     service.dispose();
   });
 }

@@ -6,9 +6,13 @@ import '../../data/models/book.dart';
 
 /// Estado del gestor de descargas y captura desde el mini-navegador.
 class DownloaderProvider extends ChangeNotifier {
-  DownloaderProvider(this.downloadService);
+  DownloaderProvider(
+    this.downloadService, {
+    this._progressThrottle = const Duration(milliseconds: 120),
+  });
 
   final PdfDownloadService downloadService;
+  final Duration _progressThrottle;
 
   String _urlInput = '';
   String _browserUrl = 'https://www.google.com/search?q=filetype:pdf';
@@ -19,6 +23,7 @@ class DownloaderProvider extends ChangeNotifier {
   String? _statusMessage;
   Book? _lastDownloaded;
   int? _targetCollectionId;
+  DateTime? _lastProgressNotify;
 
   String get urlInput => _urlInput;
   String get browserUrl => _browserUrl;
@@ -58,6 +63,25 @@ class DownloaderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearError() {
+    if (_error == null) return;
+    _error = null;
+    notifyListeners();
+  }
+
+  void _reportProgress(double value) {
+    _progress = value;
+    final now = DateTime.now();
+    final last = _lastProgressNotify;
+    if (last == null ||
+        now.difference(last) >= _progressThrottle ||
+        value >= 1.0 ||
+        value <= 0.0) {
+      _lastProgressNotify = now;
+      notifyListeners();
+    }
+  }
+
   Future<Book?> downloadUrl(String rawUrl) async {
     final url = PdfUrlUtils.normalizeUrl(rawUrl);
     if (!PdfUrlUtils.isValidHttpUrl(url)) {
@@ -71,15 +95,13 @@ class DownloaderProvider extends ChangeNotifier {
     _error = null;
     _statusMessage = 'Descargando…';
     _lastDownloaded = null;
+    _lastProgressNotify = null;
     notifyListeners();
 
     try {
       final book = await downloadService.downloadFromUrl(
         url,
-        onProgress: (value) {
-          _progress = value;
-          notifyListeners();
-        },
+        onProgress: _reportProgress,
         collectionId: _targetCollectionId,
       );
       _lastDownloaded = book;

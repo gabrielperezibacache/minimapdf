@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/utils/app_paths.dart';
 import '../../core/utils/file_name_sanitizer.dart';
+import '../../core/utils/pdf_header.dart';
 import '../../core/utils/pdf_url_utils.dart';
 import '../models/book.dart';
 import 'library_local_datasource.dart';
@@ -117,6 +118,7 @@ class PdfDownloadService {
     final destination = p.join(libraryDir.path, unique);
     final tempPath = '$destination.part';
     final tempFile = File(tempPath);
+    final destinationFile = File(destination);
 
     var received = 0;
     IOSink? sink;
@@ -133,13 +135,17 @@ class PdfDownloadService {
       await sink.close();
       sink = null;
 
-      await _assertPdfFile(tempFile, contentType: contentType);
+      await PdfHeader.assertFile(
+        tempFile,
+        contentType: contentType,
+        invalidMessage: 'La URL no devolvió un PDF válido',
+      );
       await tempFile.rename(destination);
       onProgress?.call(1);
 
       final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
-      final size = await File(destination).length();
-      return _datasource.insertBook(
+      final size = await destinationFile.length();
+      return await _datasource.insertBook(
         Book(
           title: title,
           filePath: destination,
@@ -150,9 +156,8 @@ class PdfDownloadService {
       );
     } catch (e) {
       await sink?.close();
-      if (await tempFile.exists()) {
-        await tempFile.delete();
-      }
+      await _deleteQuietly(tempFile);
+      await _deleteQuietly(destinationFile);
       rethrow;
     }
   }
@@ -187,19 +192,34 @@ class PdfDownloadService {
       throw StateError('No se pudo encolar la descarga nativa');
     }
 
-    final path = await _waitForNativeTask(
-      taskId,
-      expectedPath: p.join(tempDir.path, fileName),
-      onProgress: onProgress,
-    );
+    try {
+      final path = await _waitForNativeTask(
+        taskId,
+        expectedPath: p.join(tempDir.path, fileName),
+        onProgress: onProgress,
+      );
 
-    final source = File(path);
-    await _assertPdfFile(source);
-    return _persistFile(
-      source: source,
-      fileName: fileName,
-      collectionId: collectionId,
-    );
+      final source = File(path);
+      await PdfHeader.assertFile(source);
+      return await _persistFile(
+        source: source,
+        fileName: fileName,
+        collectionId: collectionId,
+      );
+    } catch (e) {
+      await _cancelNativeTask(taskId);
+      rethrow;
+    }
+  }
+
+  Future<void> _cancelNativeTask(String taskId) async {
+    try {
+      await FlutterDownloader.cancel(taskId: taskId);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('FlutterDownloader.cancel: $e');
+      }
+    }
   }
 
   Future<String> _waitForNativeTask(
@@ -255,6 +275,7 @@ class PdfDownloadService {
     final existing = await _existingFileNames(libraryDir);
     final unique = FileNameSanitizer.uniqueName(fileName, existing);
     final destination = p.join(libraryDir.path, unique);
+    final destinationFile = File(destination);
 
     await source.copy(destination);
     try {
@@ -263,17 +284,22 @@ class PdfDownloadService {
       // El temporal nativo puede quedar; no es crítico.
     }
 
-    final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
-    final size = await File(destination).length();
-    return _datasource.insertBook(
-      Book(
-        title: title,
-        filePath: destination,
-        fileSize: size,
-        addedAt: DateTime.now(),
-        collectionId: collectionId,
-      ),
-    );
+    try {
+      final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
+      final size = await destinationFile.length();
+      return await _datasource.insertBook(
+        Book(
+          title: title,
+          filePath: destination,
+          fileSize: size,
+          addedAt: DateTime.now(),
+          collectionId: collectionId,
+        ),
+      );
+    } catch (e) {
+      await _deleteQuietly(destinationFile);
+      rethrow;
+    }
   }
 
   Future<Directory> _ensureLibraryDir() async {
@@ -293,30 +319,14 @@ class PdfDownloadService {
         .toSet();
   }
 
-  Future<void> _assertPdfFile(File file, {String contentType = ''}) async {
-    if (!await file.exists()) {
-      throw const FormatException('PDF vacío');
-    }
-    final size = await file.length();
-    if (size == 0) {
-      throw const FormatException('PDF vacío');
-    }
-
-    final raf = await file.open();
+  Future<void> _deleteQuietly(File file) async {
     try {
-      final header = await raf.read(4);
-      final isPdfHeader = header.length >= 4 &&
-          header[0] == 0x25 &&
-          header[1] == 0x50 &&
-          header[2] == 0x44 &&
-          header[3] == 0x46;
-      if (isPdfHeader) return;
-    } finally {
-      await raf.close();
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {
+      // Limpieza best-effort.
     }
-
-    if (contentType.toLowerCase().contains('pdf')) return;
-    throw const FormatException('La URL no devolvió un PDF válido');
   }
 
   void dispose() {

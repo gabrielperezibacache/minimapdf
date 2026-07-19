@@ -181,7 +181,7 @@ class _TocPaneState extends State<_TocPane> {
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
-    final entries = PdfTocEntry.fromPageCount(widget.pagesCount);
+    final pagesCount = widget.pagesCount < 0 ? 0 : widget.pagesCount;
 
     return Column(
       children: [
@@ -224,9 +224,9 @@ class _TocPaneState extends State<_TocPane> {
         const SizedBox(height: 4),
         Expanded(
           child: ListView.builder(
-            itemCount: entries.length,
+            itemCount: pagesCount,
             itemBuilder: (context, index) {
-              final entry = entries[index];
+              final entry = PdfTocEntry.forPage(index + 1);
               final selected = entry.pageNumber == widget.currentPage;
               return InkWell(
                 onTap: () => widget.onOpenPage(entry.pageNumber),

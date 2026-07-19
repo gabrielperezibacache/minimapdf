@@ -143,4 +143,35 @@ void main() {
     expect(provider.selectedCollectionId, isNull);
     expect(provider.books.single.collectionId, isNull);
   });
+
+  test('bookFileExists refleja el archivo en disco', () async {
+    final book = await provider.importPdf();
+    expect(await provider.bookFileExists(book!), isTrue);
+
+    await File(book.filePath).delete();
+    expect(await provider.bookFileExists(book), isFalse);
+  });
+
+  test('importPdf rechaza archivos sin cabecera PDF', () async {
+    final junk = File(p.join(tempDir.path, 'fake.pdf'));
+    await junk.writeAsBytes(const [0x00, 0x01, 0x02, 0x03]);
+
+    final badProvider = LibraryProvider(
+      datasource: datasource,
+      importService: PdfImportService(
+        datasource,
+        picker: () async => PickedPdfFile(
+          sourcePath: junk.path,
+          displayName: 'fake.pdf',
+          fileSize: 4,
+        ),
+        documentsDirectory: () async => tempDir,
+      ),
+    );
+
+    final result = await badProvider.importPdf();
+    expect(result, isNull);
+    expect(badProvider.error, isNotNull);
+    expect(badProvider.books, isEmpty);
+  });
 }

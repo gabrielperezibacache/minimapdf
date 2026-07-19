@@ -1,6 +1,6 @@
 /// Entrada del índice del PDF (outline nativo no expuesto por pdfx).
 ///
-/// Se genera un índice navegable por páginas para saltos rápidos.
+/// Se genera bajo demanda por página para evitar listas enormes en memoria.
 class PdfTocEntry {
   const PdfTocEntry({
     required this.title,
@@ -12,15 +12,17 @@ class PdfTocEntry {
   final int pageNumber;
   final int level;
 
-  /// Índice por páginas (lazy-friendly; la UI usa ListView.builder).
+  /// Entrada puntual para [ListView.builder] (O(1), sin preasignar N).
+  static PdfTocEntry forPage(int pageNumber) {
+    return PdfTocEntry(title: 'Página $pageNumber', pageNumber: pageNumber);
+  }
+
+  /// Índice por páginas (útil en tests; la UI preferirá [forPage]).
   static List<PdfTocEntry> fromPageCount(int pagesCount) {
     if (pagesCount < 1) return const [];
     return List<PdfTocEntry>.generate(
       pagesCount,
-      (index) {
-        final page = index + 1;
-        return PdfTocEntry(title: 'Página $page', pageNumber: page);
-      },
+      (index) => forPage(index + 1),
       growable: false,
     );
   }

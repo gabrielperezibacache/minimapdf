@@ -74,4 +74,10 @@ void main() {
     expect(toc.map((e) => e.pageNumber), [1, 2, 3]);
     expect(toc.first.title, 'Página 1');
   });
+
+  test('PdfTocEntry.forPage es O(1) sin lista completa', () {
+    final entry = PdfTocEntry.forPage(42);
+    expect(entry.pageNumber, 42);
+    expect(entry.title, 'Página 42');
+  });
 }
