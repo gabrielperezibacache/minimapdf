@@ -25,7 +25,9 @@ void main() {
   });
 
   setUp(() async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      'has_seen_welcome': true,
+    });
     preferences = await AppPreferences.open();
     tempDir = await Directory.systemTemp.createTemp('minimal_pdf_widget_');
     appDatabase = AppDatabase(

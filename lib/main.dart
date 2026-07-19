@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -15,6 +16,7 @@ import 'data/datasources/library_local_datasource.dart';
 import 'data/datasources/pdf_download_service.dart';
 import 'data/datasources/pdf_import_service.dart';
 import 'presentation/library/library_screen.dart';
+import 'presentation/onboarding/welcome_screen.dart';
 import 'presentation/providers/downloader_provider.dart';
 import 'presentation/providers/library_provider.dart';
 import 'presentation/providers/theme_provider.dart';
@@ -57,6 +59,9 @@ class MinimalPdfApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showWelcome =
+        preferences != null && !preferences!.hasSeenWelcome;
+
     return MultiProvider(
       providers: [
         Provider<AppPreferences?>.value(value: preferences),
@@ -97,13 +102,33 @@ class MinimalPdfApp extends StatelessWidget {
           ),
         ),
       ],
-      child: const _MinimalPdfRoot(),
+      child: _MinimalPdfRoot(showWelcomeInitially: showWelcome),
     );
   }
 }
 
-class _MinimalPdfRoot extends StatelessWidget {
-  const _MinimalPdfRoot();
+class _MinimalPdfRoot extends StatefulWidget {
+  const _MinimalPdfRoot({required this.showWelcomeInitially});
+
+  final bool showWelcomeInitially;
+
+  @override
+  State<_MinimalPdfRoot> createState() => _MinimalPdfRootState();
+}
+
+class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
+  late bool _showWelcome = widget.showWelcomeInitially;
+  bool _finishingWelcome = false;
+
+  void _finishWelcome() {
+    if (_finishingWelcome || !_showWelcome) return;
+    _finishingWelcome = true;
+    setState(() => _showWelcome = false);
+    final prefs = context.read<AppPreferences?>();
+    if (prefs != null) {
+      unawaited(prefs.markWelcomeSeen());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +150,25 @@ class _MinimalPdfRoot extends StatelessWidget {
             child: child ?? const SizedBox.shrink(),
           );
         },
-        home: const LibraryScreen(),
+        home: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 380),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          child: _showWelcome
+              ? WelcomeScreen(
+                  key: const ValueKey<String>('welcome'),
+                  onFinished: _finishWelcome,
+                )
+              : const LibraryScreen(
+                  key: ValueKey<String>('library'),
+                ),
+        ),
       ),
     );
   }

@@ -2,7 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../theme/app_theme_option.dart';
 
-/// Preferencias locales persistentes (tema, biblioteca, lector).
+/// Preferencias locales persistentes (tema, biblioteca, lector, onboarding).
 class AppPreferences {
   AppPreferences(this._prefs);
 
@@ -12,6 +12,7 @@ class AppPreferences {
   static const _gridModeKey = 'library_grid_mode';
   static const _obsidianFilterKey = 'reader_obsidian_filter';
   static const _scrollModeKey = 'reader_scroll_mode';
+  static const _hasSeenWelcomeKey = 'has_seen_welcome';
 
   static Future<AppPreferences> open() async {
     final prefs = await SharedPreferences.getInstance();
@@ -49,5 +50,12 @@ class AppPreferences {
 
   Future<void> setScrollModeName(String modeName) async {
     await _prefs.setString(_scrollModeKey, modeName);
+  }
+
+  /// `true` si ya se mostró (o se omitió) la bienvenida de primera apertura.
+  bool get hasSeenWelcome => _prefs.getBool(_hasSeenWelcomeKey) ?? false;
+
+  Future<void> markWelcomeSeen() async {
+    await _prefs.setBool(_hasSeenWelcomeKey, true);
   }
 }

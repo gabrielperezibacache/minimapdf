@@ -29,4 +29,25 @@ void main() {
     expect(reloaded.obsidianFilter, isFalse);
     expect(reloaded.scrollModeName, 'horizontalPaged');
   });
+
+  test('por defecto no se ha visto la bienvenida', () async {
+    final prefs = await AppPreferences.open();
+    expect(prefs.hasSeenWelcome, isFalse);
+  });
+
+  test('markWelcomeSeen persiste entre aperturas', () async {
+    final first = await AppPreferences.open();
+    await first.markWelcomeSeen();
+    expect(first.hasSeenWelcome, isTrue);
+
+    final second = await AppPreferences.open();
+    expect(second.hasSeenWelcome, isTrue);
+  });
+
+  test('markWelcomeSeen es idempotente', () async {
+    final prefs = await AppPreferences.open();
+    await prefs.markWelcomeSeen();
+    await prefs.markWelcomeSeen();
+    expect(prefs.hasSeenWelcome, isTrue);
+  });
 }
