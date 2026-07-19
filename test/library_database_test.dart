@@ -151,6 +151,32 @@ void main() {
         'Dos',
       );
       expect(await library.getBookmarksForBook(book.id!), hasLength(1));
+
+      // Re-marcar sin nota no debe borrar la existente.
+      await library.upsertBookmark(
+        Bookmark(
+          bookId: book.id!,
+          pageNumber: 4,
+          createdAt: DateTime(2026, 3, 7),
+        ),
+      );
+      expect(
+        (await library.getBookmarkForPage(book.id!, 4))?.noteText,
+        'Dos',
+      );
+
+      await library.upsertBookmark(
+        Bookmark(
+          bookId: book.id!,
+          pageNumber: 4,
+          createdAt: DateTime(2026, 3, 8),
+        ),
+        clearNoteText: true,
+      );
+      expect(
+        (await library.getBookmarkForPage(book.id!, 4))?.noteText,
+        isNull,
+      );
     });
 
     test('crear, listar, actualizar y cascade al borrar libro', () async {

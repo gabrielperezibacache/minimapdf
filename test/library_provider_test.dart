@@ -152,6 +152,36 @@ void main() {
     expect(await provider.bookFileExists(book), isFalse);
   });
 
+  test('importPdf concurrente se ignora si ya hay importación', () async {
+    Future<PickedPdfFile?> slowPicker() async {
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      final sourcePdf = File(p.join(tempDir.path, 'slow.pdf'));
+      await sourcePdf.writeAsBytes(const [0x25, 0x50, 0x44, 0x46]);
+      return PickedPdfFile(
+        sourcePath: sourcePdf.path,
+        displayName: 'Slow.pdf',
+        fileSize: 4,
+      );
+    }
+
+    final slowProvider = LibraryProvider(
+      datasource: datasource,
+      importService: PdfImportService(
+        datasource,
+        picker: slowPicker,
+        documentsDirectory: () async => tempDir,
+      ),
+    );
+
+    final first = slowProvider.importPdf();
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    final second = await slowProvider.importPdf();
+    expect(second, isNull);
+    final book = await first;
+    expect(book, isNotNull);
+    expect(slowProvider.books, hasLength(1));
+  });
+
   test('importPdf rechaza archivos sin cabecera PDF', () async {
     final junk = File(p.join(tempDir.path, 'fake.pdf'));
     await junk.writeAsBytes(const [0x00, 0x01, 0x02, 0x03]);

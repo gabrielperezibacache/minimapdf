@@ -318,11 +318,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: _EmptyLibrary(
-                  onImport: _importPdf,
+                  onImport: library.importing ? null : _importPdf,
                   filtered: library.selectedCollectionId != null,
                   // Solo oculta empty global si no hay libros y hay error de carga.
                   hasError:
                       library.error != null && library.books.isEmpty,
+                  importing: library.importing,
                 ),
               )
             else if (library.gridMode)
@@ -536,11 +537,13 @@ class _EmptyLibrary extends StatelessWidget {
     required this.onImport,
     required this.filtered,
     this.hasError = false,
+    this.importing = false,
   });
 
-  final VoidCallback onImport;
+  final VoidCallback? onImport;
   final bool filtered;
   final bool hasError;
+  final bool importing;
 
   @override
   Widget build(BuildContext context) {
@@ -577,7 +580,7 @@ class _EmptyLibrary extends StatelessWidget {
               const SizedBox(height: 20),
               OutlinedButton(
                 onPressed: onImport,
-                child: const Text('Importar PDF'),
+                child: Text(importing ? 'Importando…' : 'Importar PDF'),
               ),
             ],
           ],

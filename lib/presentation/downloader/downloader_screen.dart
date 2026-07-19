@@ -261,6 +261,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                         _webController = controller;
                       },
                       onLoadStart: (controller, url) {
+                        if (!mounted) return;
                         setState(() => _pageProgress = 0.05);
                         if (url != null) {
                           _browserUrlController.text = url.toString();
@@ -270,12 +271,14 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                         }
                       },
                       onProgressChanged: (controller, progress) {
+                        if (!mounted) return;
                         setState(() => _pageProgress = progress / 100);
                         if (progress == 100) {
                           _pullToRefreshController?.endRefreshing();
                         }
                       },
                       onLoadStop: (controller, url) async {
+                        if (!mounted) return;
                         setState(() => _pageProgress = 1);
                         _pullToRefreshController?.endRefreshing();
                         if (url != null) {

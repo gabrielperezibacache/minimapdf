@@ -58,8 +58,12 @@ class LibraryLocalDatasource {
   Future<List<Bookmark>> listBookmarks(int bookId) =>
       _db.getBookmarksForBook(bookId);
 
-  Future<Bookmark> upsertBookmark(Bookmark bookmark) =>
-      _db.upsertBookmark(bookmark);
+  Future<Bookmark> upsertBookmark(
+    Bookmark bookmark, {
+    bool clearNoteText = false,
+  }) {
+    return _db.upsertBookmark(bookmark, clearNoteText: clearNoteText);
+  }
 
   Future<int> saveBookmark(Bookmark bookmark) => _db.updateBookmark(bookmark);
 

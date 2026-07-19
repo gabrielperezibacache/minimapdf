@@ -224,7 +224,13 @@ class LibraryDatabase {
   }
 
   /// Crea o actualiza el marcador de una página (única por libro+página).
-  Future<Bookmark> upsertBookmark(Bookmark bookmark) async {
+  ///
+  /// Si [clearNoteText] es false y [bookmark.noteText] es null, se conserva
+  /// la nota existente (evita borrados accidentales al re-marcar).
+  Future<Bookmark> upsertBookmark(
+    Bookmark bookmark, {
+    bool clearNoteText = false,
+  }) async {
     final existing = await getBookmarkForPage(
       bookmark.bookId,
       bookmark.pageNumber,
@@ -234,8 +240,10 @@ class LibraryDatabase {
     }
 
     final merged = existing.copyWith(
-      noteText: bookmark.noteText,
-      clearNoteText: bookmark.noteText == null,
+      noteText: clearNoteText
+          ? null
+          : (bookmark.noteText ?? existing.noteText),
+      clearNoteText: clearNoteText,
     );
     await updateBookmark(merged);
     return merged;

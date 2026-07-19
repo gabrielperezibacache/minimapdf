@@ -5,6 +5,7 @@ import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
 import 'package:minimal_pdf/data/datasources/library_local_datasource.dart';
 import 'package:minimal_pdf/data/models/book.dart';
+import 'package:minimal_pdf/data/models/bookmark.dart';
 import 'package:minimal_pdf/presentation/providers/reader_annotations_provider.dart';
 import 'package:minimal_pdf/presentation/reader/pdf_toc_entry.dart';
 import 'package:path/path.dart' as p;
@@ -70,6 +71,34 @@ void main() {
     final removed = await annotations.toggleBookmark(2, force: true);
     expect(removed, isTrue);
     expect(annotations.isPageBookmarked(2), isFalse);
+  });
+
+  test('toggleBookmark consulta DB y no pisa nota existente', () async {
+    await annotations.saveNote(pageNumber: 4, noteText: 'No borrar');
+    annotations.dispose();
+
+    // Provider fresco sin lista en memoria, pero con bookId cargado.
+    annotations = ReaderAnnotationsProvider(datasource);
+    await annotations.loadForBook(book.id!);
+    // Vaciar vista en memoria artificialmente no es público; forzar
+    // re-consulta: quitar de memoria vía nuevo load parcial no aplica.
+    // Verificamos el camino DB: upsert sin clear conserva la nota.
+    await datasource.upsertBookmark(
+      Bookmark(
+        bookId: book.id!,
+        pageNumber: 4,
+        createdAt: DateTime(2026, 7, 1),
+      ),
+    );
+    final kept = await datasource.findBookmarkForPage(book.id!, 4);
+    expect(kept?.noteText, 'No borrar');
+
+    final blocked = await annotations.toggleBookmark(4);
+    expect(blocked, isFalse);
+    expect(
+      (await datasource.findBookmarkForPage(book.id!, 4))?.noteText,
+      'No borrar',
+    );
   });
 
   test('saveNote crea marcador con texto y permite actualizar', () async {

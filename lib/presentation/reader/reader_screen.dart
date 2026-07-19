@@ -154,9 +154,11 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   void _jumpToPage(int page) {
     if (page < 1) return;
-    _controller.jumpToPage(page);
+    final maxPage = _pagesCount > 0 ? _pagesCount : page;
+    final target = page > maxPage ? maxPage : page;
+    _controller.jumpToPage(target);
     setState(() {
-      _currentPage = page;
+      _currentPage = target;
       _sidebarVisible = false;
       _noteDismissed = false;
     });
@@ -388,7 +390,8 @@ class _ReaderScreenState extends State<ReaderScreen>
     final isVertical = _scrollMode.isVertical;
 
     return PdfView(
-      key: ValueKey(_scrollMode),
+      // Sin ValueKey: cambiar scrollDirection no recrea el PdfView
+      // (evita fugas de listeners/caches de pdfx al alternar modo).
       controller: _controller,
       scrollDirection: isVertical ? Axis.vertical : Axis.horizontal,
       pageSnapping: !isVertical,
@@ -400,6 +403,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       ),
       onPageChanged: _onPageChanged,
       onDocumentLoaded: (document) {
+        if (!mounted) return;
         final count = document.pagesCount;
         setState(() {
           _pagesCount = count;
@@ -414,6 +418,7 @@ class _ReaderScreenState extends State<ReaderScreen>
         }
       },
       onDocumentError: (error) {
+        if (!mounted) return;
         setState(() => _error = 'No se pudo abrir el PDF.\n$error');
       },
       builders: PdfViewBuilders<DefaultBuilderOptions>(

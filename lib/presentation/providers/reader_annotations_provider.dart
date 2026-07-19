@@ -66,7 +66,11 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     final bookId = _bookId;
     if (_disposed || bookId == null || pageNumber < 1) return true;
 
-    final existing = bookmarkForPage(pageNumber);
+    // Consulta DB para no pisar notas si la lista en memoria aún no cargó.
+    Bookmark? existing = bookmarkForPage(pageNumber);
+    existing ??= await _datasource.findBookmarkForPage(bookId, pageNumber);
+    if (_disposed) return true;
+
     if (existing != null) {
       final hasNote =
           existing.noteText != null && existing.noteText!.trim().isNotEmpty;
@@ -92,6 +96,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     }
 
     try {
+      // upsert sin clearNoteText: conserva nota si ya existía en carrera.
       await _datasource.upsertBookmark(
         Bookmark(
           bookId: bookId,
@@ -122,13 +127,16 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     if (_disposed || bookId == null || pageNumber < 1) return;
 
     final trimmed = noteText.trim();
-    final existing = bookmarkForPage(pageNumber);
+    final existing = bookmarkForPage(pageNumber) ??
+        await _datasource.findBookmarkForPage(bookId, pageNumber);
+    if (_disposed) return;
 
     try {
       if (trimmed.isEmpty) {
         if (existing != null) {
           await _datasource.upsertBookmark(
-            existing.copyWith(clearNoteText: true),
+            existing,
+            clearNoteText: true,
           );
         }
         if (_disposed) return;

@@ -51,5 +51,31 @@ void main() {
         returnsNormally,
       );
     });
+
+    test('acepta %PDF tras BOM/junk en la ventana inicial', () async {
+      final dir = await Directory.systemTemp.createTemp('pdf_header_bom_');
+      addTearDown(() async {
+        if (await dir.exists()) await dir.delete(recursive: true);
+      });
+
+      final file = File(p.join(dir.path, 'bom.pdf'));
+      await file.writeAsBytes([
+        0xEF, 0xBB, 0xBF, // BOM
+        0x00, 0x00,
+        0x25, 0x50, 0x44, 0x46, // %PDF
+        0x2D, 0x31,
+      ]);
+      await PdfHeader.assertFile(file);
+      expect(
+        PdfHeader.containsMagic(const [
+          0x00,
+          0x25,
+          0x50,
+          0x44,
+          0x46,
+        ]),
+        isTrue,
+      );
+    });
   });
 }

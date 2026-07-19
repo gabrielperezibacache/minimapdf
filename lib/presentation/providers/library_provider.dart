@@ -27,6 +27,7 @@ class LibraryProvider extends ChangeNotifier {
   bool _importing = false;
   String? _error;
   bool _gridMode;
+  int _loadGeneration = 0;
 
   List<Book> get books => _books;
   List<Collection> get collections => _collections;
@@ -59,6 +60,7 @@ class LibraryProvider extends ChangeNotifier {
   }
 
   Future<void> load() async {
+    final generation = ++_loadGeneration;
     _loading = true;
     _error = null;
     notifyListeners();
@@ -68,16 +70,20 @@ class LibraryProvider extends ChangeNotifier {
         datasource.listRecentBooks(), // todos, ordenados por lectura reciente
         datasource.listCollections(),
       ]);
+      if (generation != _loadGeneration) return;
       _books = results[0] as List<Book>;
       _collections = results[1] as List<Collection>;
     } catch (e) {
+      if (generation != _loadGeneration) return;
       _error = 'No se pudo cargar la biblioteca.';
       if (kDebugMode) {
         debugPrint('LibraryProvider.load: $e');
       }
     } finally {
-      _loading = false;
-      notifyListeners();
+      if (generation == _loadGeneration) {
+        _loading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -97,6 +103,8 @@ class LibraryProvider extends ChangeNotifier {
   }
 
   Future<Book?> importPdf() async {
+    if (_importing) return null;
+
     _importing = true;
     _error = null;
     notifyListeners();
