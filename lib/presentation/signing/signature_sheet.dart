@@ -52,6 +52,7 @@ class _SignatureFormState extends State<_SignatureForm> {
   String? _validationError;
   String _lastAutoTyped = '';
   bool _typedDirty = false;
+  bool _submitting = false;
 
   @override
   void initState() {
@@ -102,13 +103,20 @@ class _SignatureFormState extends State<_SignatureForm> {
       );
 
   void _submit() {
-    setState(() => _validationError = null);
+    if (_submitting) return;
+    setState(() {
+      _validationError = null;
+      _submitting = true;
+    });
     final draft = _draft;
     try {
       _service.validateDraft(draft, pageNumber: widget.pageNumber);
       Navigator.of(context).pop(draft);
     } on SignatureValidationException catch (error) {
-      setState(() => _validationError = error.message);
+      setState(() {
+        _validationError = error.message;
+        _submitting = false;
+      });
     }
   }
 
@@ -305,12 +313,14 @@ class _SignatureFormState extends State<_SignatureForm> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton(
-                    onPressed: _submit,
+                    onPressed: _submitting ? null : _submit,
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.obsidianAccent,
                       foregroundColor: AppColors.obsidianBackground,
+                      disabledBackgroundColor:
+                          AppColors.obsidianAccent.withValues(alpha: 0.5),
                     ),
-                    child: const Text('Firmar'),
+                    child: Text(_submitting ? 'Firmando…' : 'Firmar'),
                   ),
                 ),
               ],

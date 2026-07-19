@@ -48,6 +48,8 @@ class ElectronicSignatureService {
   static const int maxSignerNameLength = 80;
   static const int maxTypedTextLength = 80;
   static const int maxReasonLength = 120;
+  static const int maxStrokes = 40;
+  static const int maxPointsPerStroke = 400;
   static const double defaultOffsetX = 0.58;
   static const double defaultOffsetY = 0.70;
   static const double minOffsetDistance = 0.12;
@@ -194,11 +196,14 @@ class ElectronicSignatureService {
   }
 
   /// Normaliza trazos: clamp 0–1, descarta NaN/Inf y puntos casi duplicados.
+  ///
+  /// Aplica techos [maxStrokes] / [maxPointsPerStroke] (submuestreo uniforme).
   List<List<List<double>>> normalizeStrokes(
     List<List<List<double>>> strokes,
   ) {
     final normalized = <List<List<double>>>[];
     for (final stroke in strokes) {
+      if (normalized.length >= maxStrokes) break;
       final points = <List<double>>[];
       for (final point in stroke) {
         if (point.length < 2) continue;
@@ -218,10 +223,24 @@ class ElectronicSignatureService {
         points.add(next);
       }
       if (points.length >= 2) {
-        normalized.add(points);
+        normalized.add(_downsample(points, maxPointsPerStroke));
       }
     }
     return normalized;
+  }
+
+  List<List<double>> _downsample(List<List<double>> points, int maxPoints) {
+    if (points.length <= maxPoints) return points;
+    if (maxPoints < 2) return points.sublist(0, points.length.clamp(0, 2));
+
+    final sampled = <List<double>>[points.first];
+    final lastIndex = points.length - 1;
+    for (var i = 1; i < maxPoints - 1; i++) {
+      final index = ((i * lastIndex) / (maxPoints - 1)).round();
+      sampled.add(points[index]);
+    }
+    sampled.add(points.last);
+    return sampled;
   }
 
   List<(double, double)> _offsetCandidates() {

@@ -43,9 +43,9 @@ class DocumentSignature {
   final DateTime signedAt;
 
   String get displayText {
-    final typed = typedText?.trim();
+    final typed = typedText?.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (typed != null && typed.isNotEmpty) return typed;
-    return signerName;
+    return signerName.trim().replaceAll(RegExp(r'\s+'), ' ');
   }
 
   List<List<List<double>>> get inkStrokes {
@@ -57,17 +57,18 @@ class DocumentSignature {
       return decoded
           .map<List<List<double>>>((stroke) {
             if (stroke is! List) return <List<double>>[];
-            return stroke.map<List<double>>((point) {
-              if (point is! List || point.length < 2) {
-                return const <double>[0, 0];
-              }
-              return [
-                (point[0] as num).toDouble(),
-                (point[1] as num).toDouble(),
-              ];
-            }).toList();
+            final points = <List<double>>[];
+            for (final point in stroke) {
+              if (point is! List || point.length < 2) continue;
+              if (point[0] is! num || point[1] is! num) continue;
+              final x = (point[0] as num).toDouble();
+              final y = (point[1] as num).toDouble();
+              if (!x.isFinite || !y.isFinite) continue;
+              points.add([x, y]);
+            }
+            return points;
           })
-          .where((stroke) => stroke.isNotEmpty)
+          .where((stroke) => stroke.length >= 2)
           .toList();
     } catch (_) {
       return const [];

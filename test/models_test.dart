@@ -77,5 +77,20 @@ void main() {
         ],
       ]);
     });
+
+    test('inkStrokes ignora puntos malformados', () {
+      final signature = DocumentSignature(
+        bookId: 1,
+        pageNumber: 1,
+        type: SignatureType.drawn,
+        signerName: 'Leo',
+        inkJson: '[[[0.1,0.2],null,[0.3,0.4]]]',
+        signedAt: DateTime.utc(2026, 7, 19),
+      );
+      expect(signature.inkStrokes.single, [
+        [0.1, 0.2],
+        [0.3, 0.4],
+      ]);
+    });
   });
 }

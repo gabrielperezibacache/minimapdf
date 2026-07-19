@@ -44,19 +44,32 @@ class DocumentSigningProvider extends ChangeNotifier {
         .toList(growable: false);
   }
 
+  int _loadGeneration = 0;
+
   Future<void> loadForBook(int bookId) async {
     _bookId = bookId;
+    final generation = ++_loadGeneration;
     _loading = true;
     _error = null;
     notifyListeners();
     try {
-      _signatures = await _datasource.listSignatures(bookId);
+      final loaded = await _datasource.listSignatures(bookId);
+      // Ignora cargas obsoletos si hubo otra carga/firma más reciente.
+      if (generation != _loadGeneration || _bookId != bookId) return;
+      // Si hay una firma en curso, no pises el estado optimista local.
+      if (_saving) return;
+      _signatures = loaded;
     } catch (_) {
+      if (generation != _loadGeneration || _bookId != bookId) return;
       _error = 'No se pudieron cargar las firmas.';
-      _signatures = const [];
+      if (!_saving) {
+        _signatures = const [];
+      }
     } finally {
-      _loading = false;
-      notifyListeners();
+      if (generation == _loadGeneration) {
+        _loading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -89,8 +102,12 @@ class DocumentSigningProvider extends ChangeNotifier {
         existingOnPage: signaturesForPage(pageNumber),
       );
       final saved = await _datasource.insertSignature(signature);
-      _signatures = [..._signatures, saved]
-        ..sort((a, b) {
+      // Merge por id: una carga concurrente pudo haber traído ya la fila.
+      _signatures = [
+        for (final item in _signatures)
+          if (item.id != saved.id) item,
+        saved,
+      ]..sort((a, b) {
           final byPage = a.pageNumber.compareTo(b.pageNumber);
           if (byPage != 0) return byPage;
           return a.signedAt.compareTo(b.signedAt);

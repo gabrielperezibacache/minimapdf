@@ -33,9 +33,15 @@ class SignatureLayer extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final usableWidth = constraints.maxWidth;
-        final usableHeight =
-            (constraints.maxHeight - topReserve - bottomReserve)
-                .clamp(1.0, constraints.maxHeight);
+        final rawUsableHeight =
+            constraints.maxHeight - topReserve - bottomReserve;
+        // Si las barras comen toda la altura, usa el alto total para no
+        // aplastar el sello a 1px (evita saltos/overflow raros).
+        final usableHeight = rawUsableHeight >= stampHeightEstimate
+            ? rawUsableHeight
+            : constraints.maxHeight.clamp(1.0, double.infinity);
+        final effectiveTopReserve =
+            rawUsableHeight >= stampHeightEstimate ? topReserve : 0.0;
         final maxLeft = (usableWidth - stampWidth).clamp(0.0, usableWidth);
         final maxTop =
             (usableHeight - stampHeightEstimate).clamp(0.0, usableHeight);
@@ -48,7 +54,7 @@ class SignatureLayer extends StatelessWidget {
                 signature: signature,
                 maxLeft: maxLeft,
                 maxTop: maxTop,
-                topReserve: topReserve,
+                topReserve: effectiveTopReserve,
                 onMove: onMove,
                 onDelete: onDelete,
               ),
@@ -198,15 +204,19 @@ class SignatureOverlay extends StatelessWidget {
                   ),
                   if (onDelete != null)
                     // Evita que el pan de arrastre capture el botón cerrar.
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: onDelete,
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Icon(
-                          Icons.close,
-                          size: 14,
-                          color: colors.textMuted,
+                    Semantics(
+                      button: true,
+                      label: 'Eliminar firma',
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onDelete,
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            Icons.close,
+                            size: 14,
+                            color: colors.textMuted,
+                          ),
                         ),
                       ),
                     ),
