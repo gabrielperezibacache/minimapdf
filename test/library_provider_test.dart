@@ -5,6 +5,7 @@ import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
 import 'package:minimal_pdf/data/datasources/library_local_datasource.dart';
 import 'package:minimal_pdf/data/datasources/pdf_import_service.dart';
+import 'package:minimal_pdf/data/models/book.dart';
 import 'package:minimal_pdf/presentation/providers/library_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -47,6 +48,7 @@ void main() {
     provider = LibraryProvider(
       datasource: datasource,
       importService: importService,
+      documentsDirectory: () async => tempDir,
     );
   });
 
@@ -118,6 +120,27 @@ void main() {
 
     expect(File(book.filePath).existsSync(), isFalse);
     expect(File(manifestPath).existsSync(), isFalse);
+  });
+
+  test('deleteBook no borra rutas fuera de library', () async {
+    final outside = File(p.join(tempDir.path, 'outside_secret.pdf'));
+    await outside.writeAsBytes(const [0x25, 0x50, 0x44, 0x46]);
+
+    final book = await datasource.insertBook(
+      Book(
+        title: 'Traversal',
+        filePath: outside.path,
+        fileSize: 4,
+        addedAt: DateTime.now(),
+      ),
+    );
+    await provider.load();
+
+    await provider.deleteBook(book);
+
+    // Registro eliminado, pero el archivo fuera de library permanece.
+    expect(provider.books.where((b) => b.id == book.id), isEmpty);
+    expect(outside.existsSync(), isTrue);
   });
 
   test('updateBookMetadata puede asignar colección', () async {
@@ -218,6 +241,7 @@ void main() {
         picker: slowPicker,
         documentsDirectory: () async => tempDir,
       ),
+      documentsDirectory: () async => tempDir,
     );
 
     final first = slowProvider.importPdf();
@@ -244,6 +268,7 @@ void main() {
         ),
         documentsDirectory: () async => tempDir,
       ),
+      documentsDirectory: () async => tempDir,
     );
 
     final result = await badProvider.importPdf();

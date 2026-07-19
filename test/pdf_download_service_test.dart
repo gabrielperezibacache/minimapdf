@@ -389,6 +389,27 @@ void main() {
     service.dispose();
   });
 
+  test('dispose completa descarga HTTP en curso sin colgarse', () async {
+    final client = _HangingStreamClient();
+
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: client,
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+
+    final download = service.downloadFromUrl('https://example.com/hang.pdf');
+    await Future<void>.delayed(const Duration(milliseconds: 40));
+    service.dispose();
+
+    await expectLater(
+      download.timeout(const Duration(seconds: 2)),
+      throwsA(isA<DownloadCancelledException>()),
+    );
+    await client.closeStream();
+  });
+
   test('DownloaderProvider limita notificaciones de progreso', () async {
     var notifyCount = 0;
     final client = MockClient((request) async {
@@ -423,4 +444,28 @@ void main() {
     expect(notifyCount, lessThan(40));
     service.dispose();
   });
+}
+
+/// Cliente HTTP cuyo body nunca termina (para probar dispose/cancel).
+class _HangingStreamClient extends http.BaseClient {
+  StreamController<List<int>>? _controller;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final controller = StreamController<List<int>>();
+    _controller = controller;
+    controller.add(const [0x25, 0x50, 0x44, 0x46]);
+    return http.StreamedResponse(
+      controller.stream,
+      200,
+      headers: const {'content-type': 'application/pdf'},
+    );
+  }
+
+  Future<void> closeStream() async {
+    final controller = _controller;
+    if (controller != null && !controller.isClosed) {
+      await controller.close();
+    }
+  }
 }

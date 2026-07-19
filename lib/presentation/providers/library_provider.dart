@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/preferences/app_preferences.dart';
+import '../../core/utils/app_paths.dart';
 import '../../data/datasources/library_local_datasource.dart';
 import '../../data/datasources/pdf_import_service.dart';
 import '../../data/models/models.dart';
@@ -15,11 +16,15 @@ class LibraryProvider extends ChangeNotifier {
     required this.datasource,
     required this.importService,
     AppPreferences? preferences,
+    Future<Directory> Function()? documentsDirectory,
   })  : _preferences = preferences,
+        _documentsDirectory =
+            documentsDirectory ?? AppPaths.documentsDirectory,
         _gridMode = preferences?.gridMode ?? true;
 
   final LibraryLocalDatasource datasource;
   final PdfImportService importService;
+  final Future<Directory> Function() _documentsDirectory;
   AppPreferences? _preferences;
 
   List<Book> _books = const [];
@@ -135,7 +140,15 @@ class LibraryProvider extends ChangeNotifier {
         collectionId: _selectedCollectionId,
       );
       if (book != null) {
-        await load();
+        try {
+          await load();
+        } catch (e) {
+          // La importación ya persistió; no reportar como fallo de import.
+          _error = AppMessageKeys.libraryLoadFailed;
+          if (kDebugMode) {
+            debugPrint('LibraryProvider.importPdf load: $e');
+          }
+        }
       }
       return book;
     } catch (e) {
@@ -265,7 +278,16 @@ class LibraryProvider extends ChangeNotifier {
       await datasource.removeBook(id);
       await _deleteBookFile(book.filePath);
       _error = null;
-      await load();
+      try {
+        await load();
+      } catch (e) {
+        // El borrado ya se aplicó; no reportar como fallo de delete.
+        _error = AppMessageKeys.libraryLoadFailed;
+        if (kDebugMode) {
+          debugPrint('LibraryProvider.deleteBook load: $e');
+        }
+        notifyListeners();
+      }
     } catch (e) {
       _error = AppMessageKeys.deletePdfFailed;
       if (kDebugMode) {
@@ -276,6 +298,15 @@ class LibraryProvider extends ChangeNotifier {
   }
 
   Future<void> _deleteBookFile(String filePath) async {
+    if (!await _isPathInsideLibrary(filePath)) {
+      if (kDebugMode) {
+        debugPrint(
+          'LibraryProvider._deleteBookFile: ruta fuera de library: $filePath',
+        );
+      }
+      return;
+    }
+
     try {
       final file = File(filePath);
       if (await file.exists()) {
@@ -290,6 +321,7 @@ class LibraryProvider extends ChangeNotifier {
     // Manifiesto compañero de exportaciones firmadas (`*.firmas.json`).
     try {
       final manifestPath = '${p.withoutExtension(filePath)}.firmas.json';
+      if (!await _isPathInsideLibrary(manifestPath)) return;
       final manifest = File(manifestPath);
       if (await manifest.exists()) {
         await manifest.delete();
@@ -298,6 +330,19 @@ class LibraryProvider extends ChangeNotifier {
       if (kDebugMode) {
         debugPrint('LibraryProvider._deleteBookFile manifest: $e');
       }
+    }
+  }
+
+  /// Solo borra archivos bajo `Documents/library` (evita path traversal).
+  Future<bool> _isPathInsideLibrary(String filePath) async {
+    try {
+      if (filePath.trim().isEmpty) return false;
+      final docs = await _documentsDirectory();
+      final libraryRoot = p.normalize(p.absolute(p.join(docs.path, 'library')));
+      final candidate = p.normalize(p.absolute(filePath));
+      return p.isWithin(libraryRoot, candidate);
+    } catch (_) {
+      return false;
     }
   }
 
