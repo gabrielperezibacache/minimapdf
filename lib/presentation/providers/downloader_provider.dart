@@ -55,7 +55,8 @@ class DownloaderProvider extends ChangeNotifier {
     final unique = <String>{};
     for (final url in urls) {
       final normalized = PdfUrlUtils.normalizeUrl(url);
-      if (PdfUrlUtils.isValidHttpUrl(normalized)) {
+      if (PdfUrlUtils.isValidHttpUrl(normalized) &&
+          PdfUrlUtils.looksLikePdfUrl(normalized)) {
         unique.add(normalized);
       }
     }
@@ -107,8 +108,16 @@ class DownloaderProvider extends ChangeNotifier {
       _lastDownloaded = book;
       _statusMessage = 'Guardado en biblioteca: ${book.title}';
       return book;
+    } on DownloadCancelledException {
+      _error = null;
+      _statusMessage = 'Descarga cancelada.';
+      return null;
     } catch (e) {
-      _error = 'No se pudo descargar el PDF.';
+      if (e is FormatException) {
+        _error = e.message;
+      } else {
+        _error = 'No se pudo descargar el PDF.';
+      }
       _statusMessage = null;
       if (kDebugMode) {
         debugPrint('DownloaderProvider.downloadUrl: $e');
@@ -120,29 +129,35 @@ class DownloaderProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> cancelDownload() async {
+    if (!_downloading) return;
+    await downloadService.cancelActiveDownload();
+  }
+
   Future<Book?> downloadFromInput() => downloadUrl(_urlInput);
 
-  /// Captura: prioriza URL actual si es PDF; si no, el primer enlace detectado.
+  /// Captura solo URLs que parezcan PDF (nunca HTML genérico).
   Future<Book?> capturePdf({String? currentUrl}) async {
     final candidates = <String>[
       if (currentUrl != null && PdfUrlUtils.looksLikePdfUrl(currentUrl))
         currentUrl,
       ..._detectedPdfUrls,
-      if (currentUrl != null && PdfUrlUtils.isValidHttpUrl(currentUrl))
-        currentUrl,
     ];
 
-    if (candidates.isEmpty) {
+    final unique = <String>{};
+    for (final url in candidates) {
+      final normalized = PdfUrlUtils.normalizeUrl(url);
+      if (PdfUrlUtils.looksLikePdfUrl(normalized)) {
+        unique.add(normalized);
+      }
+    }
+
+    if (unique.isEmpty) {
       _error = 'No se encontró un enlace PDF en esta página.';
       notifyListeners();
       return null;
     }
 
-    // Preferir candidatos que parezcan PDF.
-    final preferred = candidates.firstWhere(
-      PdfUrlUtils.looksLikePdfUrl,
-      orElse: () => candidates.first,
-    );
-    return downloadUrl(preferred);
+    return downloadUrl(unique.first);
   }
 }

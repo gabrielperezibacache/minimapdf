@@ -16,6 +16,14 @@ import 'library_local_datasource.dart';
 
 typedef DownloadProgress = void Function(double progress);
 
+/// Cancelación solicitada por el usuario.
+class DownloadCancelledException implements Exception {
+  const DownloadCancelledException();
+
+  @override
+  String toString() => 'DownloadCancelledException';
+}
+
 /// Descarga PDFs por URL a `Documents/library` y los registra en la DB.
 ///
 /// En Android/iOS intenta encolar con [FlutterDownloader] (segundo plano);
@@ -35,6 +43,9 @@ class PdfDownloadService {
   final http.Client _http;
   final Future<Directory> Function() _documentsDirectory;
   final bool _useFlutterDownloader;
+
+  bool _cancelRequested = false;
+  String? _activeNativeTaskId;
 
   static bool get _defaultNativeFlag {
     if (kIsWeb) return false;
@@ -58,11 +69,27 @@ class PdfDownloadService {
     }
   }
 
+  /// Cancela la descarga HTTP/nativa en curso (si hay).
+  Future<void> cancelActiveDownload() async {
+    _cancelRequested = true;
+    final taskId = _activeNativeTaskId;
+    if (taskId != null) {
+      await _cancelNativeTask(taskId);
+    }
+  }
+
+  void _throwIfCancelled() {
+    if (_cancelRequested) {
+      throw const DownloadCancelledException();
+    }
+  }
+
   Future<Book> downloadFromUrl(
     String rawUrl, {
     DownloadProgress? onProgress,
     int? collectionId,
   }) async {
+    _cancelRequested = false;
     final url = PdfUrlUtils.normalizeUrl(rawUrl);
     if (!PdfUrlUtils.isValidHttpUrl(url)) {
       throw ArgumentError('URL inválida: $rawUrl');
@@ -75,7 +102,13 @@ class PdfDownloadService {
           onProgress: onProgress,
           collectionId: collectionId,
         );
+      } on DownloadCancelledException {
+        rethrow;
+      } on TimeoutException {
+        // No re-descargar por HTTP tras un timeout nativo (evitar doble costo).
+        rethrow;
       } catch (e) {
+        _throwIfCancelled();
         if (kDebugMode) {
           debugPrint('Native downloader falló, usando HTTP: $e');
         }
@@ -94,20 +127,8 @@ class PdfDownloadService {
     DownloadProgress? onProgress,
     int? collectionId,
   }) async {
+    _throwIfCancelled();
     onProgress?.call(0);
-    final request = http.Request('GET', Uri.parse(url));
-    request.headers['Accept'] = 'application/pdf,*/*';
-
-    final response = await _http.send(request);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException(
-        'Descarga fallida (${response.statusCode})',
-        uri: Uri.parse(url),
-      );
-    }
-
-    final contentType = response.headers['content-type'] ?? '';
-    final total = response.contentLength ?? 0;
 
     final libraryDir = await _ensureLibraryDir();
     final fileName = FileNameSanitizer.sanitize(
@@ -123,8 +144,25 @@ class PdfDownloadService {
     var received = 0;
     IOSink? sink;
     try {
+      final request = http.Request('GET', Uri.parse(url));
+      request.headers['Accept'] = 'application/pdf,*/*';
+
+      final response = await _http.send(request);
+      _throwIfCancelled();
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException(
+          'Descarga fallida (${response.statusCode})',
+          uri: Uri.parse(url),
+        );
+      }
+
+      final contentType = response.headers['content-type'] ?? '';
+      final total = response.contentLength ?? 0;
+
       sink = tempFile.openWrite();
       await for (final chunk in response.stream) {
+        _throwIfCancelled();
         sink.add(chunk);
         received += chunk.length;
         if (total > 0) {
@@ -135,6 +173,7 @@ class PdfDownloadService {
       await sink.close();
       sink = null;
 
+      _throwIfCancelled();
       await PdfHeader.assertFile(
         tempFile,
         contentType: contentType,
@@ -154,10 +193,18 @@ class PdfDownloadService {
           collectionId: collectionId,
         ),
       );
+    } on DownloadCancelledException {
+      await sink?.close();
+      await _deleteQuietly(tempFile);
+      await _deleteQuietly(destinationFile);
+      rethrow;
     } catch (e) {
       await sink?.close();
       await _deleteQuietly(tempFile);
       await _deleteQuietly(destinationFile);
+      if (_cancelRequested) {
+        throw const DownloadCancelledException();
+      }
       rethrow;
     }
   }
@@ -168,6 +215,7 @@ class PdfDownloadService {
     int? collectionId,
   }) async {
     await ensureNativeInitialized();
+    _throwIfCancelled();
 
     final tempRoot = await getTemporaryDirectory();
     final tempDir = Directory(p.join(tempRoot.path, 'pdf_downloads'));
@@ -192,7 +240,9 @@ class PdfDownloadService {
       throw StateError('No se pudo encolar la descarga nativa');
     }
 
+    _activeNativeTaskId = taskId;
     try {
+      _throwIfCancelled();
       final path = await _waitForNativeTask(
         taskId,
         expectedPath: p.join(tempDir.path, fileName),
@@ -208,7 +258,14 @@ class PdfDownloadService {
       );
     } catch (e) {
       await _cancelNativeTask(taskId);
+      if (_cancelRequested) {
+        throw const DownloadCancelledException();
+      }
       rethrow;
+    } finally {
+      if (_activeNativeTaskId == taskId) {
+        _activeNativeTaskId = null;
+      }
     }
   }
 
@@ -231,6 +288,8 @@ class PdfDownloadService {
     final started = DateTime.now();
 
     while (DateTime.now().difference(started) < timeout) {
+      _throwIfCancelled();
+
       final tasks = await FlutterDownloader.loadTasksWithRawQuery(
         query: "SELECT * FROM task WHERE task_id='$taskId'",
       );
@@ -254,9 +313,11 @@ class PdfDownloadService {
           if (await File(expectedPath).exists()) return expectedPath;
           throw StateError('Descarga completa pero el archivo no existe');
         }
-        if (task.status == DownloadTaskStatus.failed ||
-            task.status == DownloadTaskStatus.canceled) {
-          throw StateError('Descarga nativa ${task.status}');
+        if (task.status == DownloadTaskStatus.failed) {
+          throw StateError('Descarga nativa fallida');
+        }
+        if (task.status == DownloadTaskStatus.canceled) {
+          throw const DownloadCancelledException();
         }
       }
 
@@ -330,6 +391,7 @@ class PdfDownloadService {
   }
 
   void dispose() {
+    _cancelRequested = true;
     _http.close();
   }
 }

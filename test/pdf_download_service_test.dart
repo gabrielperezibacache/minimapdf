@@ -91,6 +91,25 @@ void main() {
     service.dispose();
   });
 
+  test('capturePdf no descarga HTML genérico de la página actual', () async {
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: MockClient((request) async {
+        fail('No debería descargar: ${request.url}');
+      }),
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+    final provider = DownloaderProvider(service);
+
+    final book = await provider.capturePdf(
+      currentUrl: 'https://cdn.example.com/article.html',
+    );
+    expect(book, isNull);
+    expect(provider.error, contains('No se encontró'));
+    service.dispose();
+  });
+
   test('downloadFromUrl respeta collectionId activo', () async {
     final collection = await datasource.insertCollection(
       Collection(name: 'Descargas', createdAt: DateTime(2026, 7, 1)),
@@ -145,6 +164,41 @@ void main() {
       final leftovers = await libraryDir.list().toList();
       expect(leftovers, isEmpty);
     }
+    service.dispose();
+  });
+
+  test('cancelActiveDownload interrumpe descarga HTTP', () async {
+    final client = MockClient((request) async {
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      return http.Response.bytes(
+        List<int>.filled(256 * 1024, 0x20)
+          ..[0] = 0x25
+          ..[1] = 0x50
+          ..[2] = 0x44
+          ..[3] = 0x46,
+        200,
+        headers: {
+          'content-type': 'application/pdf',
+          'content-length': '${256 * 1024}',
+        },
+      );
+    });
+
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: client,
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+    final provider = DownloaderProvider(service);
+
+    final download = provider.downloadUrl('https://example.com/slow.pdf');
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await provider.cancelDownload();
+    final book = await download;
+
+    expect(book, isNull);
+    expect(provider.statusMessage, contains('cancelada'));
     service.dispose();
   });
 

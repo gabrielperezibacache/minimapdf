@@ -60,6 +60,18 @@ void main() {
     expect(annotations.isPageBookmarked(3), isFalse);
   });
 
+  test('toggleBookmark con nota exige force para borrar', () async {
+    await annotations.saveNote(pageNumber: 2, noteText: 'Importante');
+    final blocked = await annotations.toggleBookmark(2);
+    expect(blocked, isFalse);
+    expect(annotations.isPageBookmarked(2), isTrue);
+    expect(annotations.bookmarkForPage(2)?.noteText, 'Importante');
+
+    final removed = await annotations.toggleBookmark(2, force: true);
+    expect(removed, isTrue);
+    expect(annotations.isPageBookmarked(2), isFalse);
+  });
+
   test('saveNote crea marcador con texto y permite actualizar', () async {
     await annotations.saveNote(pageNumber: 5, noteText: 'Idea clave');
     expect(annotations.bookmarkForPage(5)?.noteText, 'Idea clave');

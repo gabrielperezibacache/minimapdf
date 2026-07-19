@@ -110,7 +110,10 @@ class _ReaderScreenState extends State<ReaderScreen>
     // El guardado fiable ocurre en _onExit / lifecycle; aquí best-effort.
     final saver = _progressSaver;
     if (saver != null) {
-      unawaited(saver.saveNow(page: _currentPage));
+      if (saver.currentPage != _currentPage) {
+        saver.onPageChanged(_currentPage);
+      }
+      unawaited(saver.saveIfNeeded());
       saver.dispose();
     }
     _controller.dispose();
@@ -119,15 +122,25 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.hidden) {
-      unawaited(_progressSaver?.saveNow(page: _currentPage) ?? Future.value());
+    // Evita escrituras redundantes en blips iOS (inactive/hidden frecuentes).
+    if (state == AppLifecycleState.paused) {
+      final saver = _progressSaver;
+      if (saver == null) return;
+      if (saver.currentPage != _currentPage) {
+        saver.onPageChanged(_currentPage);
+      }
+      unawaited(saver.saveIfNeeded());
     }
   }
 
   Future<void> _onExit() async {
-    await _progressSaver?.saveNow(page: _currentPage);
+    final saver = _progressSaver;
+    if (saver != null) {
+      if (saver.currentPage != _currentPage) {
+        saver.onPageChanged(_currentPage);
+      }
+      await saver.saveIfNeeded();
+    }
     if (!mounted) return;
     Navigator.of(context).pop(_currentPage);
   }
@@ -172,7 +185,49 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _toggleBookmark() async {
-    await _annotations?.toggleBookmark(_currentPage);
+    final annotations = _annotations;
+    if (annotations == null) return;
+
+    final completed = await annotations.toggleBookmark(_currentPage);
+    if (completed || !mounted) {
+      if (annotations.error != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(annotations.error!)),
+        );
+      }
+      return;
+    }
+
+    final colors = HermesColors.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: colors.panel,
+        title: const Text('Quitar marcador'),
+        content: const Text(
+          'Esta página tiene una nota. ¿Eliminar marcador y nota?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Eliminar', style: TextStyle(color: colors.accent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await annotations.toggleBookmark(_currentPage, force: true);
+      if (annotations.error != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(annotations.error!)),
+        );
+      }
+    }
   }
 
   Future<void> _editNote() async {

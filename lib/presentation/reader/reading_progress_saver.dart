@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import '../../data/datasources/library_local_datasource.dart';
 
 /// Persiste la página actual del lector en la base local.
@@ -66,10 +68,15 @@ class ReadingProgressSaver {
           lastPageRead: pageToSave,
           lastReadAt: DateTime.now(),
         );
-        // Solo limpia dirty si la página no cambió durante el await.
         if (_page == pageToSave) {
           _dirty = false;
         }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('ReadingProgressSaver.saveIfNeeded: $e');
+        }
+        // Mantiene dirty para reintentar.
+        return;
       } finally {
         _inFlight = null;
         completer.complete();
@@ -77,15 +84,11 @@ class ReadingProgressSaver {
     }
   }
 
-  /// Marca progreso y guarda de inmediato (p. ej. al salir).
+  /// Actualiza página opcionalmente y guarda solo si hay cambios.
   Future<void> saveNow({int? page}) async {
     _autosaveTimer?.cancel();
-    if (page != null && page >= 1) {
-      if (page != _page) {
-        _page = page;
-      }
-      _dirty = true;
-    } else if (_bookId != null) {
+    if (page != null && page >= 1 && page != _page) {
+      _page = page;
       _dirty = true;
     }
     await saveIfNeeded();

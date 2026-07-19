@@ -50,7 +50,12 @@ class PdfImportService {
 
     final file = result.files.single;
     final path = file.path;
-    if (path == null || path.isEmpty) return null;
+    if (path == null || path.isEmpty) {
+      // En algunos dispositivos file_picker no expone path con withData:false.
+      throw StateError(
+        'No se pudo acceder al archivo seleccionado. Prueba de nuevo.',
+      );
+    }
 
     return PickedPdfFile(
       sourcePath: path,

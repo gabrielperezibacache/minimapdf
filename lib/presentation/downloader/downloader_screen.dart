@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
@@ -111,6 +112,18 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
     await _handleResult(book, provider);
   }
 
+  Future<void> _downloadPdfLink(String href) async {
+    final provider = context.read<DownloaderProvider>();
+    if (provider.downloading) return;
+    final book = await provider.downloadUrl(href);
+    if (!mounted) return;
+    await _handleResult(book, provider);
+  }
+
+  Future<void> _cancelDownload() async {
+    await context.read<DownloaderProvider>().cancelDownload();
+  }
+
   Future<void> _handleResult(dynamic book, DownloaderProvider provider) async {
     final messenger = ScaffoldMessenger.of(context);
     if (book != null) {
@@ -167,6 +180,16 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Descargas'),
+        actions: [
+          if (downloader.downloading)
+            TextButton(
+              onPressed: _cancelDownload,
+              child: Text(
+                'Cancelar',
+                style: TextStyle(color: colors.accent),
+              ),
+            ),
+        ],
       ),
       floatingActionButton: _supportsEmbeddedBrowser
           ? FloatingActionButton.extended(
@@ -196,13 +219,13 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
             progress: downloader.progress,
             onDownload: _downloadDirect,
           ),
-          if (downloader.statusMessage != null)
+          if (downloader.statusMessage != null || downloader.error != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  downloader.statusMessage!,
+                  downloader.error ?? downloader.statusMessage!,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colors.accent,
                       ),
@@ -270,14 +293,14 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                         }
                         final href = uri.toString();
                         if (PdfUrlUtils.looksLikePdfUrl(href)) {
-                          context
-                              .read<DownloaderProvider>()
-                              .setDetectedPdfUrls([
+                          final provider = context.read<DownloaderProvider>();
+                          provider.setDetectedPdfUrls([
                             href,
-                            ...context
-                                .read<DownloaderProvider>()
-                                .detectedPdfUrls,
+                            ...provider.detectedPdfUrls,
                           ]);
+                          // Evita abrir el PDF dentro del WebView (callejón sin salida).
+                          unawaited(_downloadPdfLink(href));
+                          return NavigationActionPolicy.CANCEL;
                         }
                         return NavigationActionPolicy.ALLOW;
                       },

@@ -101,4 +101,16 @@ void main() {
     expect(saver.isDirty, isFalse);
     saver.dispose();
   });
+
+  test('saveNow no escribe si la página no cambió', () async {
+    final saver = ReadingProgressSaver(datasource);
+    saver.attach(bookId: book.id!, initialPage: 1);
+    await saver.saveNow(page: 1);
+
+    final unchanged = await datasource.findBookById(book.id!);
+    expect(unchanged?.lastPageRead, 1);
+    expect(unchanged?.lastReadAt, isNull);
+    expect(saver.isDirty, isFalse);
+    saver.dispose();
+  });
 }

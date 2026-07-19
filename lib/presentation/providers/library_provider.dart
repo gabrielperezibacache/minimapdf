@@ -65,7 +65,7 @@ class LibraryProvider extends ChangeNotifier {
 
     try {
       final results = await Future.wait([
-        datasource.listRecentBooks(limit: 200),
+        datasource.listRecentBooks(), // todos, ordenados por lectura reciente
         datasource.listCollections(),
       ]);
       _books = results[0] as List<Book>;
@@ -110,9 +110,13 @@ class LibraryProvider extends ChangeNotifier {
       }
       return book;
     } catch (e) {
-      _error = e is FormatException
-          ? e.message
-          : 'No se pudo importar el PDF.';
+      if (e is FormatException) {
+        _error = e.message;
+      } else if (e is StateError) {
+        _error = e.message;
+      } else {
+        _error = 'No se pudo importar el PDF.';
+      }
       if (kDebugMode) {
         debugPrint('LibraryProvider.importPdf: $e');
       }

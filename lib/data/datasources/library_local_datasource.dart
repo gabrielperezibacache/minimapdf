@@ -13,7 +13,7 @@ class LibraryLocalDatasource {
 
   Future<Book?> findBookByPath(String path) => _db.getBookByFilePath(path);
 
-  Future<List<Book>> listRecentBooks({int limit = 50}) =>
+  Future<List<Book>> listRecentBooks({int? limit}) =>
       _db.getRecentBooks(limit: limit);
 
   Future<List<Book>> listAllBooks() => _db.getAllBooks();

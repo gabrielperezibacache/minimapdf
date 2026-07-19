@@ -100,8 +100,10 @@ class LibraryDatabase {
     return Book.fromMap(rows.first);
   }
 
-  /// Libros recientes: primero por última lectura, luego por alta.
-  Future<List<Book>> getRecentBooks({int limit = 50}) async {
+  /// Libros de biblioteca: primero por última lectura, luego por alta.
+  ///
+  /// Si [limit] es null, devuelve todos (sin truncar silenciosamente).
+  Future<List<Book>> getRecentBooks({int? limit}) async {
     final rows = await _db.query(
       DatabaseConfig.tableBooks,
       orderBy: 'last_read_at IS NULL, last_read_at DESC, added_at DESC',
