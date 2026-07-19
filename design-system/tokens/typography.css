@@ -1,0 +1,26 @@
+:root{
+--font-ui:"Inter",-apple-system,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+--font-reader:"Noto Serif","New York","Georgia",serif;
+
+--text-xs:12px;
+--text-sm:13px;
+--text-base:15px;
+--text-md:16px;
+--text-lg:19px;
+--text-xl:24px;
+--text-2xl:32px;
+--text-3xl:44px;
+
+--leading-tight:1.15;
+--leading-snug:1.3;
+--leading-body:1.5;
+--leading-reader:1.65;
+
+--tracking-tight:-0.02em;
+--tracking-normal:0em;
+
+--weight-regular:400;
+--weight-medium:500;
+--weight-semibold:600;
+--weight-bold:700;
+}
