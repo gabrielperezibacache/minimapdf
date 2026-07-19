@@ -140,10 +140,11 @@ Estos archivos no se generan en este documento; prepare y suba en Console:
 [ ] Icono de la aplicación
     512 × 512 px, PNG de 32 bits
 
-[ ] Gráfico de funciones (feature graphic)
-    1024 × 500 px
-    Sugerencia de copy visual: «Minimal PDF» + «Offline · Privado · Ébano»
-    Evitar texto excesivo; fondo alineado a la paleta Ébano (#0F1714 / #C89A5A / #F3ECDD)
+[x] Gráfico de funciones (feature graphic)
+    1024 × 500 px — archivo: docs/store/feature_graphic.png
+    Copy visual: «Minimal PDF» + «Offline · Privado · Ébano»
+    Paleta Ébano (#0F1714 / #C89A5A / #F3ECDD)
+    Subir en Play Console → Presencia en Google Play → Gráfico de funciones
 
 [ ] Capturas de teléfono (mínimo 2; recomendado 4–8)
     Resoluciones habituales: 1080 × 1920 o superior
