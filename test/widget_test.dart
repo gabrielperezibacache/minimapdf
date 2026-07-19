@@ -71,6 +71,8 @@ void main() {
     );
     expect(find.byTooltip('Importar PDF'), findsOneWidget);
     expect(find.byTooltip('Descargas / navegador'), findsOneWidget);
+    expect(find.byTooltip('Tema'), findsOneWidget);
+    expect(find.byTooltip('Configuración'), findsOneWidget);
     expect(find.text('Tu biblioteca está vacía'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());

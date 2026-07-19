@@ -5,6 +5,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/book.dart';
 import '../../../data/models/collection.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Resultado de la edición local de metadatos.
 class BookMetadataDraft {
@@ -101,6 +102,7 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return Padding(
@@ -123,7 +125,7 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            'Editar metadatos',
+            l10n.editMetadata,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: colors.accent,
                 ),
@@ -132,32 +134,32 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
           TextField(
             controller: _titleController,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Título',
+            decoration: InputDecoration(
+              labelText: l10n.titleLabel,
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
           TextField(
             controller: _authorController,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Autor',
+            decoration: InputDecoration(
+              labelText: l10n.authorLabel,
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
           TextField(
             controller: _tagsController,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Tags',
-              hintText: 'separados por coma',
+            decoration: InputDecoration(
+              labelText: l10n.tagsLabel,
+              hintText: l10n.tagsHint,
             ),
           ),
           if (widget.collections.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
             InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Colección',
+              decoration: InputDecoration(
+                labelText: l10n.collectionLabel,
                 isDense: true,
               ),
               child: DropdownButtonHideUnderline(
@@ -165,9 +167,9 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
                   isExpanded: true,
                   value: _collectionId,
                   items: [
-                    const DropdownMenuItem<int?>(
+                    DropdownMenuItem<int?>(
                       value: null,
-                      child: Text('Sin colección'),
+                      child: Text(l10n.noCollection),
                     ),
                     ...widget.collections.map(
                       (collection) => DropdownMenuItem<int?>(
@@ -187,14 +189,14 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancelar'),
+                  child: Text(l10n.cancel),
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: FilledButton(
                   onPressed: _submit,
-                  child: const Text('Guardar'),
+                  child: Text(l10n.save),
                 ),
               ),
             ],

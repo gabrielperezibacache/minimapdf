@@ -1,14 +1,16 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../l10n/app_locale.dart';
 import '../theme/app_theme_option.dart';
 
-/// Preferencias locales persistentes (tema, biblioteca, lector, onboarding).
+/// Preferencias locales persistentes (tema, idioma, biblioteca, lector, onboarding).
 class AppPreferences {
   AppPreferences(this._prefs);
 
   final SharedPreferences _prefs;
 
   static const _themeKey = 'theme_option';
+  static const _localeKey = 'app_locale';
   static const _gridModeKey = 'library_grid_mode';
   static const _ebonyFilterKey = 'reader_ebony_filter';
   static const _legacyEbonyFilterKey = 'reader_obsidian_filter';
@@ -33,6 +35,12 @@ class AppPreferences {
 
   Future<void> setThemeOption(AppThemeOption option) async {
     await _prefs.setString(_themeKey, option.name);
+  }
+
+  AppLocale get appLocale => AppLocaleX.fromCode(_prefs.getString(_localeKey));
+
+  Future<void> setAppLocale(AppLocale locale) async {
+    await _prefs.setString(_localeKey, locale.code);
   }
 
   bool get gridMode => _prefs.getBool(_gridModeKey) ?? true;

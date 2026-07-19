@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/book.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Celda técnica de libro con borde 1px (paleta Minimal PDF).
 class LibraryBookTile extends StatelessWidget {
@@ -23,10 +24,11 @@ class LibraryBookTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
     final subtitle = [
       if (book.author != null && book.author!.isNotEmpty) book.author!,
       _formatSize(book.fileSize),
-      if (book.lastPageRead > 0) 'p. ${book.lastPageRead}',
+      if (book.lastPageRead > 0) l10n.pageAbbrev(book.lastPageRead),
     ].join(' · ');
 
     return Material(
@@ -39,7 +41,9 @@ class LibraryBookTile extends StatelessWidget {
             border: Border.all(color: colors.border, width: 1),
           ),
           padding: EdgeInsets.all(compact ? 12 : 14),
-          child: compact ? _gridContent(context, colors, subtitle) : _listContent(context, colors, subtitle),
+          child: compact
+              ? _gridContent(context, colors, subtitle)
+              : _listContent(context, colors, subtitle),
         ),
       ),
     );
@@ -77,7 +81,7 @@ class LibraryBookTile extends StatelessWidget {
         ],
         Align(
           alignment: Alignment.centerRight,
-          child: _menuButton(colors),
+          child: _menuButton(context, colors),
         ),
       ],
     );
@@ -108,14 +112,15 @@ class LibraryBookTile extends StatelessWidget {
             ],
           ),
         ),
-        _menuButton(colors),
+        _menuButton(context, colors),
       ],
     );
   }
 
-  Widget _menuButton(AppPalette colors) {
+  Widget _menuButton(BuildContext context, AppPalette colors) {
+    final l10n = AppLocalizations.of(context);
     return PopupMenuButton<_BookAction>(
-      tooltip: 'Opciones',
+      tooltip: l10n.options,
       icon: Icon(Icons.more_vert, color: colors.textMuted, size: 20),
       onSelected: (action) {
         switch (action) {
@@ -125,14 +130,14 @@ class LibraryBookTile extends StatelessWidget {
             onDelete?.call();
         }
       },
-      itemBuilder: (context) => const [
+      itemBuilder: (context) => [
         PopupMenuItem(
           value: _BookAction.edit,
-          child: Text('Editar metadatos'),
+          child: Text(l10n.editMetadata),
         ),
         PopupMenuItem(
           value: _BookAction.delete,
-          child: Text('Eliminar'),
+          child: Text(l10n.delete),
         ),
       ],
     );

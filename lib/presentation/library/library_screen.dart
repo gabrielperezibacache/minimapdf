@@ -6,11 +6,13 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_theme_option.dart';
 import '../../data/models/book.dart';
 import '../../data/models/collection.dart';
+import '../../l10n/app_localizations.dart';
 import '../downloader/downloader_screen.dart';
 import '../providers/downloader_provider.dart';
 import '../providers/library_provider.dart';
 import '../providers/theme_provider.dart';
 import '../reader/reader_screen.dart';
+import '../settings/settings_screen.dart';
 import 'widgets/library_book_tile.dart';
 import 'widgets/metadata_edit_sheet.dart';
 
@@ -55,18 +57,24 @@ class _LibraryScreenState extends State<LibraryScreen> {
     context.read<LibraryProvider>().load();
   }
 
+  String _msg(String key, {String? arg}) =>
+      AppLocalizations.of(context).message(key, arg: arg);
+
   Future<void> _importPdf() async {
     final provider = context.read<LibraryProvider>();
+    final l10n = AppLocalizations.of(context);
     final book = await provider.importPdf();
     if (!mounted) return;
 
     final messenger = ScaffoldMessenger.of(context);
     if (book != null) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Importado: ${book.title}')),
+        SnackBar(content: Text(l10n.imported(book.title))),
       );
     } else if (provider.error != null) {
-      messenger.showSnackBar(SnackBar(content: Text(provider.error!)));
+      messenger.showSnackBar(
+        SnackBar(content: Text(_msg(provider.error!))),
+      );
     }
   }
 
@@ -90,27 +98,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (!mounted) return;
     if (library.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(library.error!)),
+        SnackBar(content: Text(_msg(library.error!))),
       );
     }
   }
 
   Future<void> _confirmDelete(Book book) async {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.panel,
-        title: const Text('Eliminar PDF'),
-        content: Text('¿Eliminar “${book.title}” de la biblioteca?'),
+        title: Text(l10n.deletePdf),
+        content: Text(l10n.deletePdfConfirm(book.title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Eliminar', style: TextStyle(color: colors.accent)),
+            child: Text(l10n.delete, style: TextStyle(color: colors.accent)),
           ),
         ],
       ),
@@ -122,7 +131,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       if (!mounted) return;
       if (library.error != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(library.error!)),
+          SnackBar(content: Text(_msg(library.error!))),
         );
       }
     }
@@ -135,24 +144,22 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
     if (!exists) {
       final colors = AppPalette.of(context);
+      final l10n = AppLocalizations.of(context);
       final remove = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: colors.panel,
-          title: const Text('Archivo no encontrado'),
-          content: Text(
-            '“${book.title}” ya no está en el dispositivo. '
-            '¿Quieres quitarlo de la biblioteca?',
-          ),
+          title: Text(l10n.fileNotFound),
+          content: Text(l10n.fileNotFoundBody(book.title)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar'),
+              child: Text(l10n.cancel),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
               child: Text(
-                'Quitar de la biblioteca',
+                l10n.removeFromLibrary,
                 style: TextStyle(color: colors.accent),
               ),
             ),
@@ -164,7 +171,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         if (!mounted) return;
         if (library.error != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(library.error!)),
+            SnackBar(content: Text(_msg(library.error!))),
           );
         }
       }
@@ -182,27 +189,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Future<void> _createCollection() async {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
     final controller = TextEditingController();
 
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.panel,
-        title: const Text('Nueva colección'),
+        title: Text(l10n.newCollection),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Nombre'),
+          decoration: InputDecoration(labelText: l10n.collectionName),
           onSubmitted: (value) => Navigator.pop(context, value),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, controller.text),
-            child: Text('Crear', style: TextStyle(color: colors.accent)),
+            child: Text(l10n.create, style: TextStyle(color: colors.accent)),
           ),
         ],
       ),
@@ -216,13 +224,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (!mounted) return;
     if (library.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(library.error!)),
+        SnackBar(content: Text(_msg(library.error!))),
       );
     }
   }
 
   Future<void> _manageCollection(Collection collection) async {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
     final action = await showModalBottomSheet<_CollectionAction>(
       context: context,
       backgroundColor: colors.panel,
@@ -232,12 +241,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
           children: [
             ListTile(
               leading: Icon(Icons.edit_outlined, color: colors.accent),
-              title: const Text('Renombrar'),
+              title: Text(l10n.rename),
               onTap: () => Navigator.pop(context, _CollectionAction.rename),
             ),
             ListTile(
               leading: Icon(Icons.delete_outline, color: colors.accent),
-              title: const Text('Eliminar colección'),
+              title: Text(l10n.deleteCollection),
               onTap: () => Navigator.pop(context, _CollectionAction.delete),
             ),
           ],
@@ -256,27 +265,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Future<void> _renameCollection(Collection collection) async {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
     final controller = TextEditingController(text: collection.name);
 
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.panel,
-        title: const Text('Renombrar colección'),
+        title: Text(l10n.renameCollection),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Nombre'),
+          decoration: InputDecoration(labelText: l10n.collectionName),
           onSubmitted: (value) => Navigator.pop(context, value),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, controller.text),
-            child: Text('Guardar', style: TextStyle(color: colors.accent)),
+            child: Text(l10n.save, style: TextStyle(color: colors.accent)),
           ),
         ],
       ),
@@ -290,30 +300,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (!mounted) return;
     if (library.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(library.error!)),
+        SnackBar(content: Text(_msg(library.error!))),
       );
     }
   }
 
   Future<void> _confirmDeleteCollection(Collection collection) async {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.panel,
-        title: const Text('Eliminar colección'),
-        content: Text(
-          '¿Eliminar “${collection.name}”? Los PDFs no se borran; '
-          'quedan sin carpeta.',
-        ),
+        title: Text(l10n.deleteCollection),
+        content: Text(l10n.deleteCollectionConfirm(collection.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Eliminar', style: TextStyle(color: colors.accent)),
+            child: Text(l10n.delete, style: TextStyle(color: colors.accent)),
           ),
         ],
       ),
@@ -325,7 +333,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       if (!mounted) return;
       if (library.error != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(library.error!)),
+          SnackBar(content: Text(_msg(library.error!))),
         );
       }
     }
@@ -334,6 +342,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
     final themeProvider = context.watch<ThemeProvider>();
     final library = context.watch<LibraryProvider>();
 
@@ -342,7 +351,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         title: const Text(AppConstants.appName),
         actions: [
           IconButton(
-            tooltip: 'Descargas / navegador',
+            tooltip: l10n.downloadsBrowser,
             onPressed: () async {
               context.read<DownloaderProvider>().setTargetCollectionId(
                     library.selectedCollectionId,
@@ -358,7 +367,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             icon: Icon(Icons.download_outlined, color: colors.accent),
           ),
           IconButton(
-            tooltip: library.gridMode ? 'Vista lista' : 'Vista cuadrícula',
+            tooltip: library.gridMode ? l10n.viewList : l10n.viewGrid,
             onPressed: () => library.setGridMode(!library.gridMode),
             icon: Icon(
               library.gridMode
@@ -368,7 +377,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
           ),
           PopupMenuButton<AppThemeOption>(
-            tooltip: 'Tema',
+            tooltip: l10n.theme,
             icon: Icon(Icons.palette_outlined, color: colors.accent),
             onSelected: (option) => themeProvider.setTheme(option),
             itemBuilder: (context) => AppThemeOption.values
@@ -376,16 +385,27 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   (option) => CheckedPopupMenuItem<AppThemeOption>(
                     value: option,
                     checked: option == themeProvider.option,
-                    child: Text(option.label),
+                    child: Text(option.localizedLabel(l10n)),
                   ),
                 )
                 .toList(),
+          ),
+          IconButton(
+            tooltip: l10n.settings,
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const SettingsScreen(),
+                ),
+              );
+            },
+            icon: Icon(Icons.settings_outlined, color: colors.accent),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: library.importing ? null : _importPdf,
-        tooltip: 'Importar PDF',
+        tooltip: l10n.importPdf,
         child: library.importing
             ? SizedBox(
                 width: 22,
@@ -410,14 +430,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Biblioteca',
+                      l10n.library,
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                             color: colors.accent,
                           ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'PDFs recientes y colecciones · 100% offline',
+                      l10n.librarySubtitle,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -429,7 +449,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: _LibraryErrorBanner(
-                    message: library.error!,
+                    message: _msg(library.error!),
                     onRetry: library.load,
                     onDismiss: library.clearError,
                   ),
@@ -443,7 +463,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   onChanged: library.setSearchQuery,
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
-                    hintText: 'Buscar por título, autor o etiqueta',
+                    hintText: l10n.searchHint,
                     prefixIcon: Icon(
                       Icons.search,
                       color: colors.accent,
@@ -452,7 +472,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     suffixIcon: library.searchQuery.isEmpty
                         ? null
                         : IconButton(
-                            tooltip: 'Limpiar búsqueda',
+                            tooltip: l10n.clearSearch,
                             onPressed: () {
                               _searchController.clear();
                               library.clearSearch();
@@ -559,6 +579,7 @@ class _CollectionsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return SizedBox(
       height: 48,
@@ -567,7 +588,7 @@ class _CollectionsRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           _CollectionChip(
-            label: 'Todos',
+            label: l10n.allCollections,
             selected: library.selectedCollectionId == null,
             onTap: () => library.selectCollection(null),
           ),
@@ -597,7 +618,7 @@ class _CollectionsRow extends StatelessWidget {
                       size: 18, color: colors.accent),
                   const SizedBox(width: 6),
                   Text(
-                    'Nueva',
+                    l10n.newCollectionShort,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: colors.accent,
                         ),
@@ -667,6 +688,7 @@ class _LibraryErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       width: double.infinity,
@@ -687,11 +709,11 @@ class _LibraryErrorBanner extends StatelessWidget {
           ),
           TextButton(
             onPressed: onRetry,
-            child: const Text('Reintentar'),
+            child: Text(l10n.retry),
           ),
           if (onDismiss != null)
             IconButton(
-              tooltip: 'Cerrar',
+              tooltip: l10n.close,
               onPressed: onDismiss,
               icon: Icon(Icons.close, size: 18, color: colors.textMuted),
             ),
@@ -719,21 +741,22 @@ class _EmptyLibrary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
 
     if (hasError) {
       return const SizedBox.shrink();
     }
 
     final title = searching
-        ? 'Sin resultados'
+        ? l10n.noSearchResults
         : filtered
-            ? 'No hay PDFs en esta colección'
-            : 'Tu biblioteca está vacía';
+            ? l10n.emptyCollection
+            : l10n.emptyLibrary;
     final subtitle = searching
-        ? 'Prueba con otro título, autor o etiqueta.'
+        ? l10n.noSearchResultsHint
         : filtered
-            ? 'Importa un PDF o elige otra carpeta.'
-            : 'Pulsa + para importar un PDF del dispositivo.';
+            ? l10n.emptyCollectionHint
+            : l10n.emptyLibraryHint;
 
     return Center(
       child: Padding(
@@ -762,7 +785,7 @@ class _EmptyLibrary extends StatelessWidget {
               const SizedBox(height: 20),
               OutlinedButton(
                 onPressed: onImport,
-                child: Text(importing ? 'Importando…' : 'Importar PDF'),
+                child: Text(importing ? l10n.importing : l10n.importPdf),
               ),
             ],
           ],

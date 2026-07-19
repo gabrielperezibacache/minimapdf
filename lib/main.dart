@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -15,10 +16,12 @@ import 'core/theme/app_theme.dart';
 import 'data/datasources/library_local_datasource.dart';
 import 'data/datasources/pdf_download_service.dart';
 import 'data/datasources/pdf_import_service.dart';
+import 'l10n/app_localizations.dart';
 import 'presentation/library/library_screen.dart';
 import 'presentation/onboarding/welcome_screen.dart';
 import 'presentation/providers/downloader_provider.dart';
 import 'presentation/providers/library_provider.dart';
+import 'presentation/providers/locale_provider.dart';
 import 'presentation/providers/theme_provider.dart';
 
 Future<void> main() async {
@@ -65,6 +68,9 @@ class MinimalPdfApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<AppPreferences?>.value(value: preferences),
+        ChangeNotifierProvider(
+          create: (_) => LocaleProvider(preferences: preferences),
+        ),
         ChangeNotifierProvider(
           create: (_) => ThemeProvider(preferences: preferences),
         ),
@@ -133,6 +139,7 @@ class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
   @override
   Widget build(BuildContext context) {
     final themeOption = context.watch<ThemeProvider>().option;
+    final locale = context.watch<LocaleProvider>().locale;
     final theme = AppTheme.of(themeOption);
     final overlay = AppTheme.systemUiFor(themeOption);
 
@@ -142,6 +149,14 @@ class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
         title: AppConstants.appName,
         debugShowCheckedModeBanner: false,
         theme: theme,
+        locale: locale,
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         builder: (context, child) {
           return MediaQuery(
             data: MediaQuery.of(context).copyWith(

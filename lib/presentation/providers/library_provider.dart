@@ -6,6 +6,7 @@ import '../../core/preferences/app_preferences.dart';
 import '../../data/datasources/library_local_datasource.dart';
 import '../../data/datasources/pdf_import_service.dart';
 import '../../data/models/models.dart';
+import '../../l10n/app_message_keys.dart';
 
 /// Estado de la biblioteca: libros, colecciones e importación local.
 class LibraryProvider extends ChangeNotifier {
@@ -94,7 +95,7 @@ class LibraryProvider extends ChangeNotifier {
       _collections = results[1] as List<Collection>;
     } catch (e) {
       if (generation != _loadGeneration) return;
-      _error = 'No se pudo cargar la biblioteca.';
+      _error = AppMessageKeys.libraryLoadFailed;
       if (kDebugMode) {
         debugPrint('LibraryProvider.load: $e');
       }
@@ -142,7 +143,7 @@ class LibraryProvider extends ChangeNotifier {
       } else if (e is StateError) {
         _error = e.message;
       } else {
-        _error = 'No se pudo importar el PDF.';
+        _error = AppMessageKeys.importPdfFailed;
       }
       if (kDebugMode) {
         debugPrint('LibraryProvider.importPdf: $e');
@@ -182,7 +183,7 @@ class LibraryProvider extends ChangeNotifier {
       _error = null;
       await load();
     } catch (e) {
-      _error = 'No se pudieron guardar los metadatos.';
+      _error = AppMessageKeys.metadataSaveFailed;
       if (kDebugMode) {
         debugPrint('LibraryProvider.updateBookMetadata: $e');
       }
@@ -202,7 +203,7 @@ class LibraryProvider extends ChangeNotifier {
       await load();
       return collection;
     } catch (e) {
-      _error = 'No se pudo crear la colección.';
+      _error = AppMessageKeys.collectionCreateFailed;
       if (kDebugMode) {
         debugPrint('LibraryProvider.createCollection: $e');
       }
@@ -226,7 +227,7 @@ class LibraryProvider extends ChangeNotifier {
       await load();
       return updated;
     } catch (e) {
-      _error = 'No se pudo renombrar la colección.';
+      _error = AppMessageKeys.collectionRenameFailed;
       if (kDebugMode) {
         debugPrint('LibraryProvider.renameCollection: $e');
       }
@@ -246,7 +247,7 @@ class LibraryProvider extends ChangeNotifier {
       _error = null;
       await load();
     } catch (e) {
-      _error = 'No se pudo eliminar la colección.';
+      _error = AppMessageKeys.collectionDeleteFailed;
       if (kDebugMode) {
         debugPrint('LibraryProvider.deleteCollection: $e');
       }
@@ -265,7 +266,7 @@ class LibraryProvider extends ChangeNotifier {
       _error = null;
       await load();
     } catch (e) {
-      _error = 'No se pudo eliminar el PDF.';
+      _error = AppMessageKeys.deletePdfFailed;
       if (kDebugMode) {
         debugPrint('LibraryProvider.deleteBook: $e');
       }

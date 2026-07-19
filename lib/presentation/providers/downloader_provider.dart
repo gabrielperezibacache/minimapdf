@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../../core/utils/pdf_url_utils.dart';
 import '../../data/datasources/pdf_download_service.dart';
 import '../../data/models/book.dart';
+import '../../l10n/app_message_keys.dart';
 
 /// Estado del gestor de descargas y captura desde el mini-navegador.
 class DownloaderProvider extends ChangeNotifier {
@@ -25,6 +26,7 @@ class DownloaderProvider extends ChangeNotifier {
   double _progress = 0;
   String? _error;
   String? _statusMessage;
+  String? _messageArg;
   Book? _lastDownloaded;
   int? _targetCollectionId;
   DateTime? _lastProgressNotify;
@@ -36,6 +38,7 @@ class DownloaderProvider extends ChangeNotifier {
   double get progress => _progress;
   String? get error => _error;
   String? get statusMessage => _statusMessage;
+  String? get messageArg => _messageArg;
   Book? get lastDownloaded => _lastDownloaded;
   bool get hasDetectedPdfs => _detectedPdfUrls.isNotEmpty;
   int? get targetCollectionId => _targetCollectionId;
@@ -69,8 +72,9 @@ class DownloaderProvider extends ChangeNotifier {
   }
 
   void clearError() {
-    if (_error == null) return;
+    if (_error == null && _messageArg == null) return;
     _error = null;
+    _messageArg = null;
     notifyListeners();
   }
 
@@ -95,43 +99,45 @@ class DownloaderProvider extends ChangeNotifier {
       return e.message;
     }
     if (e is TimeoutException) {
-      return 'Tiempo de espera agotado. Inténtalo de nuevo.';
+      return AppMessageKeys.timeout;
     }
     if (e is SocketException) {
-      return 'Sin conexión de red. Comprueba tu acceso a Internet.';
+      return AppMessageKeys.noNetwork;
     }
     if (e is http.ClientException) {
-      return 'No se pudo conectar con el servidor.';
+      return AppMessageKeys.connectionFailed;
     }
     if (e is HttpException) {
       return e.message;
     }
     if (e is ArgumentError) {
-      return 'URL inválida.';
+      return AppMessageKeys.invalidUrl;
     }
     if (e is StateError) {
       final msg = e.message;
       if (msg.contains('en curso') || msg.contains('Ya hay una descarga')) {
-        return 'Ya hay una descarga en curso.';
+        return AppMessageKeys.downloadInProgress;
       }
       if (msg.contains('nativa fallida') || msg.contains('archivo no existe')) {
-        return 'La descarga falló en el dispositivo.';
+        return AppMessageKeys.nativeDownloadFailed;
       }
       return msg;
     }
-    return 'No se pudo descargar el PDF.';
+    return AppMessageKeys.downloadFailed;
   }
 
   Future<Book?> downloadUrl(String rawUrl) async {
     final url = PdfUrlUtils.normalizeUrl(rawUrl);
     if (!PdfUrlUtils.isValidHttpUrl(url)) {
-      _error = 'Introduce una URL http(s) válida.';
+      _error = AppMessageKeys.invalidUrl;
+      _messageArg = null;
       notifyListeners();
       return null;
     }
 
     if (_downloading) {
-      _error = 'Ya hay una descarga en curso.';
+      _error = AppMessageKeys.downloadInProgress;
+      _messageArg = null;
       notifyListeners();
       return null;
     }
@@ -139,7 +145,8 @@ class DownloaderProvider extends ChangeNotifier {
     _downloading = true;
     _progress = 0;
     _error = null;
-    _statusMessage = 'Descargando…';
+    _messageArg = null;
+    _statusMessage = AppMessageKeys.downloading;
     _lastDownloaded = null;
     _lastProgressNotify = null;
     notifyListeners();
@@ -151,15 +158,18 @@ class DownloaderProvider extends ChangeNotifier {
         collectionId: _targetCollectionId,
       );
       _lastDownloaded = book;
-      _statusMessage = 'Guardado en biblioteca: ${book.title}';
+      _statusMessage = AppMessageKeys.savedToLibrary;
+      _messageArg = book.title;
       return book;
     } on DownloadCancelledException {
       _error = null;
-      _statusMessage = 'Descarga cancelada.';
+      _statusMessage = AppMessageKeys.downloadCancelled;
+      _messageArg = null;
       return null;
     } catch (e) {
       _error = _mapDownloadError(e);
       _statusMessage = null;
+      _messageArg = null;
       if (kDebugMode) {
         debugPrint('DownloaderProvider.downloadUrl: $e');
       }
@@ -202,15 +212,16 @@ class DownloaderProvider extends ChangeNotifier {
     final unique = resolveCaptureCandidates(currentUrl: currentUrl);
 
     if (unique.isEmpty) {
-      _error = 'No se encontró un enlace PDF en esta página.';
+      _error = AppMessageKeys.noPdfLink;
+      _messageArg = null;
       notifyListeners();
       return null;
     }
 
     if (unique.length > 1) {
       _detectedPdfUrls = unique;
-      _error =
-          'Hay ${unique.length} PDFs detectados. Elige uno de la lista.';
+      _error = AppMessageKeys.multiplePdfsDetected;
+      _messageArg = '${unique.length}';
       _statusMessage = null;
       notifyListeners();
       return null;

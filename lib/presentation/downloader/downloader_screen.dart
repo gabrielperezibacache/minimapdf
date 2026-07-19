@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/pdf_url_utils.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/downloader_provider.dart';
 import '../providers/library_provider.dart';
 import 'pdf_link_detector.dart';
@@ -203,13 +204,20 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
 
   Future<void> _handleResult(dynamic book, DownloaderProvider provider) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
     if (book != null) {
       await context.read<LibraryProvider>().load();
       messenger.showSnackBar(
-        SnackBar(content: Text('Descargado: ${book.title}')),
+        SnackBar(content: Text(l10n.downloaded(book.title as String))),
       );
     } else if (provider.error != null) {
-      messenger.showSnackBar(SnackBar(content: Text(provider.error!)));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.message(provider.error!, arg: provider.messageArg),
+          ),
+        ),
+      );
     }
   }
 
@@ -253,7 +261,9 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
     final downloader = context.watch<DownloaderProvider>();
+    final statusOrError = downloader.error ?? downloader.statusMessage;
 
     return PopScope(
       canPop: !downloader.downloading,
@@ -311,13 +321,17 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
             progress: downloader.progress,
             onDownload: _downloadDirect,
           ),
-          if (downloader.statusMessage != null || downloader.error != null)
+          if (statusOrError != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  downloader.error ?? downloader.statusMessage!,
+                  l10n.message(
+                    statusOrError,
+                    arg: downloader.messageArg ??
+                        downloader.lastDownloaded?.title,
+                  ),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colors.accent,
                       ),

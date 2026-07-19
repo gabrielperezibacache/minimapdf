@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:minimal_pdf/core/preferences/app_preferences.dart';
 import 'package:minimal_pdf/core/theme/app_theme_option.dart';
+import 'package:minimal_pdf/l10n/app_locale.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -8,6 +9,16 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+  });
+
+  test('persiste idioma de la interfaz', () async {
+    final prefs = await AppPreferences.open();
+    expect(prefs.appLocale, AppLocale.es);
+
+    await prefs.setAppLocale(AppLocale.zh);
+
+    final reloaded = await AppPreferences.open();
+    expect(reloaded.appLocale, AppLocale.zh);
   });
 
   test('persiste tema, grid y preferencias del lector', () async {

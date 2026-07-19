@@ -108,7 +108,7 @@ void main() {
       currentUrl: 'https://cdn.example.com/article.html',
     );
     expect(book, isNull);
-    expect(provider.error, contains('No se encontró'));
+    expect(provider.error, 'noPdfLink');
     service.dispose();
   });
 
@@ -129,7 +129,8 @@ void main() {
 
     final book = await provider.capturePdf();
     expect(book, isNull);
-    expect(provider.error, contains('2 PDFs'));
+    expect(provider.error, 'multiplePdfsDetected');
+    expect(provider.messageArg, '2');
     expect(provider.detectedPdfUrls.length, 2);
     service.dispose();
   });
@@ -146,7 +147,7 @@ void main() {
     final provider = DownloaderProvider(service);
     final book = await provider.downloadUrl('https://example.com/slow.pdf');
     expect(book, isNull);
-    expect(provider.error, contains('Tiempo de espera'));
+    expect(provider.error, 'timeout');
     service.dispose();
   });
 
@@ -285,7 +286,7 @@ void main() {
     final second = await provider.downloadUrl('https://example.com/b.pdf');
 
     expect(second, isNull);
-    expect(provider.error, contains('curso'));
+    expect(provider.error, 'downloadInProgress');
     final book = await first;
     expect(book, isNotNull);
     service.dispose();
@@ -384,7 +385,7 @@ void main() {
     final book = await download;
 
     expect(book, isNull);
-    expect(provider.statusMessage, contains('cancelada'));
+    expect(provider.statusMessage, 'downloadCancelled');
     service.dispose();
   });
 
