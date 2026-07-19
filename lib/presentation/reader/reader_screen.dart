@@ -11,7 +11,11 @@ import '../../core/theme/hermes_pdf_filter.dart';
 import '../../data/datasources/library_local_datasource.dart';
 import '../../data/models/book.dart';
 import '../../data/models/bookmark.dart';
+import '../../data/models/signature_type.dart';
+import '../providers/document_signing_provider.dart';
 import '../providers/reader_annotations_provider.dart';
+import '../signing/signature_overlay.dart';
+import '../signing/signature_sheet.dart';
 import 'reader_scroll_mode.dart';
 import 'reading_progress_saver.dart';
 import 'widgets/floating_page_note.dart';
@@ -33,6 +37,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   late final PdfController _controller;
   ReadingProgressSaver? _progressSaver;
   ReaderAnnotationsProvider? _annotations;
+  DocumentSigningProvider? _signing;
 
   ReaderScrollMode _scrollMode = ReaderScrollMode.verticalContinuous;
   bool _obsidianFilter = true;
@@ -80,9 +85,22 @@ class _ReaderScreenState extends State<ReaderScreen>
       }
       annotations.addListener(_onAnnotationsChanged);
     }
+
+    if (_signing == null) {
+      final signing = DocumentSigningProvider(datasource);
+      _signing = signing;
+      if (bookId != null) {
+        signing.loadForBook(bookId);
+      }
+      signing.addListener(_onSigningChanged);
+    }
   }
 
   void _onAnnotationsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onSigningChanged() {
     if (mounted) setState(() {});
   }
 
@@ -91,6 +109,8 @@ class _ReaderScreenState extends State<ReaderScreen>
     WidgetsBinding.instance.removeObserver(this);
     _annotations?.removeListener(_onAnnotationsChanged);
     _annotations?.dispose();
+    _signing?.removeListener(_onSigningChanged);
+    _signing?.dispose();
     _progressSaver?.saveNow(page: _currentPage);
     _controller.dispose();
     super.dispose();
@@ -164,6 +184,37 @@ class _ReaderScreenState extends State<ReaderScreen>
     setState(() => _noteDismissed = false);
   }
 
+  Future<void> _signDocument() async {
+    final draft = await showSignatureSheet(
+      context,
+      pageNumber: _currentPage,
+    );
+    if (draft == null || !mounted) return;
+
+    final saved = await _signing?.signPage(
+      pageNumber: _currentPage,
+      draft: draft,
+    );
+    if (!mounted) return;
+
+    final error = _signing?.error;
+    if (saved == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error ?? 'No se pudo firmar el documento.')),
+      );
+      _signing?.clearError();
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Documento firmado (${saved.type.labelEs.toLowerCase()}).',
+        ),
+      ),
+    );
+  }
+
   Future<void> _deleteBookmark(Bookmark bookmark) async {
     await _annotations?.deleteBookmark(bookmark);
   }
@@ -174,7 +225,9 @@ class _ReaderScreenState extends State<ReaderScreen>
     final scaffoldBg =
         _obsidianFilter ? HermesPdfFilter.background : colors.background;
     final annotations = _annotations;
+    final signing = _signing;
     final currentBookmark = annotations?.bookmarkForPage(_currentPage);
+    final pageSignatures = signing?.signaturesForPage(_currentPage) ?? const [];
     final noteText = currentBookmark?.noteText;
     final hasNote = noteText != null && noteText.isNotEmpty;
     final isBookmarked = currentBookmark != null;
@@ -215,6 +268,16 @@ class _ReaderScreenState extends State<ReaderScreen>
                       pageNumber: _currentPage,
                       onEdit: _editNote,
                       onDismiss: () => setState(() => _noteDismissed = true),
+                    ),
+                  ),
+                for (final signature in pageSignatures)
+                  Positioned(
+                    left: 16 + (signature.offsetX * 40),
+                    bottom: (_controlsVisible ? 72 : 24) +
+                        (signature.offsetY * 20),
+                    child: SignatureOverlay(
+                      signature: signature,
+                      onDelete: () => _signing?.deleteSignature(signature),
                     ),
                   ),
                 if (_controlsVisible) _buildTopBar(colors, isBookmarked),
@@ -360,6 +423,14 @@ class _ReaderScreenState extends State<ReaderScreen>
                       onPressed: _editNote,
                       icon: const Icon(
                         Icons.sticky_note_2_outlined,
+                        color: AppColors.obsidianAccent,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Firmar documento',
+                      onPressed: _signDocument,
+                      icon: const Icon(
+                        Icons.draw_outlined,
                         color: AppColors.obsidianAccent,
                       ),
                     ),

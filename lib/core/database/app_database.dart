@@ -47,6 +47,11 @@ class AppDatabase {
         onCreate: (db, version) async {
           await _createSchema(db);
         },
+        onUpgrade: (db, oldVersion, newVersion) async {
+          if (oldVersion < 2) {
+            await _createSignaturesTable(db);
+          }
+        },
       ),
     );
 
@@ -125,6 +130,38 @@ class AppDatabase {
     await db.execute(
       'CREATE UNIQUE INDEX idx_bookmarks_book_page '
       'ON ${DatabaseConfig.tableBookmarks} (book_id, page_number)',
+    );
+
+    await _createSignaturesTable(db);
+  }
+
+  Future<void> _createSignaturesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DatabaseConfig.tableSignatures} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        book_id INTEGER NOT NULL,
+        page_number INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        signer_name TEXT NOT NULL,
+        typed_text TEXT,
+        ink_json TEXT,
+        reason TEXT,
+        offset_x REAL NOT NULL DEFAULT 0.55,
+        offset_y REAL NOT NULL DEFAULT 0.72,
+        signed_at TEXT NOT NULL,
+        FOREIGN KEY (book_id)
+          REFERENCES ${DatabaseConfig.tableBooks} (id)
+          ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_signatures_book_id '
+      'ON ${DatabaseConfig.tableSignatures} (book_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_signatures_book_page '
+      'ON ${DatabaseConfig.tableSignatures} (book_id, page_number)',
     );
   }
 }

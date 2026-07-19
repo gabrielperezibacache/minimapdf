@@ -1,0 +1,170 @@
+import 'dart:convert';
+
+import 'signature_type.dart';
+
+/// Firma electrónica asociada a una página de un PDF local.
+///
+/// Representa una firma electrónica simple (SES): identidad declarada,
+/// método (dibujada o mecanografiada), marca temporal y posición en página.
+class DocumentSignature {
+  const DocumentSignature({
+    this.id,
+    required this.bookId,
+    required this.pageNumber,
+    required this.type,
+    required this.signerName,
+    this.typedText,
+    this.inkJson,
+    this.reason,
+    this.offsetX = 0.55,
+    this.offsetY = 0.72,
+    required this.signedAt,
+  });
+
+  final int? id;
+  final int bookId;
+  final int pageNumber;
+  final SignatureType type;
+  final String signerName;
+
+  /// Texto mostrado en firma mecanografiada (por defecto [signerName]).
+  final String? typedText;
+
+  /// Trazos normalizados (0–1) serializados como JSON para firma dibujada.
+  /// Formato: `[[[x,y], ...], ...]` por trazo.
+  final String? inkJson;
+
+  final String? reason;
+
+  /// Posición relativa del sello en la página (0–1).
+  final double offsetX;
+  final double offsetY;
+
+  final DateTime signedAt;
+
+  String get displayText {
+    final typed = typedText?.trim();
+    if (typed != null && typed.isNotEmpty) return typed;
+    return signerName;
+  }
+
+  List<List<List<double>>> get inkStrokes {
+    final raw = inkJson;
+    if (raw == null || raw.isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return decoded
+          .map<List<List<double>>>((stroke) {
+            if (stroke is! List) return <List<double>>[];
+            return stroke.map<List<double>>((point) {
+              if (point is! List || point.length < 2) {
+                return const <double>[0, 0];
+              }
+              return [
+                (point[0] as num).toDouble(),
+                (point[1] as num).toDouble(),
+              ];
+            }).toList();
+          })
+          .where((stroke) => stroke.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  DocumentSignature copyWith({
+    int? id,
+    int? bookId,
+    int? pageNumber,
+    SignatureType? type,
+    String? signerName,
+    String? typedText,
+    String? inkJson,
+    String? reason,
+    double? offsetX,
+    double? offsetY,
+    DateTime? signedAt,
+    bool clearTypedText = false,
+    bool clearInkJson = false,
+    bool clearReason = false,
+  }) {
+    return DocumentSignature(
+      id: id ?? this.id,
+      bookId: bookId ?? this.bookId,
+      pageNumber: pageNumber ?? this.pageNumber,
+      type: type ?? this.type,
+      signerName: signerName ?? this.signerName,
+      typedText: clearTypedText ? null : (typedText ?? this.typedText),
+      inkJson: clearInkJson ? null : (inkJson ?? this.inkJson),
+      reason: clearReason ? null : (reason ?? this.reason),
+      offsetX: offsetX ?? this.offsetX,
+      offsetY: offsetY ?? this.offsetY,
+      signedAt: signedAt ?? this.signedAt,
+    );
+  }
+
+  Map<String, Object?> toMap() {
+    return {
+      if (id != null) 'id': id,
+      'book_id': bookId,
+      'page_number': pageNumber,
+      'type': type.storageValue,
+      'signer_name': signerName,
+      'typed_text': typedText,
+      'ink_json': inkJson,
+      'reason': reason,
+      'offset_x': offsetX,
+      'offset_y': offsetY,
+      'signed_at': signedAt.toIso8601String(),
+    };
+  }
+
+  factory DocumentSignature.fromMap(Map<String, Object?> map) {
+    return DocumentSignature(
+      id: map['id'] as int?,
+      bookId: map['book_id'] as int,
+      pageNumber: map['page_number'] as int,
+      type: SignatureTypeX.fromStorage(map['type'] as String),
+      signerName: map['signer_name'] as String,
+      typedText: map['typed_text'] as String?,
+      inkJson: map['ink_json'] as String?,
+      reason: map['reason'] as String?,
+      offsetX: (map['offset_x'] as num?)?.toDouble() ?? 0.55,
+      offsetY: (map['offset_y'] as num?)?.toDouble() ?? 0.72,
+      signedAt: DateTime.parse(map['signed_at'] as String),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is DocumentSignature &&
+        other.id == id &&
+        other.bookId == bookId &&
+        other.pageNumber == pageNumber &&
+        other.type == type &&
+        other.signerName == signerName &&
+        other.typedText == typedText &&
+        other.inkJson == inkJson &&
+        other.reason == reason &&
+        other.offsetX == offsetX &&
+        other.offsetY == offsetY &&
+        other.signedAt == signedAt;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        id,
+        bookId,
+        pageNumber,
+        type,
+        signerName,
+        typedText,
+        inkJson,
+        reason,
+        offsetX,
+        offsetY,
+        signedAt,
+      );
+}

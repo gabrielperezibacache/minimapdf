@@ -254,4 +254,59 @@ class LibraryDatabase {
       whereArgs: [bookId, pageNumber],
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Document signatures (firma electrónica simple / mecanografiada)
+  // ---------------------------------------------------------------------------
+
+  Future<DocumentSignature> createSignature(DocumentSignature signature) async {
+    final id = await _db.insert(
+      DatabaseConfig.tableSignatures,
+      signature.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.abort,
+    );
+    return signature.copyWith(id: id);
+  }
+
+  Future<DocumentSignature?> getSignatureById(int id) async {
+    final rows = await _db.query(
+      DatabaseConfig.tableSignatures,
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return DocumentSignature.fromMap(rows.first);
+  }
+
+  Future<List<DocumentSignature>> getSignaturesForBook(int bookId) async {
+    final rows = await _db.query(
+      DatabaseConfig.tableSignatures,
+      where: 'book_id = ?',
+      whereArgs: [bookId],
+      orderBy: 'page_number ASC, signed_at ASC',
+    );
+    return rows.map(DocumentSignature.fromMap).toList();
+  }
+
+  Future<List<DocumentSignature>> getSignaturesForPage(
+    int bookId,
+    int pageNumber,
+  ) async {
+    final rows = await _db.query(
+      DatabaseConfig.tableSignatures,
+      where: 'book_id = ? AND page_number = ?',
+      whereArgs: [bookId, pageNumber],
+      orderBy: 'signed_at ASC',
+    );
+    return rows.map(DocumentSignature.fromMap).toList();
+  }
+
+  Future<int> deleteSignature(int id) async {
+    return _db.delete(
+      DatabaseConfig.tableSignatures,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 }
