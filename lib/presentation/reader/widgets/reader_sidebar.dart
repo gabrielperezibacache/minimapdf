@@ -4,12 +4,13 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/bookmark.dart';
 import '../../../data/models/document_signature.dart';
+import '../../../data/models/page_annotation.dart';
 import '../../../data/models/signature_role.dart';
 import '../../../data/models/signature_type.dart';
 import '../../signing/signature_overlay.dart';
 import '../pdf_toc_entry.dart';
 
-/// Panel lateral deslizable estilo Hermes WebUI (índice + marcadores + firmas).
+/// Panel lateral deslizable (índice + marcadores + anotaciones + firmas).
 class ReaderSidebar extends StatelessWidget {
   const ReaderSidebar({
     super.key,
@@ -17,10 +18,13 @@ class ReaderSidebar extends StatelessWidget {
     required this.pagesCount,
     required this.currentPage,
     required this.bookmarks,
+    this.annotations = const [],
     this.signatures = const [],
     required this.onClose,
     required this.onOpenPage,
     required this.onDeleteBookmark,
+    this.onDeleteAnnotation,
+    this.onOpenAnnotation,
     this.onDeleteSignature,
   });
 
@@ -28,10 +32,13 @@ class ReaderSidebar extends StatelessWidget {
   final int pagesCount;
   final int currentPage;
   final List<Bookmark> bookmarks;
+  final List<PageAnnotation> annotations;
   final List<DocumentSignature> signatures;
   final VoidCallback onClose;
   final ValueChanged<int> onOpenPage;
   final ValueChanged<Bookmark> onDeleteBookmark;
+  final ValueChanged<PageAnnotation>? onDeleteAnnotation;
+  final ValueChanged<PageAnnotation>? onOpenAnnotation;
   final ValueChanged<DocumentSignature>? onDeleteSignature;
 
   @override
@@ -73,7 +80,7 @@ class ReaderSidebar extends StatelessWidget {
                   _SidebarHeader(onClose: onClose),
                   Expanded(
                     child: DefaultTabController(
-                      length: 3,
+                      length: 4,
                       child: Column(
                         children: [
                           TabBar(
@@ -85,6 +92,7 @@ class ReaderSidebar extends StatelessWidget {
                             tabs: const [
                               Tab(text: 'Índice'),
                               Tab(text: 'Marcadores'),
+                              Tab(text: 'Anotaciones'),
                               Tab(text: 'Firmas'),
                             ],
                           ),
@@ -101,6 +109,13 @@ class ReaderSidebar extends StatelessWidget {
                                   currentPage: currentPage,
                                   onOpenPage: onOpenPage,
                                   onDelete: onDeleteBookmark,
+                                ),
+                                _AnnotationsPane(
+                                  annotations: annotations,
+                                  currentPage: currentPage,
+                                  onOpenPage: onOpenPage,
+                                  onDelete: onDeleteAnnotation,
+                                  onOpen: onOpenAnnotation,
                                 ),
                                 _SignaturesPane(
                                   signatures: signatures,
@@ -336,6 +351,81 @@ class _BookmarksPane extends StatelessWidget {
             onPressed: () => onDelete(bookmark),
             icon: Icon(Icons.delete_outline, color: colors.textMuted, size: 20),
           ),
+        );
+      },
+    );
+  }
+}
+
+class _AnnotationsPane extends StatelessWidget {
+  const _AnnotationsPane({
+    required this.annotations,
+    required this.currentPage,
+    required this.onOpenPage,
+    this.onDelete,
+    this.onOpen,
+  });
+
+  final List<PageAnnotation> annotations;
+  final int currentPage;
+  final ValueChanged<int> onOpenPage;
+  final ValueChanged<PageAnnotation>? onDelete;
+  final ValueChanged<PageAnnotation>? onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = HermesColors.of(context);
+
+    if (annotations.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Sin anotaciones.\nUsa la caja de herramientas (icono bronce) '
+            'para marcar, subrayar, notar o comentar.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      itemCount: annotations.length,
+      separatorBuilder: (_, _) => Divider(height: 1, color: colors.border),
+      itemBuilder: (context, index) {
+        final annotation = annotations[index];
+        final selected = annotation.pageNumber == currentPage;
+
+        return ListTile(
+          selected: selected,
+          selectedColor: AppColors.obsidianAccent,
+          leading: Icon(annotation.type.icon, color: AppColors.obsidianAccent),
+          title: Text(
+            '${annotation.type.label} · p. ${annotation.pageNumber}',
+          ),
+          subtitle: annotation.hasText
+              ? Text(
+                  annotation.text!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                )
+              : null,
+          onTap: () {
+            onOpenPage(annotation.pageNumber);
+            onOpen?.call(annotation);
+          },
+          trailing: onDelete == null
+              ? null
+              : IconButton(
+                  tooltip: 'Eliminar',
+                  onPressed: () => onDelete!(annotation),
+                  icon: Icon(
+                    Icons.delete_outline,
+                    color: colors.textMuted,
+                    size: 20,
+                  ),
+                ),
         );
       },
     );
