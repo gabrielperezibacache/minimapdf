@@ -74,6 +74,7 @@ class _SignatureFormState extends State<_SignatureForm> {
   bool _typedDirty = false;
   bool _submitting = false;
   bool _saveAsTemplate = false;
+  int _padEpoch = 0;
 
   @override
   void initState() {
@@ -117,6 +118,7 @@ class _SignatureFormState extends State<_SignatureForm> {
       _typedDirty = template.type == SignatureType.typed &&
           template.displayText != template.signerName;
       _inkStrokes = template.inkStrokes;
+      _padEpoch++;
       _validationError = null;
     });
   }
@@ -151,6 +153,17 @@ class _SignatureFormState extends State<_SignatureForm> {
       _validationError = null;
       _submitting = true;
     });
+    if (_saveAsTemplate) {
+      final templateName =
+          _service.normalizePersonText(_templateNameController.text);
+      if (templateName.isEmpty) {
+        setState(() {
+          _validationError = 'Indica un nombre para la plantilla.';
+          _submitting = false;
+        });
+        return;
+      }
+    }
     final draft = _draft;
     try {
       _service.validateDraft(draft, pageNumber: widget.pageNumber);
@@ -352,6 +365,8 @@ class _SignatureFormState extends State<_SignatureForm> {
               ),
             ] else ...[
               SignaturePad(
+                key: ValueKey('pad-$_padEpoch'),
+                initialStrokes: _inkStrokes,
                 onStrokesChanged: (strokes) {
                   setState(() {
                     _inkStrokes = strokes;

@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/models/document_signature.dart';
 import '../../data/models/signature_role.dart';
 import '../../data/models/signature_type.dart';
+import '../../domain/signature_stamp_geometry.dart';
 import 'ink_stroke_painter.dart';
 
 /// Capa de firmas posicionadas de forma relativa sobre el área del PDF.
@@ -30,9 +31,6 @@ class SignatureLayer extends StatelessWidget {
   final double bottomReserve;
   final double topReserve;
 
-  static const double stampWidth = 196;
-  static const double stampHeightEstimate = 118;
-
   @override
   Widget build(BuildContext context) {
     if (signatures.isEmpty && !placementMode) {
@@ -44,19 +42,34 @@ class SignatureLayer extends StatelessWidget {
         final usableWidth = constraints.maxWidth;
         final rawUsableHeight =
             constraints.maxHeight - topReserve - bottomReserve;
-        // Si las barras comen toda la altura, usa el alto total para no
-        // aplastar el sello a 1px (evita saltos/overflow raros).
-        final usableHeight = rawUsableHeight >= stampHeightEstimate
-            ? rawUsableHeight
-            : constraints.maxHeight.clamp(1.0, double.infinity);
-        final effectiveTopReserve =
-            rawUsableHeight >= stampHeightEstimate ? topReserve : 0.0;
-        final maxLeft = (usableWidth - stampWidth).clamp(0.0, usableWidth);
-        final maxTop =
-            (usableHeight - stampHeightEstimate).clamp(0.0, usableHeight);
+        final pageSize = Size(
+          usableWidth,
+          rawUsableHeight >= SignatureStampGeometry.referenceStampWidth *
+                  SignatureStampGeometry.heightOverWidth
+              ? rawUsableHeight
+              : constraints.maxHeight.clamp(1.0, double.infinity),
+        );
+        final stamp = SignatureStampGeometry.stampSizeFor(pageSize);
+        final effectiveTopReserve = rawUsableHeight >= stamp.height
+            ? topReserve
+            : 0.0;
+        final maxLeft = SignatureStampGeometry.maxLeft(pageSize);
+        final maxTop = SignatureStampGeometry.maxTop(pageSize);
 
         return Stack(
           children: [
+            for (final signature in signatures)
+              _PositionedSignature(
+                key: ValueKey(signature.id ?? identityHashCode(signature)),
+                signature: signature,
+                stampSize: stamp,
+                maxLeft: maxLeft,
+                maxTop: maxTop,
+                topReserve: effectiveTopReserve,
+                interactive: !placementMode,
+                onMove: onMove,
+                onDelete: onDelete,
+              ),
             if (placementMode && onPlaceTap != null)
               Positioned.fill(
                 child: GestureDetector(
@@ -64,10 +77,10 @@ class SignatureLayer extends StatelessWidget {
                   onTapDown: (details) {
                     final dx = details.localPosition.dx;
                     final dy = details.localPosition.dy - effectiveTopReserve;
-                    final x = maxLeft <= 0 ? 0.0 : (dx / maxLeft).clamp(0.0, 1.0);
-                    final y = maxTop <= 0
-                        ? 0.0
-                        : (dy / maxTop).clamp(0.0, 1.0);
+                    final x =
+                        maxLeft <= 0 ? 0.0 : (dx / maxLeft).clamp(0.0, 1.0);
+                    final y =
+                        maxTop <= 0 ? 0.0 : (dy / maxTop).clamp(0.0, 1.0);
                     onPlaceTap!(x.toDouble(), y.toDouble());
                   },
                   child: ColoredBox(
@@ -88,16 +101,6 @@ class SignatureLayer extends StatelessWidget {
                   ),
                 ),
               ),
-            for (final signature in signatures)
-              _PositionedSignature(
-                key: ValueKey(signature.id ?? identityHashCode(signature)),
-                signature: signature,
-                maxLeft: maxLeft,
-                maxTop: maxTop,
-                topReserve: effectiveTopReserve,
-                onMove: onMove,
-                onDelete: onDelete,
-              ),
           ],
         );
       },
@@ -109,17 +112,21 @@ class _PositionedSignature extends StatefulWidget {
   const _PositionedSignature({
     super.key,
     required this.signature,
+    required this.stampSize,
     required this.maxLeft,
     required this.maxTop,
     required this.topReserve,
+    required this.interactive,
     required this.onMove,
     required this.onDelete,
   });
 
   final DocumentSignature signature;
+  final Size stampSize;
   final double maxLeft;
   final double maxTop;
   final double topReserve;
+  final bool interactive;
   final void Function(DocumentSignature signature, double x, double y) onMove;
   final ValueChanged<DocumentSignature> onDelete;
 
@@ -156,29 +163,31 @@ class _PositionedSignatureState extends State<_PositionedSignature> {
       top: widget.topReserve + position.$2,
       child: SignatureOverlay(
         signature: widget.signature,
-        onDelete: () => widget.onDelete(widget.signature),
-        onDragUpdate: (delta) {
-          setState(() => _dragDelta += delta);
-        },
-        onDragEnd: () {
-          // Recalcular con el delta actual (no cerrar sobre el build).
-          final pos = _clampedPosition();
-          final nextX =
-              widget.maxLeft <= 0 ? 0.0 : pos.$1 / widget.maxLeft;
-          final nextY = widget.maxTop <= 0 ? 0.0 : pos.$2 / widget.maxTop;
-          final shouldPersist = _dragDelta.distanceSquared > 1.0;
-          if (!shouldPersist) {
-            setState(() => _dragDelta = Offset.zero);
-            return;
-          }
-          // No resetear delta aquí: evita un salto visual a la posición
-          // antigua antes de que el provider actualice offsetX/Y.
-          // didUpdateWidget limpia el delta al recibir los nuevos offsets.
-          widget.onMove(widget.signature, nextX, nextY);
-        },
-        onDragCancel: () {
-          setState(() => _dragDelta = Offset.zero);
-        },
+        width: widget.stampSize.width,
+        onDelete: widget.interactive
+            ? () => widget.onDelete(widget.signature)
+            : null,
+        onDragUpdate: widget.interactive
+            ? (delta) => setState(() => _dragDelta += delta)
+            : null,
+        onDragEnd: widget.interactive
+            ? () {
+                final pos = _clampedPosition();
+                final nextX =
+                    widget.maxLeft <= 0 ? 0.0 : pos.$1 / widget.maxLeft;
+                final nextY =
+                    widget.maxTop <= 0 ? 0.0 : pos.$2 / widget.maxTop;
+                final shouldPersist = _dragDelta.distanceSquared > 1.0;
+                if (!shouldPersist) {
+                  setState(() => _dragDelta = Offset.zero);
+                  return;
+                }
+                widget.onMove(widget.signature, nextX, nextY);
+              }
+            : null,
+        onDragCancel: widget.interactive
+            ? () => setState(() => _dragDelta = Offset.zero)
+            : null,
       ),
     );
   }
@@ -189,6 +198,7 @@ class SignatureOverlay extends StatelessWidget {
   const SignatureOverlay({
     super.key,
     required this.signature,
+    this.width = SignatureStampGeometry.referenceStampWidth,
     this.onDelete,
     this.onDragUpdate,
     this.onDragEnd,
@@ -196,6 +206,7 @@ class SignatureOverlay extends StatelessWidget {
   });
 
   final DocumentSignature signature;
+  final double width;
   final VoidCallback? onDelete;
   final ValueChanged<Offset>? onDragUpdate;
   final VoidCallback? onDragEnd;
@@ -206,6 +217,7 @@ class SignatureOverlay extends StatelessWidget {
     final colors = HermesColors.of(context);
     final dateLabel = formatSignatureDate(signature.signedAt);
     final canDrag = onDragUpdate != null && onDragEnd != null;
+    final scale = width / SignatureStampGeometry.referenceStampWidth;
 
     return GestureDetector(
       onPanUpdate: canDrag ? (details) => onDragUpdate!(details.delta) : null,
@@ -215,8 +227,8 @@ class SignatureOverlay extends StatelessWidget {
         color: colors.panel.withValues(alpha: 0.96),
         elevation: 0,
         child: Container(
-          width: SignatureLayer.stampWidth,
-          padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
+          width: width,
+          padding: EdgeInsets.fromLTRB(10 * scale, 8 * scale, 6 * scale, 8 * scale),
           decoration: BoxDecoration(
             border: Border.all(color: AppColors.obsidianAccent, width: 1),
           ),
@@ -230,20 +242,20 @@ class SignatureOverlay extends StatelessWidget {
                     signature.type == SignatureType.typed
                         ? Icons.text_fields
                         : Icons.gesture,
-                    size: 14,
+                    size: 14 * scale,
                     color: AppColors.obsidianAccent,
                   ),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6 * scale),
                   Expanded(
                     child: Text(
                       '${signature.role.labelEs} · #${signature.signingOrder}',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: AppColors.obsidianAccent,
+                            fontSize: 11 * scale,
                           ),
                     ),
                   ),
                   if (onDelete != null)
-                    // Evita que el pan de arrastre capture el botón cerrar.
                     Semantics(
                       button: true,
                       label: 'Eliminar firma',
@@ -251,10 +263,10 @@ class SignatureOverlay extends StatelessWidget {
                         behavior: HitTestBehavior.opaque,
                         onTap: onDelete,
                         child: Padding(
-                          padding: const EdgeInsets.all(4),
+                          padding: EdgeInsets.all(4 * scale),
                           child: Icon(
                             Icons.close,
-                            size: 14,
+                            size: 14 * scale,
                             color: colors.textMuted,
                           ),
                         ),
@@ -262,7 +274,7 @@ class SignatureOverlay extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: 6 * scale),
               if (signature.type == SignatureType.typed)
                 Text(
                   signature.displayText,
@@ -271,7 +283,7 @@ class SignatureOverlay extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: 'serif',
                     fontStyle: FontStyle.italic,
-                    fontSize: 22,
+                    fontSize: 22 * scale,
                     height: 1.1,
                     letterSpacing: 0.4,
                     color: colors.text,
@@ -279,46 +291,50 @@ class SignatureOverlay extends StatelessWidget {
                 )
               else
                 SizedBox(
-                  height: 48,
+                  height: 48 * scale,
                   child: CustomPaint(
                     painter: InkStrokePainter(
                       strokes: signature.inkStrokes,
                       color: colors.text,
-                      strokeWidth: 1.9,
+                      strokeWidth: 1.9 * scale,
                     ),
                   ),
                 ),
-              const SizedBox(height: 6),
+              SizedBox(height: 6 * scale),
               Text(
                 signature.signerName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      fontSize: 11 * scale,
+                    ),
               ),
               Text(
                 dateLabel,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: colors.textMuted,
+                      fontSize: 10 * scale,
                     ),
               ),
               if (signature.reason != null && signature.reason!.isNotEmpty) ...[
-                const SizedBox(height: 2),
+                SizedBox(height: 2 * scale),
                 Text(
                   signature.reason!,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: colors.textMuted,
+                        fontSize: 10 * scale,
                       ),
                 ),
               ],
               if (canDrag) ...[
-                const SizedBox(height: 4),
+                SizedBox(height: 4 * scale),
                 Text(
                   'Arrastra para colocar',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: colors.textMuted,
-                        fontSize: 10,
+                        fontSize: 10 * scale,
                       ),
                 ),
               ],

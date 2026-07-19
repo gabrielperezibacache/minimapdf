@@ -65,5 +65,9 @@ void main() {
     expect(json, contains('"signingOrder": 3'));
     expect(manifest.matchesSignedHash('B' * 64), isTrue);
     expect(manifest.matchesSignedHash('c' * 64), isFalse);
+
+    final decoded = SignatureManifest.decode(json);
+    expect(decoded.signatures.first.signingOrder, 3);
+    expect(decoded.sourceFileName, 'origen.pdf');
   });
 }

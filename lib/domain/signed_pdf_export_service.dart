@@ -16,6 +16,7 @@ import '../data/models/signature_role.dart';
 import '../data/models/signature_type.dart';
 import 'document_hash_service.dart';
 import 'signature_manifest.dart';
+import 'signature_stamp_geometry.dart';
 
 /// Resultado de exportar un PDF con sellos de firma incrustados.
 class SignedPdfExportResult {
@@ -44,7 +45,6 @@ class SignedPdfExportService {
   final DocumentHashService _hashService;
   final Future<Directory> Function() _documentsDirectory;
 
-  static const double _stampWidthFactor = 0.34;
   static const double _renderScale = 1.6;
 
   Future<SignedPdfExportResult> exportSignedPdf({
@@ -70,11 +70,27 @@ class SignedPdfExportService {
     final sanitized = FileNameSanitizer.sanitize('${book.title}_firmado');
     final pdfName = FileNameSanitizer.uniqueName(sanitized, existing);
     final pdfPath = p.join(libraryDir.path, pdfName);
-    final manifestPath =
-        '${p.withoutExtension(pdfPath)}.firmas.json';
+    final manifestPath = '${p.withoutExtension(pdfPath)}.firmas.json';
 
     final document = await PdfDocument.openFile(book.filePath);
     try {
+      if (document.pagesCount < 1) {
+        throw StateError('El PDF no tiene páginas.');
+      }
+
+      final outOfRange = signatures
+          .where(
+            (signature) =>
+                signature.pageNumber < 1 ||
+                signature.pageNumber > document.pagesCount,
+          )
+          .toList(growable: false);
+      if (outOfRange.isNotEmpty) {
+        throw StateError(
+          'Hay firmas fuera del rango de páginas del documento.',
+        );
+      }
+
       final output = pdf.Document();
       final byPage = <int, List<DocumentSignature>>{};
       for (final signature in signatures) {
@@ -84,6 +100,10 @@ class SignedPdfExportService {
       for (var pageNumber = 1; pageNumber <= document.pagesCount; pageNumber++) {
         final page = await document.getPage(pageNumber);
         try {
+          if (page.width <= 0 || page.height <= 0) {
+            throw StateError('Página $pageNumber con tamaño inválido.');
+          }
+
           final rendered = await page.render(
             width: page.width * _renderScale,
             height: page.height * _renderScale,
@@ -93,10 +113,18 @@ class SignedPdfExportService {
             throw StateError('No se pudo renderizar la página $pageNumber.');
           }
 
+          final width =
+              rendered.width ?? (page.width * _renderScale).round();
+          final height =
+              rendered.height ?? (page.height * _renderScale).round();
+          if (width < 1 || height < 1) {
+            throw StateError('Render vacío en la página $pageNumber.');
+          }
+
           final stampedBytes = await _stampPageImage(
             pageBytes: rendered.bytes,
-            width: rendered.width ?? (page.width * _renderScale).round(),
-            height: rendered.height ?? (page.height * _renderScale).round(),
+            width: width,
+            height: height,
             signatures: byPage[pageNumber] ?? const [],
           );
 
@@ -146,11 +174,13 @@ class SignedPdfExportService {
 
   Future<Set<String>> _existingNames(Directory libraryDir) async {
     if (!await libraryDir.exists()) return <String>{};
-    return libraryDir
-        .listSync()
-        .whereType<File>()
-        .map((file) => p.basename(file.path).toLowerCase())
-        .toSet();
+    final names = <String>{};
+    await for (final entity in libraryDir.list()) {
+      if (entity is File) {
+        names.add(p.basename(entity.path).toLowerCase());
+      }
+    }
+    return names;
   }
 
   Future<Uint8List> _stampPageImage({
@@ -160,39 +190,45 @@ class SignedPdfExportService {
     required List<DocumentSignature> signatures,
   }) async {
     final codec = await ui.instantiateImageCodec(Uint8List.fromList(pageBytes));
-    final frame = await codec.getNextFrame();
-    final pageImage = frame.image;
+    try {
+      final frame = await codec.getNextFrame();
+      final pageImage = frame.image;
 
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    final size = Size(width.toDouble(), height.toDouble());
-    canvas.drawImage(pageImage, Offset.zero, Paint());
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      final size = Size(width.toDouble(), height.toDouble());
+      canvas.drawImage(pageImage, Offset.zero, Paint());
 
-    final stampWidth = size.width * _stampWidthFactor;
-    final stampHeight = stampWidth * 0.58;
-    final maxLeft = (size.width - stampWidth).clamp(0.0, size.width);
-    final maxTop = (size.height - stampHeight).clamp(0.0, size.height);
+      final stamp = SignatureStampGeometry.stampSizeFor(size);
+      final maxLeft = SignatureStampGeometry.maxLeft(size);
+      final maxTop = SignatureStampGeometry.maxTop(size);
 
-    for (final signature in signatures) {
-      final left = signature.offsetX * maxLeft;
-      final top = signature.offsetY * maxTop;
-      _paintStamp(
-        canvas,
-        Rect.fromLTWH(left, top, stampWidth, stampHeight),
-        signature,
-      );
+      for (final signature in signatures) {
+        final left = signature.offsetX.clamp(0.0, 1.0) * maxLeft;
+        final top = signature.offsetY.clamp(0.0, 1.0) * maxTop;
+        _paintStamp(
+          canvas,
+          Rect.fromLTWH(left, top, stamp.width, stamp.height),
+          signature,
+        );
+      }
+
+      final picture = recorder.endRecording();
+      final stamped = await picture.toImage(width, height);
+      try {
+        final byteData =
+            await stamped.toByteData(format: ui.ImageByteFormat.png);
+        if (byteData == null) {
+          throw StateError('No se pudo codificar la página firmada.');
+        }
+        return byteData.buffer.asUint8List();
+      } finally {
+        stamped.dispose();
+        pageImage.dispose();
+      }
+    } finally {
+      codec.dispose();
     }
-
-    final picture = recorder.endRecording();
-    final stamped = await picture.toImage(width, height);
-    final byteData =
-        await stamped.toByteData(format: ui.ImageByteFormat.png);
-    pageImage.dispose();
-    stamped.dispose();
-    if (byteData == null) {
-      throw StateError('No se pudo codificar la página firmada.');
-    }
-    return byteData.buffer.asUint8List();
   }
 
   void _paintStamp(Canvas canvas, Rect rect, DocumentSignature signature) {
@@ -211,13 +247,14 @@ class SignedPdfExportService {
       rect.right - padding,
       rect.bottom - padding,
     );
+    final scale = rect.width / SignatureStampGeometry.referenceStampWidth;
 
     final header = TextPainter(
       text: TextSpan(
         text: '${signature.role.labelEs} · #${signature.signingOrder}',
-        style: const TextStyle(
-          color: Color(0xFFC89A5A),
-          fontSize: 11,
+        style: TextStyle(
+          color: const Color(0xFFC89A5A),
+          fontSize: 11 * scale,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -225,14 +262,14 @@ class SignedPdfExportService {
     )..layout(maxWidth: content.width);
     header.paint(canvas, content.topLeft);
 
-    var cursorY = content.top + header.height + 4;
+    var cursorY = content.top + header.height + 4 * scale;
     if (signature.type == SignatureType.typed) {
       final rubrica = TextPainter(
         text: TextSpan(
           text: signature.displayText,
-          style: const TextStyle(
-            color: Color(0xFF121D18),
-            fontSize: 20,
+          style: TextStyle(
+            color: const Color(0xFF121D18),
+            fontSize: 20 * scale,
             fontStyle: FontStyle.italic,
             fontFamily: 'serif',
           ),
@@ -242,7 +279,7 @@ class SignedPdfExportService {
         ellipsis: '…',
       )..layout(maxWidth: content.width);
       rubrica.paint(canvas, Offset(content.left, cursorY));
-      cursorY += rubrica.height + 4;
+      cursorY += rubrica.height + 4 * scale;
     } else {
       final inkRect = Rect.fromLTWH(
         content.left,
@@ -251,7 +288,7 @@ class SignedPdfExportService {
         content.height * 0.38,
       );
       _paintInk(canvas, inkRect, signature.inkStrokes);
-      cursorY = inkRect.bottom + 4;
+      cursorY = inkRect.bottom + 4 * scale;
     }
 
     final meta = TextPainter(
@@ -262,9 +299,9 @@ class SignedPdfExportService {
           if (signature.reason != null && signature.reason!.isNotEmpty)
             signature.reason!,
         ].join('\n'),
-        style: const TextStyle(
-          color: Color(0xFF3D4A44),
-          fontSize: 10,
+        style: TextStyle(
+          color: const Color(0xFF3D4A44),
+          fontSize: 10 * scale,
           height: 1.2,
         ),
       ),

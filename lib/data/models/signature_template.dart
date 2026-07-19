@@ -44,10 +44,10 @@ class SignatureTemplate {
             for (final point in stroke) {
               if (point is! List || point.length < 2) continue;
               if (point[0] is! num || point[1] is! num) continue;
-              points.add([
-                (point[0] as num).toDouble(),
-                (point[1] as num).toDouble(),
-              ]);
+              final x = (point[0] as num).toDouble();
+              final y = (point[1] as num).toDouble();
+              if (!x.isFinite || !y.isFinite) continue;
+              points.add([x, y]);
             }
             return points;
           })

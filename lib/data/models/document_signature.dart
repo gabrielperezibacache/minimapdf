@@ -148,7 +148,7 @@ class DocumentSignature {
       'offsetX': offsetX,
       'offsetY': offsetY,
       'signedAt': signedAt.toIso8601String(),
-      'hasInk': inkJson != null && inkJson!.isNotEmpty,
+      'hasInk': inkStrokes.isNotEmpty,
     };
   }
 

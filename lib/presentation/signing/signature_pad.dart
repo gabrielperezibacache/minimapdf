@@ -9,10 +9,14 @@ class SignaturePad extends StatefulWidget {
   const SignaturePad({
     super.key,
     required this.onStrokesChanged,
+    this.initialStrokes = const [],
     this.height = 168,
   });
 
   final ValueChanged<List<List<List<double>>>> onStrokesChanged;
+
+  /// Trazos normalizados (0–1) para precargar (p. ej. plantilla dibujada).
+  final List<List<List<double>>> initialStrokes;
   final double height;
 
   @override
@@ -23,6 +27,53 @@ class SignaturePadState extends State<SignaturePad> {
   final List<List<Offset>> _strokes = [];
   List<Offset>? _current;
   Size _padSize = Size.zero;
+  bool _seedApplied = false;
+
+  @override
+  void didUpdateWidget(covariant SignaturePad oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_sameStrokes(oldWidget.initialStrokes, widget.initialStrokes)) {
+      _seedApplied = false;
+      _applySeedIfReady(_padSize);
+    }
+  }
+
+  bool _sameStrokes(
+    List<List<List<double>>> a,
+    List<List<List<double>>> b,
+  ) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    return a.toString() == b.toString();
+  }
+
+  void _applySeedIfReady(Size size) {
+    if (_seedApplied || size.width <= 0 || size.height <= 0) return;
+    if (widget.initialStrokes.isEmpty) {
+      _seedApplied = true;
+      return;
+    }
+    _seedApplied = true;
+    _padSize = size;
+    setState(() {
+      _strokes
+        ..clear()
+        ..addAll(
+          widget.initialStrokes.map(
+            (stroke) => stroke
+                .map(
+                  (point) => Offset(
+                    (point[0].clamp(0.0, 1.0) * size.width).toDouble(),
+                    (point[1].clamp(0.0, 1.0) * size.height).toDouble(),
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      _current = null;
+    });
+    _emit();
+  }
 
   void clear() {
     setState(() {
@@ -147,6 +198,11 @@ class SignaturePadState extends State<SignaturePad> {
             builder: (context, constraints) {
               final padSize =
                   Size(constraints.maxWidth, constraints.maxHeight);
+              if (!_seedApplied) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _applySeedIfReady(padSize);
+                });
+              }
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onPanStart: (details) =>

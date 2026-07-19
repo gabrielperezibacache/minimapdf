@@ -184,11 +184,30 @@ class AppDatabase {
         "ADD COLUMN role TEXT NOT NULL DEFAULT 'signer'",
       );
     }
-    if (!names.contains('signing_order')) {
+    final addedOrder = !names.contains('signing_order');
+    if (addedOrder) {
       await db.execute(
         'ALTER TABLE ${DatabaseConfig.tableSignatures} '
         'ADD COLUMN signing_order INTEGER NOT NULL DEFAULT 1',
       );
+    }
+    // Backfill: filas migradas quedan en 1; reasigna por signed_at/id.
+    if (addedOrder) {
+      await db.execute('''
+        UPDATE ${DatabaseConfig.tableSignatures}
+        SET signing_order = (
+          SELECT COUNT(*)
+          FROM ${DatabaseConfig.tableSignatures} AS sibling
+          WHERE sibling.book_id = ${DatabaseConfig.tableSignatures}.book_id
+            AND (
+              sibling.signed_at < ${DatabaseConfig.tableSignatures}.signed_at
+              OR (
+                sibling.signed_at = ${DatabaseConfig.tableSignatures}.signed_at
+                AND sibling.id <= ${DatabaseConfig.tableSignatures}.id
+              )
+            )
+        )
+      ''');
     }
   }
 

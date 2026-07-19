@@ -14,6 +14,7 @@ import '../../data/models/bookmark.dart';
 import '../../data/models/document_signature.dart';
 import '../../data/models/signature_role.dart';
 import '../providers/document_signing_provider.dart';
+import '../providers/library_provider.dart';
 import '../providers/reader_annotations_provider.dart';
 import '../signing/signature_overlay.dart';
 import '../signing/signature_sheet.dart';
@@ -206,6 +207,9 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (!mounted) return;
     if (draft == null) {
       _signing?.clearPendingPlacement();
+      // Permite reintentar la colocación sin volver a pulsar firmar.
+      _signing?.beginPlacementMode();
+      setState(() {});
       return;
     }
     if (_signing?.saving == true) return;
@@ -254,6 +258,12 @@ class _ReaderScreenState extends State<ReaderScreen>
       _signing?.clearError();
       return;
     }
+    try {
+      await context.read<LibraryProvider>().load();
+    } catch (_) {
+      // El PDF ya está exportado; fallar el refresh no invalida el resultado.
+    }
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -509,8 +519,15 @@ class _ReaderScreenState extends State<ReaderScreen>
               icon: const Icon(Icons.menu, color: AppColors.obsidianAccent),
             ),
             IconButton(
-              tooltip: 'Volver',
-              onPressed: _onExit,
+              tooltip: placement ? 'Cancelar colocación' : 'Volver',
+              onPressed: () {
+                if (placement) {
+                  signing?.cancelPlacementMode();
+                  setState(() {});
+                  return;
+                }
+                _onExit();
+              },
               icon: Icon(Icons.arrow_back, color: colors.text),
             ),
             Expanded(
@@ -546,39 +563,6 @@ class _ReaderScreenState extends State<ReaderScreen>
                       ),
                     ),
                     IconButton(
-                      tooltip: placement
-                          ? 'Cancelar colocación'
-                          : 'Firmar documento',
-                      onPressed: signing?.saving == true
-                          ? null
-                          : () {
-                              if (placement) {
-                                signing?.cancelPlacementMode();
-                                setState(() {});
-                                return;
-                              }
-                              _signDocument();
-                            },
-                      icon: Icon(
-                        placement ? Icons.close : Icons.draw_outlined,
-                        color: AppColors.obsidianAccent,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Exportar PDF firmado',
-                      onPressed: signing == null ||
-                              !signing.hasSignatures ||
-                              signing.exporting
-                          ? null
-                          : _exportSignedPdf,
-                      icon: Icon(
-                        Icons.ios_share_outlined,
-                        color: canExport
-                            ? AppColors.obsidianAccent
-                            : colors.textMuted,
-                      ),
-                    ),
-                    IconButton(
                       tooltip: _obsidianFilter
                           ? 'Desactivar filtro Obsidian'
                           : 'Filtro Hermes Obsidian',
@@ -608,6 +592,37 @@ class _ReaderScreenState extends State<ReaderScreen>
                     ),
                   ],
                 ),
+              ),
+            ),
+            // Acciones primarias de firma siempre visibles (no se ocultan al scroll).
+            IconButton(
+              tooltip: placement ? 'Cancelar colocación' : 'Firmar documento',
+              onPressed: signing?.saving == true || signing?.exporting == true
+                  ? null
+                  : () {
+                      if (placement) {
+                        signing?.cancelPlacementMode();
+                        setState(() {});
+                        return;
+                      }
+                      _signDocument();
+                    },
+              icon: Icon(
+                placement ? Icons.close : Icons.draw_outlined,
+                color: AppColors.obsidianAccent,
+              ),
+            ),
+            IconButton(
+              tooltip: 'Exportar PDF firmado',
+              onPressed: signing == null ||
+                      !signing.hasSignatures ||
+                      signing.exporting ||
+                      signing.saving
+                  ? null
+                  : _exportSignedPdf,
+              icon: Icon(
+                Icons.ios_share_outlined,
+                color: canExport ? AppColors.obsidianAccent : colors.textMuted,
               ),
             ),
           ],
