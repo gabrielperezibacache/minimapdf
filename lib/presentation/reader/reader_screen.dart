@@ -14,6 +14,7 @@ import '../../data/datasources/library_local_datasource.dart';
 import '../../data/models/book.dart';
 import '../../data/models/bookmark.dart';
 import '../../data/models/document_signature.dart';
+import '../../data/models/page_annotation.dart';
 import '../../data/models/signature_role.dart';
 import '../providers/document_signing_provider.dart';
 import '../providers/library_provider.dart';
@@ -21,8 +22,10 @@ import '../providers/reader_annotations_provider.dart';
 import '../signing/signature_sheet.dart';
 import 'reader_scroll_mode.dart';
 import 'reading_progress_saver.dart';
+import 'widgets/annotation_toolbox.dart';
 import 'widgets/floating_page_note.dart';
 import 'widgets/note_edit_sheet.dart';
+import 'widgets/page_annotations_layer.dart';
 import 'widgets/reader_sidebar.dart';
 import 'widgets/signed_pdf_page.dart';
 
@@ -261,6 +264,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       context,
       pageNumber: _currentPage,
       initialText: existing?.noteText,
+      title: 'Nota de página',
     );
     if (result == null || !mounted || annotations == null) return;
     await annotations.saveNote(pageNumber: _currentPage, noteText: result);
@@ -274,8 +278,248 @@ class _ReaderScreenState extends State<ReaderScreen>
     setState(() => _noteDismissed = false);
   }
 
+  void _toggleAnnotationToolbox() {
+    // Firma y anotación no comparten gestos: al abrir la caja se cancela colocación.
+    if (_signing?.placementMode == true) {
+      _signing?.cancelPlacementMode();
+    }
+    _annotations?.toggleToolbox();
+    setState(() {});
+  }
+
+  Future<void> _createAnnotationRect({
+    required double x,
+    required double y,
+    required double width,
+    required double height,
+  }) async {
+    final provider = _annotations;
+    final tool = provider?.activeTool;
+    final type = tool?.annotationType;
+    if (provider == null || tool == null || type == null) return;
+
+    String? text;
+    if (tool.needsText) {
+      text = await showNoteEditSheet(
+        context,
+        pageNumber: _currentPage,
+        title: type.label,
+        hintText: 'Escribe ${type.label.toLowerCase()}…',
+      );
+      if (text == null || !mounted) return;
+      if (text.trim().isEmpty) return;
+    }
+
+    final created = await provider.addAnnotation(
+      pageNumber: _currentPage,
+      type: type,
+      x: x,
+      y: y,
+      width: width,
+      height: height,
+      text: text,
+    );
+    if (!mounted) return;
+    if (provider.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(provider.error!)),
+      );
+      return;
+    }
+    if (created == null) return;
+
+    // Las herramientas de texto se sueltan; el marcado queda activo para seguir.
+    if (tool.needsText) {
+      provider.clearTool();
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${type.label} guardado en página $_currentPage'),
+        duration: const Duration(milliseconds: 1400),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _openAnnotation(PageAnnotation annotation) async {
+    final colors = HermesColors.of(context);
+
+    if (annotation.type.needsText || annotation.hasText) {
+      final action = await showModalBottomSheet<_AnnotationAction>(
+        context: context,
+        backgroundColor: colors.panel,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
+        ),
+        builder: (context) {
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: Icon(
+                    annotation.type.icon,
+                    color: AppColors.obsidianAccent,
+                  ),
+                  title: Text(
+                    annotation.type.label,
+                    style: const TextStyle(color: AppColors.obsidianAccent),
+                  ),
+                  subtitle: Text(
+                    annotation.hasText
+                        ? annotation.text!
+                        : 'Página ${annotation.pageNumber}',
+                  ),
+                ),
+                const Divider(height: 1),
+                if (annotation.type.needsText)
+                  ListTile(
+                    leading: const Icon(Icons.edit_outlined),
+                    title: const Text('Editar texto'),
+                    onTap: () =>
+                        Navigator.of(context).pop(_AnnotationAction.edit),
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.delete_outline),
+                  title: const Text('Eliminar'),
+                  onTap: () =>
+                      Navigator.of(context).pop(_AnnotationAction.delete),
+                ),
+                ListTile(
+                  leading: Icon(Icons.close, color: colors.textMuted),
+                  title: const Text('Cancelar'),
+                  onTap: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      if (!mounted || action == null) return;
+      if (action == _AnnotationAction.delete) {
+        await _confirmDeleteAnnotation(annotation);
+        return;
+      }
+      if (action == _AnnotationAction.edit) {
+        final result = await showNoteEditSheet(
+          context,
+          pageNumber: annotation.pageNumber,
+          initialText: annotation.text,
+          title: annotation.type.label,
+          hintText: 'Editar ${annotation.type.label.toLowerCase()}…',
+        );
+        if (result == null || !mounted) return;
+        await _annotations?.updateAnnotationText(
+          annotation: annotation,
+          text: result,
+        );
+        if (_annotations?.error != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_annotations!.error!)),
+          );
+        }
+      }
+      return;
+    }
+
+    // Marcado / subrayado: acciones rápidas.
+    final action = await showModalBottomSheet<_AnnotationAction>(
+      context: context,
+      backgroundColor: colors.panel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(
+                  annotation.type.icon,
+                  color: AppColors.obsidianAccent,
+                ),
+                title: Text(
+                  '${annotation.type.label} · página ${annotation.pageNumber}',
+                  style: const TextStyle(color: AppColors.obsidianAccent),
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Eliminar'),
+                onTap: () =>
+                    Navigator.of(context).pop(_AnnotationAction.delete),
+              ),
+              ListTile(
+                leading: Icon(Icons.close, color: colors.textMuted),
+                title: const Text('Cancelar'),
+                onTap: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (action == _AnnotationAction.delete) {
+      await _confirmDeleteAnnotation(annotation);
+    }
+  }
+
+  Future<void> _confirmDeleteAnnotation(PageAnnotation annotation) async {
+    final colors = HermesColors.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: colors.panel,
+        title: Text(
+          'Eliminar ${annotation.type.label.toLowerCase()}',
+          style: const TextStyle(color: AppColors.obsidianAccent),
+        ),
+        content: Text(
+          '¿Quieres eliminar esta anotación de la página ${annotation.pageNumber}?',
+          style: TextStyle(color: colors.text),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('Cancelar', style: TextStyle(color: colors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              'Eliminar',
+              style: TextStyle(color: AppColors.obsidianAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await _annotations?.deleteAnnotation(annotation);
+      if (!mounted) return;
+      if (_annotations?.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_annotations!.error!)),
+        );
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${annotation.type.label} eliminado'),
+          duration: const Duration(milliseconds: 1200),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   Future<void> _signDocument() async {
     if (_signing?.saving == true) return;
+    // Anotación y firma no comparten gestos.
+    _annotations?.setToolboxVisible(false);
     // Primero colocar zona en la página; luego se abre el formulario.
     _signing?.beginPlacementMode();
     setState(() {});
@@ -478,6 +722,14 @@ class _ReaderScreenState extends State<ReaderScreen>
     final noteText = currentBookmark?.noteText;
     final hasNote = noteText != null && noteText.isNotEmpty;
     final isBookmarked = currentBookmark != null;
+    final toolboxVisible = annotations?.toolboxVisible ?? false;
+    final activeTool = annotations?.activeTool ?? AnnotationTool.none;
+    final pageAnnotations =
+        annotations?.annotationsForPage(_currentPage) ?? const [];
+    final placementMode = signing?.placementMode ?? false;
+    // Si hay colocación de firma o sidebar, la capa no captura gestos
+    // (PageAnnotationsLayer solo dibuja cuando activeTool != none).
+    final annotationsLayerEnabled = !placementMode && !_sidebarVisible;
 
     return PopScope(
       canPop: false,
@@ -490,6 +742,10 @@ class _ReaderScreenState extends State<ReaderScreen>
         }
         if (_sidebarVisible) {
           setState(() => _sidebarVisible = false);
+          return;
+        }
+        if (toolboxVisible) {
+          annotations?.setToolboxVisible(false);
           return;
         }
         await _onExit();
@@ -506,10 +762,23 @@ class _ReaderScreenState extends State<ReaderScreen>
             child: Stack(
               children: [
                 Positioned.fill(child: _buildPdfView(colors)),
+                Positioned.fill(
+                  child: PageAnnotationsLayer(
+                    key: ValueKey('annot-page-$_currentPage'),
+                    annotations: pageAnnotations,
+                    activeTool: activeTool,
+                    enabled: annotationsLayerEnabled,
+                    onCreateRect: _createAnnotationRect,
+                    onOpenAnnotation: _openAnnotation,
+                    onDeleteAnnotation: _confirmDeleteAnnotation,
+                  ),
+                ),
                 if (hasNote && !_noteDismissed)
                   Positioned(
                     right: 12,
-                    bottom: _controlsVisible ? 64 : 16,
+                    bottom: _controlsVisible
+                        ? (toolboxVisible ? 168 : 64)
+                        : 16,
                     child: FloatingPageNote(
                       noteText: noteText,
                       pageNumber: _currentPage,
@@ -518,12 +787,43 @@ class _ReaderScreenState extends State<ReaderScreen>
                     ),
                   ),
                 if (_controlsVisible)
-                  _buildTopBar(colors, isBookmarked, signing),
-                if (_controlsVisible)
+                  _buildTopBar(
+                    colors,
+                    isBookmarked,
+                    signing,
+                    toolboxVisible: toolboxVisible,
+                  ),
+                if (_controlsVisible && !toolboxVisible)
                   _buildBottomBar(
                     colors,
                     isBookmarked: isBookmarked,
                     signatureCount: pageSignatures.length,
+                    annotationCount: pageAnnotations.length,
+                  ),
+                if (_controlsVisible)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: AnnotationToolbox(
+                      visible: toolboxVisible,
+                      activeTool: activeTool,
+                      isBookmarked: isBookmarked,
+                      pageNumber: _currentPage,
+                      annotationCount: pageAnnotations.length,
+                      onToggleBookmark: () {
+                        unawaited(_toggleBookmark());
+                      },
+                      onSelectTool: (tool) {
+                        if (_signing?.placementMode == true) {
+                          _signing?.cancelPlacementMode();
+                        }
+                        annotations?.selectTool(tool);
+                        setState(() {});
+                      },
+                      onClearTool: () => annotations?.clearTool(),
+                      onClose: () => annotations?.setToolboxVisible(false),
+                    ),
                   ),
                 if (!_controlsVisible)
                   Positioned(
@@ -538,15 +838,39 @@ class _ReaderScreenState extends State<ReaderScreen>
                       icon: Icon(Icons.more_horiz, color: colors.accent),
                     ),
                   ),
+                // Acceso rápido al icono de acento aunque los controles estén ocultos.
+                if (!_controlsVisible)
+                  Positioned(
+                    top: 8,
+                    right: 56,
+                    child: IconButton(
+                      tooltip: 'Herramientas de anotación',
+                      onPressed: () {
+                        setState(() => _controlsVisible = true);
+                        _toggleAnnotationToolbox();
+                      },
+                      style: IconButton.styleFrom(
+                        backgroundColor: colors.panel.withValues(alpha: 0.85),
+                      ),
+                      icon: const Icon(
+                        Icons.border_color,
+                        color: AppColors.obsidianAccent,
+                      ),
+                    ),
+                  ),
                 ReaderSidebar(
                   visible: _sidebarVisible,
                   pagesCount: _pagesCount,
                   currentPage: _currentPage,
                   bookmarks: annotations?.bookmarks ?? const [],
+                  annotations: annotations?.annotations ?? const [],
                   signatures: signing?.signatures ?? const [],
                   onClose: () => setState(() => _sidebarVisible = false),
                   onOpenPage: _jumpToPage,
                   onDeleteBookmark: _deleteBookmark,
+                  onDeleteAnnotation: (a) =>
+                      unawaited(_confirmDeleteAnnotation(a)),
+                  onOpenAnnotation: _openAnnotation,
                   onDeleteSignature: _confirmDeleteSignature,
                 ),
               ],
@@ -666,8 +990,9 @@ class _ReaderScreenState extends State<ReaderScreen>
   Widget _buildTopBar(
     HermesColors colors,
     bool isBookmarked,
-    DocumentSigningProvider? signing,
-  ) {
+    DocumentSigningProvider? signing, {
+    required bool toolboxVisible,
+  }) {
     final placement = signing?.placementMode == true;
     final canExport = signing != null && signing.hasSignatures;
 
@@ -703,6 +1028,23 @@ class _ReaderScreenState extends State<ReaderScreen>
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            // Icono bronce de anotación siempre visible.
+            IconButton(
+              tooltip: toolboxVisible
+                  ? 'Cerrar herramientas'
+                  : 'Herramientas de anotación',
+              onPressed: _toggleAnnotationToolbox,
+              style: IconButton.styleFrom(
+                backgroundColor: toolboxVisible
+                    ? AppColors.obsidianAccent.withValues(alpha: 0.22)
+                    : null,
+              ),
+              icon: Icon(
+                Icons.border_color,
+                color: AppColors.obsidianAccent,
+                size: toolboxVisible ? 24 : 22,
               ),
             ),
             Flexible(
@@ -803,6 +1145,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     HermesColors colors, {
     required bool isBookmarked,
     required int signatureCount,
+    required int annotationCount,
   }) {
     final label =
         _pagesCount > 0 ? '$_currentPage / $_pagesCount' : '$_currentPage';
@@ -837,6 +1180,21 @@ class _ReaderScreenState extends State<ReaderScreen>
                     color: colors.accent,
                   ),
             ),
+            if (annotationCount > 0) ...[
+              const SizedBox(width: 10),
+              const Icon(
+                Icons.border_color,
+                size: 14,
+                color: AppColors.obsidianAccent,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '$annotationCount',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.obsidianAccent,
+                    ),
+              ),
+            ],
             const Spacer(),
             Text(
               _scrollMode.label,
@@ -857,3 +1215,6 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
   }
 }
+
+enum _AnnotationAction { edit, delete }
+

@@ -239,6 +239,50 @@ void main() {
     });
   });
 
+  group('Page annotations CRUD', () {
+    test('crear, listar por página y cascade al borrar libro', () async {
+      final book = await library.createBook(
+        Book(
+          title: 'Anotado',
+          filePath: '/docs/annot.pdf',
+          fileSize: 40,
+          addedAt: DateTime(2026, 7, 1),
+        ),
+      );
+
+      final created = await library.createPageAnnotation(
+        PageAnnotation(
+          bookId: book.id!,
+          pageNumber: 2,
+          type: AnnotationType.underline,
+          text: null,
+          x: 0.1,
+          y: 0.5,
+          width: 0.5,
+          height: 0.02,
+          colorValue: 0xFFC89A5A,
+          createdAt: DateTime(2026, 7, 2),
+        ),
+      );
+      expect(created.id, isNotNull);
+
+      final forPage = await library.getPageAnnotationsForPage(book.id!, 2);
+      expect(forPage, hasLength(1));
+      expect(forPage.first.type, AnnotationType.underline);
+
+      await library.updatePageAnnotation(
+        created.copyWith(text: 'Subrayado clave'),
+      );
+      expect(
+        (await library.getPageAnnotationsForBook(book.id!)).first.text,
+        'Subrayado clave',
+      );
+
+      await library.deleteBook(book.id!);
+      expect(await library.getPageAnnotationsForBook(book.id!), isEmpty);
+    });
+  });
+
   group('Document signatures CRUD', () {
     test('crear, mover, listar y cascade al borrar libro', () async {
       final book = await library.createBook(

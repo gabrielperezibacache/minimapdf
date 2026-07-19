@@ -90,6 +90,24 @@ void main() {
       );
       expect(Bookmark.fromMap(bookmark.toMap()), bookmark);
     });
+
+    test('PageAnnotation round-trip', () {
+      final annotation = PageAnnotation(
+        id: 3,
+        bookId: 9,
+        pageNumber: 2,
+        type: AnnotationType.highlight,
+        text: 'clave',
+        x: 0.1,
+        y: 0.2,
+        width: 0.4,
+        height: 0.05,
+        colorValue: 0x99C89A5A,
+        createdAt: DateTime.utc(2026, 7, 4),
+      );
+      expect(PageAnnotation.fromMap(annotation.toMap()), annotation);
+      expect(annotation.type.label, 'Marcado');
+    });
   });
 
   group('DocumentSignature serialization', () {

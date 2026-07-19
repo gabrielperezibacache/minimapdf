@@ -1,0 +1,243 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../providers/reader_annotations_provider.dart';
+
+/// Caja de herramientas de anotación (acento bronce Hermes).
+class AnnotationToolbox extends StatelessWidget {
+  const AnnotationToolbox({
+    super.key,
+    required this.visible,
+    required this.activeTool,
+    required this.onSelectTool,
+    required this.onClose,
+    this.onToggleBookmark,
+    this.onClearTool,
+    this.isBookmarked = false,
+    this.pageNumber,
+    this.annotationCount = 0,
+  });
+
+  final bool visible;
+  final AnnotationTool activeTool;
+  final ValueChanged<AnnotationTool> onSelectTool;
+  final VoidCallback onClose;
+  final VoidCallback? onToggleBookmark;
+  final VoidCallback? onClearTool;
+  final bool isBookmarked;
+  final int? pageNumber;
+  final int annotationCount;
+
+  static const tools = <AnnotationTool>[
+    AnnotationTool.highlight,
+    AnnotationTool.underline,
+    AnnotationTool.note,
+    AnnotationTool.comment,
+    AnnotationTool.annotation,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = HermesColors.of(context);
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+
+    return IgnorePointer(
+      ignoring: !visible,
+      child: AnimatedSlide(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        offset: visible ? Offset.zero : const Offset(0, 1.15),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 180),
+          opacity: visible ? 1 : 0,
+          child: Material(
+            color: colors.panel.withValues(alpha: 0.98),
+            elevation: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: AppColors.obsidianAccent.withValues(alpha: 0.45)),
+                ),
+              ),
+              padding: EdgeInsets.fromLTRB(12, 10, 8, 10 + bottomInset),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.border_color,
+                        size: 18,
+                        color: AppColors.obsidianAccent,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          pageNumber == null
+                              ? 'Herramientas'
+                              : 'Herramientas · p. $pageNumber',
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                color: AppColors.obsidianAccent,
+                              ),
+                        ),
+                      ),
+                      if (annotationCount > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: Text(
+                            '$annotationCount en página',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: colors.textMuted,
+                                ),
+                          ),
+                        ),
+                      if (activeTool != AnnotationTool.none && onClearTool != null)
+                        TextButton(
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            onClearTool!();
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: colors.textMuted,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          child: const Text('Soltar'),
+                        ),
+                      IconButton(
+                        tooltip: 'Cerrar caja',
+                        onPressed: onClose,
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(Icons.close, color: colors.textMuted, size: 20),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        if (onToggleBookmark != null) ...[
+                          _ToolChip(
+                            selected: isBookmarked,
+                            label: 'Marcador',
+                            icon: isBookmarked
+                                ? Icons.bookmark
+                                : Icons.bookmark_border,
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              onToggleBookmark!();
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        for (final tool in tools) ...[
+                          _ToolChip(
+                            selected: activeTool == tool,
+                            label: tool.label,
+                            icon: tool.annotationType!.icon,
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              onSelectTool(tool);
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _hintFor(activeTool),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.textMuted,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _hintFor(AnnotationTool tool) {
+    return switch (tool) {
+      AnnotationTool.none =>
+        'Elige una herramienta de acento bronce para anotar el PDF.',
+      AnnotationTool.highlight =>
+        'Arrastra (o toca) para marcar un tramo de la página.',
+      AnnotationTool.underline =>
+        'Arrastra (o toca) para subrayar un tramo.',
+      AnnotationTool.note => 'Toca la página para colocar una nota.',
+      AnnotationTool.comment => 'Toca la página para dejar un comentario.',
+      AnnotationTool.annotation => 'Toca la página para añadir una anotación.',
+    };
+  }
+}
+
+class _ToolChip extends StatelessWidget {
+  const _ToolChip({
+    required this.selected,
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = HermesColors.of(context);
+    final fg = selected ? AppColors.obsidianBackground : colors.text;
+    final bg = selected ? AppColors.obsidianAccent : colors.surface;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: Material(
+        color: bg,
+        child: InkWell(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: selected
+                    ? AppColors.obsidianAccent
+                    : colors.border,
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: selected ? fg : AppColors.obsidianAccent,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: fg,
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

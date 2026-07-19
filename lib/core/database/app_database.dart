@@ -55,6 +55,9 @@ class AppDatabase {
             await _upgradeSignaturesToV3(db);
             await _createSignatureTemplatesTable(db);
           }
+          if (oldVersion < 4) {
+            await _createPageAnnotationsTable(db);
+          }
         },
       ),
     );
@@ -138,6 +141,7 @@ class AppDatabase {
 
     await _createSignaturesTable(db);
     await _createSignatureTemplatesTable(db);
+    await _createPageAnnotationsTable(db);
   }
 
   Future<void> _createSignaturesTable(Database db) async {
@@ -227,6 +231,35 @@ class AppDatabase {
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_signature_templates_created '
       'ON ${DatabaseConfig.tableSignatureTemplates} (created_at DESC)',
+    );
+  }
+
+  Future<void> _createPageAnnotationsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DatabaseConfig.tablePageAnnotations} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        book_id INTEGER NOT NULL,
+        page_number INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        text TEXT,
+        x REAL NOT NULL,
+        y REAL NOT NULL,
+        width REAL NOT NULL,
+        height REAL NOT NULL,
+        color_value INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (book_id)
+          REFERENCES ${DatabaseConfig.tableBooks} (id)
+          ON DELETE CASCADE
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_page_annotations_book_id '
+      'ON ${DatabaseConfig.tablePageAnnotations} (book_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_page_annotations_book_page '
+      'ON ${DatabaseConfig.tablePageAnnotations} (book_id, page_number)',
     );
   }
 }

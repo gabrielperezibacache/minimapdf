@@ -4,11 +4,13 @@ import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_theme.dart';
 
-/// Formulario sencillo para nota de texto en la página actual.
+/// Formulario sencillo para nota / comentario / anotación de texto.
 Future<String?> showNoteEditSheet(
   BuildContext context, {
   required int pageNumber,
   String? initialText,
+  String title = 'Nota',
+  String hintText = 'Escribe una nota…',
 }) {
   return showModalBottomSheet<String>(
     context: context,
@@ -18,6 +20,8 @@ Future<String?> showNoteEditSheet(
     builder: (context) => _NoteEditForm(
       pageNumber: pageNumber,
       initialText: initialText,
+      title: title,
+      hintText: hintText,
     ),
   );
 }
@@ -26,10 +30,14 @@ class _NoteEditForm extends StatefulWidget {
   const _NoteEditForm({
     required this.pageNumber,
     this.initialText,
+    this.title = 'Nota',
+    this.hintText = 'Escribe una nota…',
   });
 
   final int pageNumber;
   final String? initialText;
+  final String title;
+  final String hintText;
 
   @override
   State<_NoteEditForm> createState() => _NoteEditFormState();
@@ -71,7 +79,7 @@ class _NoteEditFormState extends State<_NoteEditForm> {
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            'Nota · página ${widget.pageNumber}',
+            '${widget.title} · página ${widget.pageNumber}',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: colors.accent,
                 ),
@@ -82,8 +90,8 @@ class _NoteEditFormState extends State<_NoteEditForm> {
             autofocus: true,
             maxLines: 5,
             minLines: 3,
-            decoration: const InputDecoration(
-              hintText: 'Escribe una nota…',
+            decoration: InputDecoration(
+              hintText: widget.hintText,
             ),
           ),
           const SizedBox(height: AppSpacing.md),

@@ -6,6 +6,7 @@ import 'package:minimal_pdf/core/database/library_database.dart';
 import 'package:minimal_pdf/data/datasources/library_local_datasource.dart';
 import 'package:minimal_pdf/data/models/book.dart';
 import 'package:minimal_pdf/data/models/bookmark.dart';
+import 'package:minimal_pdf/data/models/page_annotation.dart';
 import 'package:minimal_pdf/presentation/providers/reader_annotations_provider.dart';
 import 'package:minimal_pdf/presentation/reader/pdf_toc_entry.dart';
 import 'package:path/path.dart' as p;
@@ -80,8 +81,6 @@ void main() {
     // Provider fresco sin lista en memoria, pero con bookId cargado.
     annotations = ReaderAnnotationsProvider(datasource);
     await annotations.loadForBook(book.id!);
-    // Vaciar vista en memoria artificialmente no es público; forzar
-    // re-consulta: quitar de memoria vía nuevo load parcial no aplica.
     // Verificamos el camino DB: upsert sin clear conserva la nota.
     await datasource.upsertBookmark(
       Bookmark(
@@ -108,6 +107,58 @@ void main() {
     await annotations.saveNote(pageNumber: 5, noteText: 'Actualizado');
     expect(annotations.bookmarks.length, 1);
     expect(annotations.bookmarkForPage(5)?.noteText, 'Actualizado');
+  });
+
+  test('addAnnotation guarda marcado y comentario en la página', () async {
+    final highlight = await annotations.addAnnotation(
+      pageNumber: 2,
+      type: AnnotationType.highlight,
+      x: 0.1,
+      y: 0.2,
+      width: 0.4,
+      height: 0.05,
+    );
+    expect(highlight, isNotNull);
+    expect(annotations.annotationsForPage(2), hasLength(1));
+
+    final comment = await annotations.addAnnotation(
+      pageNumber: 2,
+      type: AnnotationType.comment,
+      x: 0.7,
+      y: 0.3,
+      width: 0.1,
+      height: 0.06,
+      text: 'Revisar esto',
+    );
+    expect(comment?.text, 'Revisar esto');
+    expect(annotations.annotationsForPage(2), hasLength(2));
+
+    await annotations.deleteAnnotation(comment!);
+    expect(annotations.annotationsForPage(2), hasLength(1));
+  });
+
+  test('toolbox selecciona y limpia herramienta activa', () {
+    expect(annotations.toolboxVisible, isFalse);
+    annotations.toggleToolbox();
+    expect(annotations.toolboxVisible, isTrue);
+    expect(annotations.activeTool, AnnotationTool.highlight);
+
+    annotations.selectTool(AnnotationTool.underline);
+    expect(annotations.activeTool, AnnotationTool.underline);
+
+    annotations.selectTool(AnnotationTool.underline);
+    expect(annotations.activeTool, AnnotationTool.none);
+
+    annotations.clearTool();
+    expect(annotations.activeTool, AnnotationTool.none);
+
+    annotations.setToolboxVisible(false);
+    expect(annotations.toolboxVisible, isFalse);
+    expect(annotations.activeTool, AnnotationTool.none);
+
+    annotations.setToolboxVisible(true);
+    expect(annotations.toolboxVisible, isTrue);
+    expect(annotations.activeTool, AnnotationTool.highlight);
   });
 
   test('PdfTocEntry.fromPageCount genera índice navegable', () {

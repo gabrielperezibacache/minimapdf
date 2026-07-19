@@ -383,4 +383,61 @@ class LibraryDatabase {
       whereArgs: [id],
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Page annotations (marcado, subrayado, nota, comentario)
+  // ---------------------------------------------------------------------------
+
+  Future<PageAnnotation> createPageAnnotation(PageAnnotation annotation) async {
+    final id = await _db.insert(
+      DatabaseConfig.tablePageAnnotations,
+      annotation.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.abort,
+    );
+    return annotation.copyWith(id: id);
+  }
+
+  Future<List<PageAnnotation>> getPageAnnotationsForBook(int bookId) async {
+    final rows = await _db.query(
+      DatabaseConfig.tablePageAnnotations,
+      where: 'book_id = ?',
+      whereArgs: [bookId],
+      orderBy: 'page_number ASC, created_at ASC',
+    );
+    return rows.map(PageAnnotation.fromMap).toList();
+  }
+
+  Future<List<PageAnnotation>> getPageAnnotationsForPage(
+    int bookId,
+    int pageNumber,
+  ) async {
+    final rows = await _db.query(
+      DatabaseConfig.tablePageAnnotations,
+      where: 'book_id = ? AND page_number = ?',
+      whereArgs: [bookId, pageNumber],
+      orderBy: 'created_at ASC',
+    );
+    return rows.map(PageAnnotation.fromMap).toList();
+  }
+
+  Future<int> updatePageAnnotation(PageAnnotation annotation) async {
+    final id = annotation.id;
+    if (id == null) {
+      throw ArgumentError('PageAnnotation.id es obligatorio para actualizar');
+    }
+    return _db.update(
+      DatabaseConfig.tablePageAnnotations,
+      annotation.toMap()..remove('id'),
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> deletePageAnnotation(int id) async {
+    return _db.delete(
+      DatabaseConfig.tablePageAnnotations,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 }

@@ -106,4 +106,22 @@ class LibraryLocalDatasource {
 
   Future<int> removeSignatureTemplate(int id) =>
       _db.deleteSignatureTemplate(id);
+
+  Future<PageAnnotation> insertPageAnnotation(PageAnnotation annotation) =>
+      _db.createPageAnnotation(annotation);
+
+  Future<List<PageAnnotation>> listPageAnnotations(int bookId) =>
+      _db.getPageAnnotationsForBook(bookId);
+
+  Future<List<PageAnnotation>> listPageAnnotationsForPage(
+    int bookId,
+    int pageNumber,
+  ) {
+    return _db.getPageAnnotationsForPage(bookId, pageNumber);
+  }
+
+  Future<int> savePageAnnotation(PageAnnotation annotation) =>
+      _db.updatePageAnnotation(annotation);
+
+  Future<int> removePageAnnotation(int id) => _db.deletePageAnnotation(id);
 }
