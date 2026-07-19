@@ -71,4 +71,39 @@ class LibraryLocalDatasource {
 
   Future<int> removeBookmarkForPage(int bookId, int pageNumber) =>
       _db.deleteBookmarkForPage(bookId, pageNumber);
+
+  Future<DocumentSignature> insertSignature(DocumentSignature signature) =>
+      _db.createSignature(signature);
+
+  Future<DocumentSignature?> findSignatureById(int id) =>
+      _db.getSignatureById(id);
+
+  Future<List<DocumentSignature>> listSignatures(int bookId) =>
+      _db.getSignaturesForBook(bookId);
+
+  Future<List<DocumentSignature>> listSignaturesForPage(
+    int bookId,
+    int pageNumber,
+  ) {
+    return _db.getSignaturesForPage(bookId, pageNumber);
+  }
+
+  Future<int> saveSignature(DocumentSignature signature) =>
+      _db.updateSignature(signature);
+
+  Future<int> removeSignature(int id) => _db.deleteSignature(id);
+
+  Future<int> nextSigningOrder(int bookId) => _db.nextSigningOrder(bookId);
+
+  Future<SignatureTemplate> insertSignatureTemplate(
+    SignatureTemplate template,
+  ) {
+    return _db.createSignatureTemplate(template);
+  }
+
+  Future<List<SignatureTemplate>> listSignatureTemplates() =>
+      _db.getSignatureTemplates();
+
+  Future<int> removeSignatureTemplate(int id) =>
+      _db.deleteSignatureTemplate(id);
 }

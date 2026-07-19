@@ -25,7 +25,7 @@ lib/
 ├── core/           # Temas, DB config, constantes
 ├── data/           # Modelos y datasources (Paso 2+)
 ├── domain/         # Lógica de negocio
-└── presentation/   # UI, providers, library / reader / downloader
+└── presentation/   # UI, providers, library / reader / signing / downloader
 ```
 
 ## Desarrollo
@@ -45,3 +45,4 @@ flutter run
 5. ✅ Anotaciones y marcadores (bronce, notas flotantes, sidebar TOC)
 6. ✅ Descargas por URL + mini-navegador con Capturar PDF
 7. ✅ Endurecimiento: streaming, cancelación, búsqueda, colecciones, errores claros
+8. ✅ Firma electrónica local (export, roles, plantillas, manifiesto SHA-256)

@@ -274,4 +274,113 @@ class LibraryDatabase {
       whereArgs: [bookId, pageNumber],
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Document signatures (firma electrónica simple / mecanografiada)
+  // ---------------------------------------------------------------------------
+
+  Future<DocumentSignature> createSignature(DocumentSignature signature) async {
+    final id = await _db.insert(
+      DatabaseConfig.tableSignatures,
+      signature.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.abort,
+    );
+    return signature.copyWith(id: id);
+  }
+
+  Future<DocumentSignature?> getSignatureById(int id) async {
+    final rows = await _db.query(
+      DatabaseConfig.tableSignatures,
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return DocumentSignature.fromMap(rows.first);
+  }
+
+  Future<List<DocumentSignature>> getSignaturesForBook(int bookId) async {
+    final rows = await _db.query(
+      DatabaseConfig.tableSignatures,
+      where: 'book_id = ?',
+      whereArgs: [bookId],
+      orderBy: 'signing_order ASC, page_number ASC, signed_at ASC',
+    );
+    return rows.map(DocumentSignature.fromMap).toList();
+  }
+
+  Future<List<DocumentSignature>> getSignaturesForPage(
+    int bookId,
+    int pageNumber,
+  ) async {
+    final rows = await _db.query(
+      DatabaseConfig.tableSignatures,
+      where: 'book_id = ? AND page_number = ?',
+      whereArgs: [bookId, pageNumber],
+      orderBy: 'signing_order ASC, signed_at ASC',
+    );
+    return rows.map(DocumentSignature.fromMap).toList();
+  }
+
+  Future<int> nextSigningOrder(int bookId) async {
+    final rows = await _db.rawQuery(
+      'SELECT MAX(signing_order) AS max_order '
+      'FROM ${DatabaseConfig.tableSignatures} WHERE book_id = ?',
+      [bookId],
+    );
+    final maxOrder = rows.first['max_order'] as num?;
+    return (maxOrder?.toInt() ?? 0) + 1;
+  }
+
+  Future<int> updateSignature(DocumentSignature signature) async {
+    final id = signature.id;
+    if (id == null) {
+      throw ArgumentError('DocumentSignature.id es obligatorio para actualizar');
+    }
+    return _db.update(
+      DatabaseConfig.tableSignatures,
+      signature.toMap()..remove('id'),
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> deleteSignature(int id) async {
+    return _db.delete(
+      DatabaseConfig.tableSignatures,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Signature templates
+  // ---------------------------------------------------------------------------
+
+  Future<SignatureTemplate> createSignatureTemplate(
+    SignatureTemplate template,
+  ) async {
+    final id = await _db.insert(
+      DatabaseConfig.tableSignatureTemplates,
+      template.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.abort,
+    );
+    return template.copyWith(id: id);
+  }
+
+  Future<List<SignatureTemplate>> getSignatureTemplates() async {
+    final rows = await _db.query(
+      DatabaseConfig.tableSignatureTemplates,
+      orderBy: 'created_at DESC',
+    );
+    return rows.map(SignatureTemplate.fromMap).toList();
+  }
+
+  Future<int> deleteSignatureTemplate(int id) async {
+    return _db.delete(
+      DatabaseConfig.tableSignatureTemplates,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 }

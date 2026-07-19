@@ -238,4 +238,43 @@ void main() {
       expect(await library.getBookmarksForBook(book.id!), isEmpty);
     });
   });
+
+  group('Document signatures CRUD', () {
+    test('crear, mover, listar y cascade al borrar libro', () async {
+      final book = await library.createBook(
+        Book(
+          title: 'Contrato',
+          filePath: '/docs/contrato.pdf',
+          fileSize: 22,
+          addedAt: DateTime(2026, 7, 19),
+        ),
+      );
+
+      final created = await library.createSignature(
+        DocumentSignature(
+          bookId: book.id!,
+          pageNumber: 3,
+          type: SignatureType.typed,
+          signerName: 'Ana',
+          typedText: 'Ana',
+          offsetX: 0.5,
+          offsetY: 0.6,
+          signedAt: DateTime.utc(2026, 7, 19, 10),
+        ),
+      );
+      expect(created.id, isNotNull);
+
+      await library.updateSignature(
+        created.copyWith(offsetX: 0.2, offsetY: 0.3),
+      );
+      final fetched = await library.getSignatureById(created.id!);
+      expect(fetched?.offsetX, 0.2);
+      expect(fetched?.offsetY, 0.3);
+
+      expect(await library.getSignaturesForPage(book.id!, 3), hasLength(1));
+
+      await library.deleteBook(book.id!);
+      expect(await library.getSignaturesForBook(book.id!), isEmpty);
+    });
+  });
 }

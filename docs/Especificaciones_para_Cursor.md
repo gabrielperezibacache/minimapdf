@@ -41,6 +41,7 @@ lib/
     ├── providers/         \# Control de estado ligero (Riverpod o Bloc recomendado, o ChangeNotifier sencillo)  
     ├── library/           \# Pantallas de la biblioteca (Grid, Carpetas, Edición de Metadatos)  
     ├── reader/            \# Pantallas del visor PDF (Scroll, Modos de color, Notas, Subrayados)  
+    ├── signing/           \# Firma electrónica simple (dibujada) y mecanografiada  
     └── downloader/        \# Pantalla de descargas (Entrada de URL, mini-navegador, progreso)
 
 ## **4\. Esquema de Datos Local (Isar/SQLite)**
@@ -104,6 +105,10 @@ lib/
 ### **Paso 6: Gestor de Descargas y Mini-Navegador**
 
 **Prompt para Cursor:** "Crea el módulo de descargas (presentation/downloader/). Implementa: 1\) Una barra de texto donde el usuario introduce una URL directa de un PDF para descargarlo en segundo plano (flutter\_downloader). 2\) Un navegador web interno y minimalista con un botón flotante 'Capturar PDF' que identifique si la página web actual tiene un enlace de descarga directa de PDF y lo descargue automáticamente a la biblioteca local."
+
+### **Paso 7: Firma electrónica de documentos**
+
+**Prompt para Cursor:** "Añade firma electrónica local offline en el lector: 1\) Firma electrónica simple dibujada (lienzo de trazo). 2\) Firma mecanografiada (nombre/rúbrica con teclado y vista previa). 3\) Persistencia en Sqflite asociada a libro+página, con nombre del firmante, motivo opcional y marca temporal. 4\) Overlay visual sobre la página y acción en la barra del lector. No integrar PKI ni servicios cloud."
 
 ## **6\. Directrices y Buenas Prácticas de Codificación para Cursor**
 

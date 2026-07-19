@@ -7,17 +7,24 @@ import 'package:pdfx/pdfx.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/preferences/app_preferences.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/hermes_pdf_filter.dart';
 import '../../data/datasources/library_local_datasource.dart';
 import '../../data/models/book.dart';
 import '../../data/models/bookmark.dart';
+import '../../data/models/document_signature.dart';
+import '../../data/models/signature_role.dart';
+import '../providers/document_signing_provider.dart';
+import '../providers/library_provider.dart';
 import '../providers/reader_annotations_provider.dart';
+import '../signing/signature_sheet.dart';
 import 'reader_scroll_mode.dart';
 import 'reading_progress_saver.dart';
 import 'widgets/floating_page_note.dart';
 import 'widgets/note_edit_sheet.dart';
 import 'widgets/reader_sidebar.dart';
+import 'widgets/signed_pdf_page.dart';
 
 /// Lector PDF de alto rendimiento (pdfx) con filtro Hermes Obsidian.
 class ReaderScreen extends StatefulWidget {
@@ -36,6 +43,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   ReaderAnnotationsProvider? _annotations;
   AppPreferences? _preferences;
   bool _prefsLoaded = false;
+  DocumentSigningProvider? _signing;
 
   ReaderScrollMode _scrollMode = ReaderScrollMode.verticalContinuous;
   bool _obsidianFilter = true;
@@ -45,6 +53,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   int _pagesCount = 0;
   int _currentPage = 1;
   String? _error;
+  Map<int, Size> _pageSizes = const {};
 
   @override
   void initState() {
@@ -96,9 +105,20 @@ class _ReaderScreenState extends State<ReaderScreen>
       }
       annotations.addListener(_onAnnotationsChanged);
     }
+
+    if (_signing == null) {
+      final signing = DocumentSigningProvider(datasource);
+      _signing = signing;
+      signing.loadForBook(widget.book);
+      signing.addListener(_onSigningChanged);
+    }
   }
 
   void _onAnnotationsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onSigningChanged() {
     if (mounted) setState(() {});
   }
 
@@ -107,6 +127,8 @@ class _ReaderScreenState extends State<ReaderScreen>
     WidgetsBinding.instance.removeObserver(this);
     _annotations?.removeListener(_onAnnotationsChanged);
     _annotations?.dispose();
+    _signing?.removeListener(_onSigningChanged);
+    _signing?.dispose();
     // El guardado fiable ocurre en _onExit / lifecycle; aquí best-effort.
     final saver = _progressSaver;
     if (saver != null) {
@@ -252,6 +274,158 @@ class _ReaderScreenState extends State<ReaderScreen>
     setState(() => _noteDismissed = false);
   }
 
+  Future<void> _signDocument() async {
+    if (_signing?.saving == true) return;
+    // Primero colocar zona en la página; luego se abre el formulario.
+    _signing?.beginPlacementMode();
+    setState(() {});
+  }
+
+  Future<void> _openSignatureSheetAt(double x, double y) async {
+    if (_signing?.saving == true || _signing?.exporting == true) return;
+    _signing?.placeSignatureAt(offsetX: x, offsetY: y);
+
+    final draft = await showSignatureSheet(
+      context,
+      pageNumber: _currentPage,
+      initialSignerName: _signing?.lastSignerName,
+      initialRole: _signing?.lastRole,
+      initialOffsetX: x,
+      initialOffsetY: y,
+      templates: _signing?.templates ?? const [],
+    );
+    if (!mounted) return;
+    if (draft == null) {
+      _signing?.clearPendingPlacement();
+      // Permite reintentar la colocación sin volver a pulsar firmar.
+      _signing?.beginPlacementMode();
+      setState(() {});
+      return;
+    }
+    if (_signing?.saving == true) return;
+
+    final saved = await _signing?.signPage(
+      pageNumber: _currentPage,
+      draft: draft,
+    );
+    if (!mounted) return;
+
+    final error = _signing?.error;
+    if (saved == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error ?? 'No se pudo firmar el documento.')),
+      );
+      _signing?.clearError();
+      return;
+    }
+
+    final warning = error;
+    _signing?.clearError();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          warning ??
+              'Firmado como ${saved.role.labelEs.toLowerCase()} '
+                  '(#${saved.signingOrder}). Puedes arrastrar el sello.',
+        ),
+        action: SnackBarAction(
+          label: 'Exportar',
+          onPressed: _exportSignedPdf,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _cachePageSizes(PdfDocument document) async {
+    final sizes = <int, Size>{};
+    for (var pageNumber = 1; pageNumber <= document.pagesCount; pageNumber++) {
+      final page = await document.getPage(pageNumber);
+      try {
+        if (page.width > 0 && page.height > 0) {
+          sizes[pageNumber] = Size(page.width, page.height);
+        }
+      } finally {
+        await page.close();
+      }
+    }
+    if (!mounted) return;
+    setState(() => _pageSizes = sizes);
+  }
+
+  Future<void> _exportSignedPdf() async {
+    if (_signing?.exporting == true) return;
+    final result = await _signing?.exportSignedPdf();
+    if (!mounted) return;
+    if (result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _signing?.error ?? 'No se pudo exportar el PDF firmado.',
+          ),
+        ),
+      );
+      _signing?.clearError();
+      return;
+    }
+    try {
+      await context.read<LibraryProvider>().load();
+    } catch (_) {
+      // El PDF ya está exportado; fallar el refresh no invalida el resultado.
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'PDF firmado exportado con manifiesto SHA-256.\n'
+          '${result.manifest.signedFileName}',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteSignature(DocumentSignature signature) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final colors = HermesColors.of(context);
+        return AlertDialog(
+          backgroundColor: colors.panel,
+          title: const Text('Eliminar firma'),
+          content: Text(
+            '¿Eliminar la firma de ${signature.signerName} '
+            'en la página ${signature.pageNumber}?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('Cancelar', style: TextStyle(color: colors.text)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text(
+                'Eliminar',
+                style: TextStyle(color: AppColors.obsidianAccent),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+    final deleted = await _signing?.deleteSignature(signature) ?? false;
+    if (!mounted) return;
+    if (!deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _signing?.error ?? 'No se pudo eliminar la firma.',
+          ),
+        ),
+      );
+      _signing?.clearError();
+    }
+  }
+
   Future<void> _deleteBookmark(Bookmark bookmark) async {
     final annotations = _annotations;
     if (annotations == null) return;
@@ -298,7 +472,9 @@ class _ReaderScreenState extends State<ReaderScreen>
     final scaffoldBg =
         _obsidianFilter ? HermesPdfFilter.background : colors.background;
     final annotations = _annotations;
+    final signing = _signing;
     final currentBookmark = annotations?.bookmarkForPage(_currentPage);
+    final pageSignatures = signing?.signaturesForPage(_currentPage) ?? const [];
     final noteText = currentBookmark?.noteText;
     final hasNote = noteText != null && noteText.isNotEmpty;
     final isBookmarked = currentBookmark != null;
@@ -307,6 +483,11 @@ class _ReaderScreenState extends State<ReaderScreen>
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        if (_signing?.placementMode == true) {
+          _signing?.cancelPlacementMode();
+          setState(() {});
+          return;
+        }
         if (_sidebarVisible) {
           setState(() => _sidebarVisible = false);
           return;
@@ -324,12 +505,7 @@ class _ReaderScreenState extends State<ReaderScreen>
           body: SafeArea(
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: HermesPdfFilter.wrap(
-                    enabled: _obsidianFilter,
-                    child: _buildPdfView(colors),
-                  ),
-                ),
+                Positioned.fill(child: _buildPdfView(colors)),
                 if (hasNote && !_noteDismissed)
                   Positioned(
                     right: 12,
@@ -341,8 +517,14 @@ class _ReaderScreenState extends State<ReaderScreen>
                       onDismiss: () => setState(() => _noteDismissed = true),
                     ),
                   ),
-                if (_controlsVisible) _buildTopBar(colors, isBookmarked),
-                if (_controlsVisible) _buildBottomBar(colors, isBookmarked),
+                if (_controlsVisible)
+                  _buildTopBar(colors, isBookmarked, signing),
+                if (_controlsVisible)
+                  _buildBottomBar(
+                    colors,
+                    isBookmarked: isBookmarked,
+                    signatureCount: pageSignatures.length,
+                  ),
                 if (!_controlsVisible)
                   Positioned(
                     top: 8,
@@ -361,9 +543,11 @@ class _ReaderScreenState extends State<ReaderScreen>
                   pagesCount: _pagesCount,
                   currentPage: _currentPage,
                   bookmarks: annotations?.bookmarks ?? const [],
+                  signatures: signing?.signatures ?? const [],
                   onClose: () => setState(() => _sidebarVisible = false),
                   onOpenPage: _jumpToPage,
                   onDeleteBookmark: _deleteBookmark,
+                  onDeleteSignature: _confirmDeleteSignature,
                 ),
               ],
             ),
@@ -389,6 +573,10 @@ class _ReaderScreenState extends State<ReaderScreen>
 
     final isVertical = _scrollMode.isVertical;
 
+    final signing = _signing;
+    final scaffoldBg =
+        _obsidianFilter ? HermesPdfFilter.background : colors.background;
+
     return PdfView(
       // Sin ValueKey: cambiar scrollDirection no recrea el PdfView
       // (evita fugas de listeners/caches de pdfx al alternar modo).
@@ -398,9 +586,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       physics: isVertical
           ? const BouncingScrollPhysics()
           : const PageScrollPhysics(),
-      backgroundDecoration: BoxDecoration(
-        color: _obsidianFilter ? HermesPdfFilter.background : colors.background,
-      ),
+      backgroundDecoration: BoxDecoration(color: scaffoldBg),
       onPageChanged: _onPageChanged,
       onDocumentLoaded: (document) {
         if (!mounted) return;
@@ -416,6 +602,7 @@ class _ReaderScreenState extends State<ReaderScreen>
           setState(() => _currentPage = clamped);
           _progressSaver?.onPageChanged(clamped);
         }
+        unawaited(_cachePageSizes(document));
       },
       onDocumentError: (error) {
         if (!mounted) return;
@@ -442,11 +629,48 @@ class _ReaderScreenState extends State<ReaderScreen>
             style: TextStyle(color: colors.text),
           ),
         ),
+        pageBuilder: (context, pageImage, index, document) {
+          final pageNumber = index + 1;
+          final pageSize = _pageSizes[pageNumber] ?? const Size(595, 842);
+          return PhotoViewGalleryPageOptions.customChild(
+            child: SignedPdfPage(
+              pageImageFuture: pageImage,
+              pageNumber: pageNumber,
+              fallbackSize: pageSize,
+              signatures: signing?.signaturesForPage(pageNumber) ?? const [],
+              obsidianFilter: _obsidianFilter,
+              placementMode: signing?.placementMode ?? false,
+              onPlaceTap: _openSignatureSheetAt,
+              onMove: (signature, x, y) {
+                final future = _signing?.moveSignature(
+                  signature: signature,
+                  offsetX: x,
+                  offsetY: y,
+                );
+                if (future != null) unawaited(future);
+              },
+              onDelete: _confirmDeleteSignature,
+            ),
+            childSize: pageSize,
+            initialScale: PhotoViewComputedScale.contained * 1.0,
+            minScale: PhotoViewComputedScale.contained * 1.0,
+            maxScale: PhotoViewComputedScale.contained * 3.0,
+            heroAttributes:
+                PhotoViewHeroAttributes(tag: '${document.id}-$index'),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildTopBar(HermesColors colors, bool isBookmarked) {
+  Widget _buildTopBar(
+    HermesColors colors,
+    bool isBookmarked,
+    DocumentSigningProvider? signing,
+  ) {
+    final placement = signing?.placementMode == true;
+    final canExport = signing != null && signing.hasSignatures;
+
     return Positioned(
       top: 0,
       left: 0,
@@ -462,8 +686,15 @@ class _ReaderScreenState extends State<ReaderScreen>
               icon: Icon(Icons.menu, color: colors.accent),
             ),
             IconButton(
-              tooltip: 'Volver',
-              onPressed: _onExit,
+              tooltip: placement ? 'Cancelar colocación' : 'Volver',
+              onPressed: () {
+                if (placement) {
+                  signing?.cancelPlacementMode();
+                  setState(() {});
+                  return;
+                }
+                _onExit();
+              },
               icon: Icon(Icons.arrow_back, color: colors.text),
             ),
             Expanded(
@@ -530,13 +761,49 @@ class _ReaderScreenState extends State<ReaderScreen>
                 ),
               ),
             ),
+            // Acciones primarias de firma siempre visibles (no se ocultan al scroll).
+            IconButton(
+              tooltip: placement ? 'Cancelar colocación' : 'Firmar documento',
+              onPressed: signing?.saving == true || signing?.exporting == true
+                  ? null
+                  : () {
+                      if (placement) {
+                        signing?.cancelPlacementMode();
+                        setState(() {});
+                        return;
+                      }
+                      _signDocument();
+                    },
+              icon: Icon(
+                placement ? Icons.close : Icons.draw_outlined,
+                color: AppColors.obsidianAccent,
+              ),
+            ),
+            IconButton(
+              tooltip: 'Exportar PDF firmado',
+              onPressed: signing == null ||
+                      !signing.hasSignatures ||
+                      signing.exporting ||
+                      signing.saving ||
+                      placement
+                  ? null
+                  : _exportSignedPdf,
+              icon: Icon(
+                Icons.ios_share_outlined,
+                color: canExport ? AppColors.obsidianAccent : colors.textMuted,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBottomBar(HermesColors colors, bool isBookmarked) {
+  Widget _buildBottomBar(
+    HermesColors colors, {
+    required bool isBookmarked,
+    required int signatureCount,
+  }) {
     final label =
         _pagesCount > 0 ? '$_currentPage / $_pagesCount' : '$_currentPage';
 
@@ -552,6 +819,17 @@ class _ReaderScreenState extends State<ReaderScreen>
             if (isBookmarked) ...[
               Icon(Icons.bookmark, size: 16, color: colors.accent),
               const SizedBox(width: 6),
+            ],
+            if (signatureCount > 0) ...[
+              Icon(Icons.draw, size: 16, color: AppColors.obsidianAccent),
+              const SizedBox(width: 4),
+              Text(
+                '$signatureCount',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: AppColors.obsidianAccent,
+                    ),
+              ),
+              const SizedBox(width: 10),
             ],
             Text(
               label,

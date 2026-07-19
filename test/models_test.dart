@@ -91,4 +91,55 @@ void main() {
       expect(Bookmark.fromMap(bookmark.toMap()), bookmark);
     });
   });
+
+  group('DocumentSignature serialization', () {
+    test('round-trip firma mecanografiada', () {
+      final signature = DocumentSignature(
+        id: 4,
+        bookId: 2,
+        pageNumber: 8,
+        type: SignatureType.typed,
+        signerName: 'Eva Ruiz',
+        typedText: 'Eva R.',
+        reason: 'Aprobado',
+        offsetX: 0.6,
+        offsetY: 0.8,
+        signedAt: DateTime.utc(2026, 7, 19, 18),
+      );
+      expect(DocumentSignature.fromMap(signature.toMap()), signature);
+      expect(signature.displayText, 'Eva R.');
+    });
+
+    test('inkStrokes parsea JSON de trazo', () {
+      final signature = DocumentSignature(
+        bookId: 1,
+        pageNumber: 1,
+        type: SignatureType.drawn,
+        signerName: 'Leo',
+        inkJson: '[[[0.1,0.2],[0.3,0.4]]]',
+        signedAt: DateTime.utc(2026, 7, 19),
+      );
+      expect(signature.inkStrokes, [
+        [
+          [0.1, 0.2],
+          [0.3, 0.4],
+        ],
+      ]);
+    });
+
+    test('inkStrokes ignora puntos malformados', () {
+      final signature = DocumentSignature(
+        bookId: 1,
+        pageNumber: 1,
+        type: SignatureType.drawn,
+        signerName: 'Leo',
+        inkJson: '[[[0.1,0.2],null,[0.3,0.4]]]',
+        signedAt: DateTime.utc(2026, 7, 19),
+      );
+      expect(signature.inkStrokes.single, [
+        [0.1, 0.2],
+        [0.3, 0.4],
+      ]);
+    });
+  });
 }
