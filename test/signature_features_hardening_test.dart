@@ -109,6 +109,34 @@ void main() {
       expect(decoded.signatures.first.role, SignatureRole.reviewer);
       expect(decoded.matchesSignedHash('B' * 64), isTrue);
     });
+
+    test('manifiesto preserva inkJson en round-trip', () {
+      const ink = '[[[0.1,0.2],[0.8,0.7]]]';
+      final manifest = SignatureManifest(
+        version: 1,
+        exportedAt: DateTime.utc(2026, 7, 19, 16),
+        sourceFileName: 'a.pdf',
+        sourceSha256: 'a' * 64,
+        signedFileName: 'a_firmado.pdf',
+        signedSha256: 'b' * 64,
+        signatures: [
+          DocumentSignature(
+            id: 3,
+            bookId: 1,
+            pageNumber: 1,
+            type: SignatureType.drawn,
+            signerName: 'Leo',
+            inkJson: ink,
+            role: SignatureRole.signer,
+            signingOrder: 1,
+            signedAt: DateTime.utc(2026, 7, 19, 15),
+          ),
+        ],
+      );
+      final decoded = SignatureManifest.decode(manifest.encodePretty());
+      expect(decoded.signatures.first.inkJson, ink);
+      expect(decoded.signatures.first.inkStrokes, hasLength(1));
+    });
   });
 
   group('provider hardening', () {
@@ -177,6 +205,54 @@ void main() {
       final empty = await signing.exportSignedPdf();
       expect(empty, isNull);
       expect(signing.error, contains('al menos una firma'));
+    });
+
+    test('export durante colocación se rechaza', () async {
+      await signing.signPage(
+        pageNumber: 1,
+        draft: const SignatureDraft(
+          type: SignatureType.typed,
+          signerName: 'Ana',
+          typedText: 'Ana',
+        ),
+      );
+      signing.beginPlacementMode();
+      final result = await signing.exportSignedPdf();
+      expect(result, isNull);
+      expect(signing.error, contains('colocación'));
+    });
+
+    test('moveSignature obsoleto no pisa offsets nuevos', () async {
+      final saved = await signing.signPage(
+        pageNumber: 1,
+        draft: const SignatureDraft(
+          type: SignatureType.typed,
+          signerName: 'Ana',
+          typedText: 'Ana',
+          offsetX: 0.1,
+          offsetY: 0.1,
+        ),
+      );
+
+      final slow = signing.moveSignature(
+        signature: saved!,
+        offsetX: 0.2,
+        offsetY: 0.2,
+      );
+      await signing.moveSignature(
+        signature: saved,
+        offsetX: 0.9,
+        offsetY: 0.9,
+      );
+      await slow;
+
+      final current = signing.signaturesForPage(1).first;
+      expect(current.offsetX, closeTo(0.9, 0.001));
+      expect(current.offsetY, closeTo(0.9, 0.001));
+
+      final fromDb = await datasource.listSignatures(book.id!);
+      expect(fromDb.first.offsetX, closeTo(0.9, 0.001));
+      expect(fromDb.first.offsetY, closeTo(0.9, 0.001));
     });
 
     test('export concurrente reporta que ya hay una en curso', () async {

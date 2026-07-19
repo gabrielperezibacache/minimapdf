@@ -50,11 +50,14 @@ class SignatureLayer extends StatelessWidget {
               : constraints.maxHeight.clamp(1.0, double.infinity),
         );
         final stamp = SignatureStampGeometry.stampSizeFor(pageSize);
-        final effectiveTopReserve = rawUsableHeight >= stamp.height
-            ? topReserve
-            : 0.0;
-        final maxLeft = SignatureStampGeometry.maxLeft(pageSize);
-        final maxTop = SignatureStampGeometry.maxTop(pageSize);
+        final effectiveTopReserve =
+            rawUsableHeight >= stamp.height ? topReserve : 0.0;
+        final maxLeft = (pageSize.width - stamp.width)
+            .clamp(0.0, pageSize.width)
+            .toDouble();
+        final maxTop = (pageSize.height - stamp.height)
+            .clamp(0.0, pageSize.height)
+            .toDouble();
 
         return Stack(
           children: [
@@ -178,10 +181,16 @@ class _PositionedSignatureState extends State<_PositionedSignature> {
                 final nextY =
                     widget.maxTop <= 0 ? 0.0 : pos.$2 / widget.maxTop;
                 final shouldPersist = _dragDelta.distanceSquared > 1.0;
-                if (!shouldPersist) {
+                final insignificant =
+                    (widget.signature.offsetX - nextX).abs() < 0.001 &&
+                        (widget.signature.offsetY - nextY).abs() < 0.001;
+                if (!shouldPersist || insignificant) {
+                  // Vuelve al offset guardado si el provider no persistirá.
                   setState(() => _dragDelta = Offset.zero);
                   return;
                 }
+                // Mantener delta hasta que lleguen los nuevos offsets
+                // (evita un salto visual al offset antiguo).
                 widget.onMove(widget.signature, nextX, nextY);
               }
             : null,
@@ -218,6 +227,7 @@ class SignatureOverlay extends StatelessWidget {
     final dateLabel = formatSignatureDate(signature.signedAt);
     final canDrag = onDragUpdate != null && onDragEnd != null;
     final scale = width / SignatureStampGeometry.referenceStampWidth;
+    final height = width * SignatureStampGeometry.heightOverWidth;
 
     return GestureDetector(
       onPanUpdate: canDrag ? (details) => onDragUpdate!(details.delta) : null,
@@ -228,13 +238,13 @@ class SignatureOverlay extends StatelessWidget {
         elevation: 0,
         child: Container(
           width: width,
+          height: height,
           padding: EdgeInsets.fromLTRB(10 * scale, 8 * scale, 6 * scale, 8 * scale),
           decoration: BoxDecoration(
             border: Border.all(color: AppColors.obsidianAccent, width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
@@ -249,6 +259,8 @@ class SignatureOverlay extends StatelessWidget {
                   Expanded(
                     child: Text(
                       '${signature.role.labelEs} · #${signature.signingOrder}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: AppColors.obsidianAccent,
                             fontSize: 11 * scale,
@@ -274,33 +286,32 @@ class SignatureOverlay extends StatelessWidget {
                     ),
                 ],
               ),
-              SizedBox(height: 6 * scale),
-              if (signature.type == SignatureType.typed)
-                Text(
-                  signature.displayText,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'serif',
-                    fontStyle: FontStyle.italic,
-                    fontSize: 22 * scale,
-                    height: 1.1,
-                    letterSpacing: 0.4,
-                    color: colors.text,
-                  ),
-                )
-              else
-                SizedBox(
-                  height: 48 * scale,
-                  child: CustomPaint(
-                    painter: InkStrokePainter(
-                      strokes: signature.inkStrokes,
-                      color: colors.text,
-                      strokeWidth: 1.9 * scale,
-                    ),
-                  ),
-                ),
-              SizedBox(height: 6 * scale),
+              SizedBox(height: 4 * scale),
+              Expanded(
+                flex: 5,
+                child: signature.type == SignatureType.typed
+                    ? Text(
+                        signature.displayText,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'serif',
+                          fontStyle: FontStyle.italic,
+                          fontSize: 20 * scale,
+                          height: 1.1,
+                          letterSpacing: 0.4,
+                          color: colors.text,
+                        ),
+                      )
+                    : CustomPaint(
+                        painter: InkStrokePainter(
+                          strokes: signature.inkStrokes,
+                          color: colors.text,
+                          strokeWidth: 1.9 * scale,
+                        ),
+                      ),
+              ),
+              SizedBox(height: 4 * scale),
               Text(
                 signature.signerName,
                 maxLines: 1,
@@ -311,33 +322,23 @@ class SignatureOverlay extends StatelessWidget {
               ),
               Text(
                 dateLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: colors.textMuted,
                       fontSize: 10 * scale,
                     ),
               ),
-              if (signature.reason != null && signature.reason!.isNotEmpty) ...[
-                SizedBox(height: 2 * scale),
+              if (signature.reason != null && signature.reason!.isNotEmpty)
                 Text(
                   signature.reason!,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: colors.textMuted,
                         fontSize: 10 * scale,
                       ),
                 ),
-              ],
-              if (canDrag) ...[
-                SizedBox(height: 4 * scale),
-                Text(
-                  'Arrastra para colocar',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colors.textMuted,
-                        fontSize: 10 * scale,
-                      ),
-                ),
-              ],
             ],
           ),
         ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -16,13 +17,13 @@ import '../../data/models/signature_role.dart';
 import '../providers/document_signing_provider.dart';
 import '../providers/library_provider.dart';
 import '../providers/reader_annotations_provider.dart';
-import '../signing/signature_overlay.dart';
 import '../signing/signature_sheet.dart';
 import 'reader_scroll_mode.dart';
 import 'reading_progress_saver.dart';
 import 'widgets/floating_page_note.dart';
 import 'widgets/note_edit_sheet.dart';
 import 'widgets/reader_sidebar.dart';
+import 'widgets/signed_pdf_page.dart';
 
 /// Lector PDF de alto rendimiento (pdfx) con filtro Hermes Obsidian.
 class ReaderScreen extends StatefulWidget {
@@ -49,6 +50,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   int _pagesCount = 0;
   int _currentPage = 1;
   String? _error;
+  Map<int, Size> _pageSizes = const {};
 
   @override
   void initState() {
@@ -192,7 +194,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _openSignatureSheetAt(double x, double y) async {
-    if (_signing?.saving == true) return;
+    if (_signing?.saving == true || _signing?.exporting == true) return;
     _signing?.placeSignatureAt(offsetX: x, offsetY: y);
 
     final draft = await showSignatureSheet(
@@ -229,11 +231,14 @@ class _ReaderScreenState extends State<ReaderScreen>
       return;
     }
 
+    final warning = error;
+    _signing?.clearError();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Firmado como ${saved.role.labelEs.toLowerCase()} '
-          '(#${saved.signingOrder}). Puedes arrastrar el sello.',
+          warning ??
+              'Firmado como ${saved.role.labelEs.toLowerCase()} '
+                  '(#${saved.signingOrder}). Puedes arrastrar el sello.',
         ),
         action: SnackBarAction(
           label: 'Exportar',
@@ -241,6 +246,22 @@ class _ReaderScreenState extends State<ReaderScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _cachePageSizes(PdfDocument document) async {
+    final sizes = <int, Size>{};
+    for (var pageNumber = 1; pageNumber <= document.pagesCount; pageNumber++) {
+      final page = await document.getPage(pageNumber);
+      try {
+        if (page.width > 0 && page.height > 0) {
+          sizes[pageNumber] = Size(page.width, page.height);
+        }
+      } finally {
+        await page.close();
+      }
+    }
+    if (!mounted) return;
+    setState(() => _pageSizes = sizes);
   }
 
   Future<void> _exportSignedPdf() async {
@@ -360,12 +381,7 @@ class _ReaderScreenState extends State<ReaderScreen>
           body: SafeArea(
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: HermesPdfFilter.wrap(
-                    enabled: _obsidianFilter,
-                    child: _buildPdfView(colors),
-                  ),
-                ),
+                Positioned.fill(child: _buildPdfView(colors)),
                 if (hasNote && !_noteDismissed)
                   Positioned(
                     right: 12,
@@ -377,23 +393,6 @@ class _ReaderScreenState extends State<ReaderScreen>
                       onDismiss: () => setState(() => _noteDismissed = true),
                     ),
                   ),
-                Positioned.fill(
-                  child: SignatureLayer(
-                    signatures: pageSignatures,
-                    topReserve: _controlsVisible ? 56 : 8,
-                    bottomReserve: _controlsVisible ? 56 : 8,
-                    placementMode: signing?.placementMode ?? false,
-                    onPlaceTap: _openSignatureSheetAt,
-                    onMove: (signature, x, y) {
-                      _signing?.moveSignature(
-                        signature: signature,
-                        offsetX: x,
-                        offsetY: y,
-                      );
-                    },
-                    onDelete: _confirmDeleteSignature,
-                  ),
-                ),
                 if (_controlsVisible)
                   _buildTopBar(colors, isBookmarked, signing),
                 if (_controlsVisible)
@@ -450,6 +449,10 @@ class _ReaderScreenState extends State<ReaderScreen>
 
     final isVertical = _scrollMode.isVertical;
 
+    final signing = _signing;
+    final scaffoldBg =
+        _obsidianFilter ? HermesPdfFilter.background : colors.background;
+
     return PdfView(
       key: ValueKey(_scrollMode),
       controller: _controller,
@@ -458,15 +461,14 @@ class _ReaderScreenState extends State<ReaderScreen>
       physics: isVertical
           ? const BouncingScrollPhysics()
           : const PageScrollPhysics(),
-      backgroundDecoration: BoxDecoration(
-        color: _obsidianFilter ? HermesPdfFilter.background : colors.background,
-      ),
+      backgroundDecoration: BoxDecoration(color: scaffoldBg),
       onPageChanged: _onPageChanged,
       onDocumentLoaded: (document) {
         setState(() {
           _pagesCount = document.pagesCount;
           _error = null;
         });
+        unawaited(_cachePageSizes(document));
       },
       onDocumentError: (error) {
         setState(() => _error = 'No se pudo abrir el PDF.\n$error');
@@ -492,6 +494,36 @@ class _ReaderScreenState extends State<ReaderScreen>
             style: TextStyle(color: colors.text),
           ),
         ),
+        pageBuilder: (context, pageImage, index, document) {
+          final pageNumber = index + 1;
+          final pageSize = _pageSizes[pageNumber] ?? const Size(595, 842);
+          return PhotoViewGalleryPageOptions.customChild(
+            child: SignedPdfPage(
+              pageImageFuture: pageImage,
+              pageNumber: pageNumber,
+              fallbackSize: pageSize,
+              signatures: signing?.signaturesForPage(pageNumber) ?? const [],
+              obsidianFilter: _obsidianFilter,
+              placementMode: signing?.placementMode ?? false,
+              onPlaceTap: _openSignatureSheetAt,
+              onMove: (signature, x, y) {
+                final future = _signing?.moveSignature(
+                  signature: signature,
+                  offsetX: x,
+                  offsetY: y,
+                );
+                if (future != null) unawaited(future);
+              },
+              onDelete: _confirmDeleteSignature,
+            ),
+            childSize: pageSize,
+            initialScale: PhotoViewComputedScale.contained * 1.0,
+            minScale: PhotoViewComputedScale.contained * 1.0,
+            maxScale: PhotoViewComputedScale.contained * 3.0,
+            heroAttributes:
+                PhotoViewHeroAttributes(tag: '${document.id}-$index'),
+          );
+        },
       ),
     );
   }
@@ -617,7 +649,8 @@ class _ReaderScreenState extends State<ReaderScreen>
               onPressed: signing == null ||
                       !signing.hasSignatures ||
                       signing.exporting ||
-                      signing.saving
+                      signing.saving ||
+                      placement
                   ? null
                   : _exportSignedPdf,
               icon: Icon(

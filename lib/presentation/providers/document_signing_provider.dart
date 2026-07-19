@@ -292,11 +292,13 @@ class DocumentSigningProvider extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
     final saved = await _datasource.insertSignatureTemplate(template);
+    _dataGeneration++;
     _templates = [saved, ..._templates];
   }
 
   Future<void> reloadTemplates() async {
     _templates = await _datasource.listSignatureTemplates();
+    _dataGeneration++;
     _notify();
   }
 
@@ -304,6 +306,7 @@ class DocumentSigningProvider extends ChangeNotifier {
     final id = template.id;
     if (id == null) return false;
     await _datasource.removeSignatureTemplate(id);
+    _dataGeneration++;
     _templates = [
       for (final item in _templates)
         if (item.id != id) item,
@@ -313,20 +316,22 @@ class DocumentSigningProvider extends ChangeNotifier {
   }
 
   /// Actualiza la posición relativa del sello en la página.
-  Future<void> moveSignature({
+  ///
+  /// Devuelve `true` si se aplicó un cambio (aunque el write aún esté en curso).
+  Future<bool> moveSignature({
     required DocumentSignature signature,
     required double offsetX,
     required double offsetY,
   }) async {
     final id = signature.id;
-    if (id == null) return;
-    if (!offsetX.isFinite || !offsetY.isFinite) return;
+    if (id == null) return false;
+    if (!offsetX.isFinite || !offsetY.isFinite) return false;
 
     final nextX = offsetX.clamp(0.0, 1.0).toDouble();
     final nextY = offsetY.clamp(0.0, 1.0).toDouble();
     if ((signature.offsetX - nextX).abs() < 0.001 &&
         (signature.offsetY - nextY).abs() < 0.001) {
-      return;
+      return false;
     }
 
     final moved = signature.copyWith(offsetX: nextX, offsetY: nextY);
@@ -340,14 +345,29 @@ class DocumentSigningProvider extends ChangeNotifier {
     _notify();
 
     try {
+      // Si otro arrastre ya superó a este, no persistir offsets obsoletos.
+      if (generation != _moveGeneration) return true;
       await _datasource.saveSignature(moved);
-      if (generation != _moveGeneration) return;
+      if (generation != _moveGeneration) {
+        // El write antiguo pudo terminar después: reafirma el offset actual.
+        DocumentSignature? latest;
+        for (final item in _signatures) {
+          if (item.id == id) {
+            latest = item;
+            break;
+          }
+        }
+        if (latest != null) {
+          await _datasource.saveSignature(latest);
+        }
+      }
     } catch (_) {
-      if (generation != _moveGeneration) return;
+      if (generation != _moveGeneration) return true;
       _error = 'No se pudo mover la firma.';
       final book = _book;
       if (book != null) await loadForBook(book);
     }
+    return true;
   }
 
   Future<bool> deleteSignature(DocumentSignature signature) async {
@@ -382,6 +402,11 @@ class DocumentSigningProvider extends ChangeNotifier {
     }
     if (_signatures.isEmpty) {
       _error = 'Añade al menos una firma antes de exportar.';
+      _notify();
+      return null;
+    }
+    if (_placementMode) {
+      _error = 'Cancela la colocación antes de exportar.';
       _notify();
       return null;
     }

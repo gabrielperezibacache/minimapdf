@@ -65,6 +65,7 @@ class SignatureManifest {
             ),
             signerName: (map['signerName'] as String?) ?? '',
             typedText: map['typedText'] as String?,
+            inkJson: map['inkJson'] as String?,
             reason: map['reason'] as String?,
             role: SignatureRoleX.fromStorage(map['role'] as String?),
             signingOrder: (map['signingOrder'] as num?)?.toInt() ?? 1,

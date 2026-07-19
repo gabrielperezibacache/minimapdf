@@ -71,6 +71,8 @@ class SignedPdfExportService {
     final pdfName = FileNameSanitizer.uniqueName(sanitized, existing);
     final pdfPath = p.join(libraryDir.path, pdfName);
     final manifestPath = '${p.withoutExtension(pdfPath)}.firmas.json';
+    var wrotePdf = false;
+    var wroteManifest = false;
 
     final document = await PdfDocument.openFile(book.filePath);
     try {
@@ -149,6 +151,7 @@ class SignedPdfExportService {
 
       final pdfBytes = await output.save();
       await File(pdfPath).writeAsBytes(pdfBytes, flush: true);
+      wrotePdf = true;
       final signedSha = _hashService.sha256Bytes(pdfBytes);
 
       final manifest = SignatureManifest(
@@ -161,15 +164,28 @@ class SignedPdfExportService {
         signatures: List<DocumentSignature>.from(signatures),
       );
       await File(manifestPath).writeAsString(manifest.encodePretty());
+      wroteManifest = true;
 
       return SignedPdfExportResult(
         pdfPath: pdfPath,
         manifestPath: manifestPath,
         manifest: manifest,
       );
+    } catch (_) {
+      await _deleteQuietly(wrotePdf ? pdfPath : null);
+      await _deleteQuietly(wroteManifest ? manifestPath : null);
+      rethrow;
     } finally {
       await document.close();
     }
+  }
+
+  Future<void> _deleteQuietly(String? path) async {
+    if (path == null) return;
+    try {
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    } catch (_) {}
   }
 
   Future<Set<String>> _existingNames(Directory libraryDir) async {

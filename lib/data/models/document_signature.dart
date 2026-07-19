@@ -142,6 +142,7 @@ class DocumentSignature {
       'type': type.storageValue,
       'signerName': signerName,
       'typedText': typedText,
+      'inkJson': inkJson,
       'reason': reason,
       'role': role.storageValue,
       'signingOrder': signingOrder,
