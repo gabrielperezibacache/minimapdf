@@ -6,7 +6,9 @@ import 'core/database/app_database.dart';
 import 'core/database/library_database.dart';
 import 'core/theme/app_theme.dart';
 import 'data/datasources/library_local_datasource.dart';
+import 'data/datasources/pdf_import_service.dart';
 import 'presentation/library/library_screen.dart';
+import 'presentation/providers/library_provider.dart';
 import 'presentation/providers/theme_provider.dart';
 
 Future<void> main() async {
@@ -43,6 +45,17 @@ class MinimalPdfApp extends StatelessWidget {
         Provider<LibraryLocalDatasource>(
           create: (context) => LibraryLocalDatasource(
             context.read<LibraryDatabase>(),
+          ),
+        ),
+        Provider<PdfImportService>(
+          create: (context) => PdfImportService(
+            context.read<LibraryLocalDatasource>(),
+          ),
+        ),
+        ChangeNotifierProvider<LibraryProvider>(
+          create: (context) => LibraryProvider(
+            datasource: context.read<LibraryLocalDatasource>(),
+            importService: context.read<PdfImportService>(),
           ),
         ),
       ],

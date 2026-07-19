@@ -1,13 +1,18 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:minimal_pdf/core/constants/app_constants.dart';
 import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
 import 'package:minimal_pdf/main.dart';
+import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  late Directory tempDir;
   late AppDatabase appDatabase;
 
   setUpAll(() {
@@ -16,18 +21,22 @@ void main() {
   });
 
   setUp(() async {
+    tempDir = await Directory.systemTemp.createTemp('minimal_pdf_widget_');
     appDatabase = AppDatabase(
       customFactory: databaseFactoryFfi,
-      databasePath: inMemoryDatabasePath,
+      databasePath: p.join(tempDir.path, 'test.db'),
     );
     await appDatabase.open();
   });
 
   tearDown(() async {
     await appDatabase.close();
+    if (await tempDir.exists()) {
+      await tempDir.delete(recursive: true);
+    }
   });
 
-  testWidgets('Minimal PDF muestra la pantalla base de biblioteca',
+  testWidgets('Biblioteca muestra título y FAB de importación',
       (WidgetTester tester) async {
     await tester.pumpWidget(
       MinimalPdfApp(
@@ -35,9 +44,20 @@ void main() {
         libraryDatabase: LibraryDatabase(appDatabase),
       ),
     );
+    await tester.pump(); // ejecuta post-frame → LibraryProvider.load()
+
+    // Sqflite FFI usa tiempo real; hay que salir del fake-async del tester.
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
 
     expect(find.text(AppConstants.appName), findsWidgets);
-    expect(find.text(AppConstants.appTagline), findsOneWidget);
-    expect(find.text('Hermes Obsidian'), findsOneWidget);
+    expect(find.text('Biblioteca'), findsOneWidget);
+    expect(find.byTooltip('Importar PDF'), findsOneWidget);
+    expect(find.text('Tu biblioteca está vacía'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
   });
 }

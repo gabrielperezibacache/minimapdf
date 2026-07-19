@@ -1,12 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
 import 'package:minimal_pdf/data/models/models.dart';
+import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  late Directory tempDir;
   late AppDatabase appDatabase;
   late LibraryDatabase library;
 
@@ -16,9 +20,10 @@ void main() {
   });
 
   setUp(() async {
+    tempDir = await Directory.systemTemp.createTemp('minimal_pdf_db_');
     appDatabase = AppDatabase(
       customFactory: databaseFactoryFfi,
-      databasePath: inMemoryDatabasePath,
+      databasePath: p.join(tempDir.path, 'library.db'),
     );
     await appDatabase.open();
     library = LibraryDatabase(appDatabase);
@@ -26,6 +31,9 @@ void main() {
 
   tearDown(() async {
     await appDatabase.close();
+    if (await tempDir.exists()) {
+      await tempDir.delete(recursive: true);
+    }
   });
 
   group('Collections CRUD', () {
