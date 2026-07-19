@@ -137,8 +137,11 @@ docs/POLITICA_DE_PRIVACIDAD.txt
 ================================================================
 Estos archivos no se generan en este documento; prepare y suba en Console:
 
-[ ] Icono de la aplicación
-    512 × 512 px, PNG de 32 bits
+[x] Icono de la aplicación
+    512 × 512 px — archivo: docs/store/icon.png
+    Glifo de documento (esquina doblada) en bronce sobre fondo Ébano, sin texto
+    También aplicado como ícono real de la app en Android (mipmap-*) e iOS (AppIcon.appiconset)
+    Subir en Play Console → Presencia en Google Play → Ícono de la app
 
 [x] Gráfico de funciones (feature graphic)
     1024 × 500 px — archivo: docs/store/feature_graphic.png

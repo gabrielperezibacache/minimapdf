@@ -10,6 +10,7 @@ Estética **Ébano** · Pago único · Sin IA · Sin analíticas · Privacidad a
 - [Política de privacidad](docs/POLITICA_DE_PRIVACIDAD.txt) — texto para publicación en Google Play Store.
 - [Ficha de Play Store](docs/FICHA_PLAY_STORE.txt) — nombre, descripciones y checklist para la ficha predeterminada.
 - [Gráfico de funciones](docs/store/feature_graphic.png) — asset 1024×500 para Google Play.
+- [Ícono de la app](docs/store/icon.png) — asset 512×512 para Google Play (también aplicado en Android e iOS).
 
 ## Stack
 
