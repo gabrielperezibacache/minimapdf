@@ -1,0 +1,270 @@
+FICHA PREDETERMINADA — GOOGLE PLAY STORE
+Minimal PDF
+Paquete Android: com.minimalpdf.minimal_pdf
+Idioma predeterminado sugerido: Español (es-ES / es-419)
+Versión de textos: 1.0.0 (19 de julio de 2026)
+Desarrollador: Gabriel Simón Pérez Ibacache
+Correo de contacto: gabrielperezibacache@gmail.com
+
+Este documento contiene los textos y metadatos listos para pegar en
+Google Play Console → Presencia en Google Play → Ficha de Play Store
+principal (idioma predeterminado).
+
+
+================================================================
+1. NOMBRE DE LA APLICACIÓN
+================================================================
+Límite: 30 caracteres
+
+Minimal PDF
+
+(Caracteres: 11)
+
+
+================================================================
+2. DESCRIPCIÓN BREVE
+================================================================
+Límite: 80 caracteres (incluye espacios)
+
+Lector PDF offline ultraligero. Biblioteca local, sin cuentas ni anuncios.
+
+(Caracteres: 72)
+
+
+================================================================
+3. DESCRIPCIÓN COMPLETA
+================================================================
+Límite: 4000 caracteres
+
+Minimal PDF es un lector de PDF y gestor de biblioteca ultraligero, rápido y 100 % offline. Diseñado para leer con calma: sin cuentas, sin nube, sin IA, sin analíticas y sin anuncios.
+
+Un pago único. Tus documentos se quedan en tu dispositivo.
+
+—— ¿PARA QUIÉN ES? ——
+
+Para quien quiere un lector limpio y privado: estudiantes, profesionales y cualquiera que gestione PDFs sin entregar su biblioteca a un servicio remoto.
+
+—— BIBLIOTECA LOCAL ——
+
+• Importa PDFs desde el dispositivo
+• Organiza en colecciones
+• Edita título, autor y etiquetas
+• Busca en tu biblioteca
+• Descarga por URL o captura un PDF desde el mini-navegador integrado
+
+—— LECTOR ÉBANO ——
+
+• Scroll continuo vertical o página a página
+• Temas Claro (Pergamino), Sepia y Oscuro Ébano
+• Filtro de bajo cansancio visual en las páginas
+• Progreso de lectura guardado automáticamente
+• Marcadores en bronce y notas flotantes
+• Índice (TOC) y panel lateral de anotaciones
+• Caja de herramientas de anotación sobre el PDF
+
+—— FIRMA ELECTRÓNICA LOCAL ——
+
+• Firma dibujada o mecanografiada
+• Roles, plantillas y marca temporal
+• Exportación del PDF firmado con manifiesto SHA-256
+• Todo offline, sin PKI ni servicios en la nube
+
+—— PRIVACIDAD ABSOLUTA ——
+
+• Sin cuentas de usuario
+• Sin telemetría ni rastreo
+• Sin anuncios ni compras dentro de la app
+• Procesamiento local de tus documentos
+• El mini-navegador está pensado para descargar PDFs, no para perfilarte
+
+—— FILOSOFÍA ——
+
+Estética Ébano: fondos técnicos, texto pergamino y acentos en bronce. Rendimiento extremo para documentos grandes, con carga diferida de páginas.
+
+Minimal PDF — leer en privado, sin ruido.
+
+
+================================================================
+4. NOVEDADES (texto sugerido para la primera publicación)
+================================================================
+Límite: 500 caracteres
+
+Primera versión de Minimal PDF:
+
+• Biblioteca local con colecciones, metadatos y búsqueda
+• Lector rápido con temas Pergamino, Sepia y Ébano
+• Marcadores, notas y anotaciones
+• Descargas por URL y mini-navegador con Capturar PDF
+• Firma electrónica local y exportación del PDF firmado
+• Multidioma e interfaz centrada en la privacidad
+
+Pago único. Sin anuncios. 100 % offline.
+
+
+================================================================
+5. CATEGORÍA Y ETIQUETAS
+================================================================
+Categoría principal sugerida: Productividad
+Categoría secundaria (si aplica): Libros y material de referencia
+
+Etiquetas / palabras clave sugeridas (para uso interno o ASO;
+no todas se introducen como campo libre en Console):
+
+pdf, lector pdf, pdf reader, offline, privacidad, biblioteca,
+documentos, anotaciones, firma electrónica, ebook, sin anuncios
+
+
+================================================================
+6. DATOS DE CONTACTO EN LA FICHA
+================================================================
+Correo electrónico (obligatorio):
+gabrielperezibacache@gmail.com
+
+Teléfono: (opcional — dejar vacío si no desea publicarlo)
+
+Sitio web: (opcional — añadir cuando exista página pública del producto)
+
+Política de privacidad (obligatorio):
+Use la URL pública donde publique docs/POLITICA_DE_PRIVACIDAD.txt
+(por ejemplo GitHub Pages, sitio estático o raw público estable).
+
+Documento de política en el repositorio:
+docs/POLITICA_DE_PRIVACIDAD.txt
+
+
+================================================================
+7. GRÁFICOS REQUERIDOS (checklist)
+================================================================
+Estos archivos no se generan en este documento; prepare y suba en Console:
+
+[ ] Icono de la aplicación
+    512 × 512 px, PNG de 32 bits
+
+[ ] Gráfico de funciones (feature graphic)
+    1024 × 500 px
+    Sugerencia de copy visual: «Minimal PDF» + «Offline · Privado · Ébano»
+    Evitar texto excesivo; fondo alineado a la paleta Ébano (#0F1714 / #C89A5A / #F3ECDD)
+
+[ ] Capturas de teléfono (mínimo 2; recomendado 4–8)
+    Resoluciones habituales: 1080 × 1920 o superior
+    Sugerencia de secuencia:
+      1. Biblioteca (rejilla de PDFs, estética Ébano)
+      2. Lector con filtro Ébano / tema oscuro
+      3. Marcadores o notas / panel lateral
+      4. Descargas o mini-navegador
+      5. Firma electrónica local
+      6. Ajustes (idioma / apariencia)
+
+[ ] Capturas de tablet (recomendado si soporta tablets)
+[ ] Vídeo promocional (opcional)
+
+
+================================================================
+8. CLASIFICACIÓN DE CONTENIDO (orientación)
+================================================================
+Al completar el cuestionario de clasificación IARC / Play:
+
+• La app no incluye violencia, contenido sexual, juegos de azar ni UGC social
+• Es una herramienta de productividad / lectura de documentos
+• Público objetivo: todo el público / mayores de 3 según resultado del formulario
+• No está dirigida específicamente a niños (no declarar como app infantil salvo que se diseñe como tal)
+
+
+================================================================
+9. SEGURIDAD DE LOS DATOS (resumen para el formulario)
+================================================================
+Alineado con docs/POLITICA_DE_PRIVACIDAD.txt §16:
+
+• ¿La app recopila o comparte datos de usuario con el desarrollador? No
+  (no hay backend propio de la app para este fin)
+• Datos en el dispositivo: biblioteca, preferencias, anotaciones y firmas
+• Publicidad: No
+• Analíticas: No
+• Venta de datos: No
+• Cuentas: No
+• Cuando el usuario descarga un PDF por Internet, la conexión es hacia el
+  recurso remoto que él elige (se recomienda HTTPS)
+
+Revise y confirme cada respuesta en Play Console → Contenido de la app
+→ Seguridad de los datos.
+
+
+================================================================
+10. PRECIO Y DISTRIBUCIÓN (recordatorio de producto)
+================================================================
+Modelo de negocio del producto: pago único (precio de referencia del PRD: 1,99 USD).
+Sin compras dentro de la aplicación.
+Sin suscripciones.
+Sin anuncios.
+
+Configure el precio y los países en Play Console → Monetización /
+Presencia en el país según su estrategia de lanzamiento.
+
+
+================================================================
+11. TRADUCCIÓN EN INGLÉS (opcional, ficha secundaria)
+================================================================
+Si añade el idioma English (en-US) como traducción de la ficha:
+
+App name:
+Minimal PDF
+
+Short description (80 chars):
+Ultra-light offline PDF reader. Local library, no accounts, no ads.
+
+Full description:
+
+Minimal PDF is an ultra-light, fast, 100% offline PDF reader and library manager. Built for calm reading: no accounts, no cloud, no AI, no analytics, and no ads.
+
+Pay once. Your documents stay on your device.
+
+—— LOCAL LIBRARY ——
+
+• Import PDFs from your device
+• Organize with collections
+• Edit title, author, and tags
+• Search your library
+• Download by URL or capture a PDF from the built-in mini-browser
+
+—— ÉBANO READER ——
+
+• Continuous vertical scroll or page-by-page mode
+• Light (Parchment), Sepia, and Dark Ébano themes
+• Low eye-strain page filter
+• Automatic reading progress
+• Bronze bookmarks and floating notes
+• TOC and annotations sidebar
+• On-page annotation toolbox
+
+—— LOCAL E-SIGNATURE ——
+
+• Drawn or typed signature
+• Roles, templates, and timestamp
+• Export a signed PDF with SHA-256 manifest
+• Fully offline — no cloud PKI
+
+—— TRUE PRIVACY ——
+
+• No user accounts
+• No telemetry or tracking
+• No ads and no in-app purchases
+• Local document processing
+
+Minimal PDF — private reading, without the noise.
+
+
+================================================================
+12. CÓMO PEGAR EN PLAY CONSOLE
+================================================================
+1. Abra Google Play Console → su app Minimal PDF
+2. Presencia en Google Play → Ficha de Play Store principal
+3. Elija el idioma predeterminado (Español)
+4. Pegue Nombre, Descripción breve y Descripción completa de las §§1–3
+5. Suba icono, gráfico de funciones y capturas (§7)
+6. En Detalles de la tienda / Contacto, complete correo y URL de privacidad (§6)
+7. Complete Seguridad de los datos y clasificación (§§8–9)
+8. Opcional: añada English con los textos de la §11
+9. Guarde y envíe a revisión cuando el AAB/APK y el resto del checklist estén listos
+
+
+FIN DEL DOCUMENTO

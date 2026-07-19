@@ -8,6 +8,7 @@ Estética **Ébano** · Pago único · Sin IA · Sin analíticas · Privacidad a
 
 - [Especificaciones técnicas](docs/Especificaciones_para_Cursor.md) — PRD, arquitectura y plan paso a paso.
 - [Política de privacidad](docs/POLITICA_DE_PRIVACIDAD.txt) — texto para publicación en Google Play Store.
+- [Ficha de Play Store](docs/FICHA_PLAY_STORE.txt) — nombre, descripciones y checklist para la ficha predeterminada.
 
 ## Stack
 
