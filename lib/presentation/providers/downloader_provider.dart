@@ -87,6 +87,41 @@ class DownloaderProvider extends ChangeNotifier {
     }
   }
 
+  String _mapDownloadError(Object e) {
+    if (e is DownloadCancelledException) {
+      return '';
+    }
+    if (e is FormatException) {
+      return e.message;
+    }
+    if (e is TimeoutException) {
+      return 'Tiempo de espera agotado. Inténtalo de nuevo.';
+    }
+    if (e is SocketException) {
+      return 'Sin conexión de red. Comprueba tu acceso a Internet.';
+    }
+    if (e is http.ClientException) {
+      return 'No se pudo conectar con el servidor.';
+    }
+    if (e is HttpException) {
+      return e.message;
+    }
+    if (e is ArgumentError) {
+      return 'URL inválida.';
+    }
+    if (e is StateError) {
+      final msg = e.message;
+      if (msg.contains('en curso') || msg.contains('Ya hay una descarga')) {
+        return 'Ya hay una descarga en curso.';
+      }
+      if (msg.contains('nativa fallida') || msg.contains('archivo no existe')) {
+        return 'La descarga falló en el dispositivo.';
+      }
+      return msg;
+    }
+    return 'No se pudo descargar el PDF.';
+  }
+
   Future<Book?> downloadUrl(String rawUrl) async {
     final url = PdfUrlUtils.normalizeUrl(rawUrl);
     if (!PdfUrlUtils.isValidHttpUrl(url)) {
@@ -142,33 +177,8 @@ class DownloaderProvider extends ChangeNotifier {
 
   Future<Book?> downloadFromInput() => downloadUrl(_urlInput);
 
-  static String _mapDownloadError(Object e) {
-    if (e is FormatException) return e.message;
-    if (e is TimeoutException) {
-      return 'La descarga tardó demasiado. Inténtalo de nuevo.';
-    }
-    if (e is SocketException) {
-      return 'Sin conexión de red. Comprueba tu acceso a Internet.';
-    }
-    if (e is http.ClientException) {
-      return 'No se pudo conectar con el servidor.';
-    }
-    if (e is StateError) {
-      final message = e.message;
-      if (message.contains('Ya hay una descarga')) {
-        return 'Ya hay una descarga en curso.';
-      }
-      if (message.contains('nativa fallida') ||
-          message.contains('archivo no existe')) {
-        return 'La descarga falló en el dispositivo.';
-      }
-      return message;
-    }
-    return 'No se pudo descargar el PDF.';
-  }
-
-  /// Captura solo URLs que parezcan PDF (nunca HTML genérico).
-  Future<Book?> capturePdf({String? currentUrl}) async {
+  /// Candidatos PDF únicos para captura (URL actual + detectados).
+  List<String> resolveCaptureCandidates({String? currentUrl}) {
     final candidates = <String>[
       if (currentUrl != null && PdfUrlUtils.looksLikePdfUrl(currentUrl))
         currentUrl,
@@ -182,9 +192,26 @@ class DownloaderProvider extends ChangeNotifier {
         unique.add(normalized);
       }
     }
+    return unique.toList(growable: false);
+  }
+
+  /// Captura solo URLs que parezcan PDF (nunca HTML genérico).
+  ///
+  /// Si hay varios candidatos, no elige al azar: pide elegir de la lista.
+  Future<Book?> capturePdf({String? currentUrl}) async {
+    final unique = resolveCaptureCandidates(currentUrl: currentUrl);
 
     if (unique.isEmpty) {
       _error = 'No se encontró un enlace PDF en esta página.';
+      notifyListeners();
+      return null;
+    }
+
+    if (unique.length > 1) {
+      _detectedPdfUrls = unique;
+      _error =
+          'Hay ${unique.length} PDFs detectados. Elige uno de la lista.';
+      _statusMessage = null;
       notifyListeners();
       return null;
     }

@@ -80,6 +80,16 @@ void main() {
       expect(Collection.fromMap(collection.toMap()), collection);
     });
 
+    test('Collection.fromMap tolera fecha inválida y nombre vacío', () {
+      final collection = Collection.fromMap({
+        'id': 3,
+        'name': '  ',
+        'created_at': 'bad-date',
+      });
+      expect(collection.name, 'Colección');
+      expect(collection.createdAt, DateTime.fromMillisecondsSinceEpoch(0));
+    });
+
     test('Bookmark round-trip', () {
       final bookmark = Bookmark(
         id: 2,
@@ -89,6 +99,19 @@ void main() {
         createdAt: DateTime.utc(2026, 7, 3),
       );
       expect(Bookmark.fromMap(bookmark.toMap()), bookmark);
+    });
+
+    test('Bookmark.fromMap tolera fecha inválida', () {
+      final bookmark = Bookmark.fromMap({
+        'id': 4,
+        'book_id': 1,
+        'page_number': 2,
+        'note_text': 'ok',
+        'created_at': '???',
+      });
+      expect(bookmark.noteText, 'ok');
+      expect(bookmark.pageNumber, 2);
+      expect(bookmark.createdAt, DateTime.fromMillisecondsSinceEpoch(0));
     });
 
     test('PageAnnotation round-trip', () {

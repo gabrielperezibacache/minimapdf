@@ -24,6 +24,8 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   final _searchController = TextEditingController();
+  DownloaderProvider? _downloader;
+  int? _lastSeenDownloadId;
 
   @override
   void initState() {
@@ -31,13 +33,26 @@ class _LibraryScreenState extends State<LibraryScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<LibraryProvider>().load();
+      _downloader = context.read<DownloaderProvider>();
+      _downloader!.addListener(_onDownloaderChanged);
     });
   }
 
   @override
   void dispose() {
+    _downloader?.removeListener(_onDownloaderChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onDownloaderChanged() {
+    final downloader = _downloader;
+    if (!mounted || downloader == null) return;
+    final book = downloader.lastDownloaded;
+    final id = book?.id;
+    if (id == null || id == _lastSeenDownloadId) return;
+    _lastSeenDownloadId = id;
+    context.read<LibraryProvider>().load();
   }
 
   Future<void> _importPdf() async {
@@ -119,11 +134,40 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (!mounted) return;
 
     if (!exists) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('El archivo PDF ya no está en el dispositivo.'),
+      final colors = AppPalette.of(context);
+      final remove = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: colors.panel,
+          title: const Text('Archivo no encontrado'),
+          content: Text(
+            '“${book.title}” ya no está en el dispositivo. '
+            '¿Quieres quitarlo de la biblioteca?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(
+                'Quitar de la biblioteca',
+                style: TextStyle(color: colors.accent),
+              ),
+            ),
+          ],
         ),
       );
+      if (remove == true && mounted) {
+        await library.deleteBook(book);
+        if (!mounted) return;
+        if (library.error != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(library.error!)),
+          );
+        }
+      }
       return;
     }
 
@@ -276,7 +320,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
 
     if (confirmed == true && mounted) {
-      await context.read<LibraryProvider>().deleteCollection(collection);
+      final library = context.read<LibraryProvider>();
+      await library.deleteCollection(collection);
+      if (!mounted) return;
+      if (library.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(library.error!)),
+        );
+      }
     }
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +8,7 @@ import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
 import 'package:minimal_pdf/data/datasources/library_local_datasource.dart';
 import 'package:minimal_pdf/data/datasources/pdf_download_service.dart';
+import 'package:minimal_pdf/data/models/book.dart';
 import 'package:minimal_pdf/data/models/collection.dart';
 import 'package:minimal_pdf/presentation/providers/downloader_provider.dart';
 import 'package:path/path.dart' as p;
@@ -110,6 +112,99 @@ void main() {
     service.dispose();
   });
 
+  test('capturePdf con varios PDFs no elige uno al azar', () async {
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: MockClient((request) async {
+        fail('No debería descargar: ${request.url}');
+      }),
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+    final provider = DownloaderProvider(service);
+    provider.setDetectedPdfUrls([
+      'https://cdn.example.com/a.pdf',
+      'https://cdn.example.com/b.pdf',
+    ]);
+
+    final book = await provider.capturePdf();
+    expect(book, isNull);
+    expect(provider.error, contains('2 PDFs'));
+    expect(provider.detectedPdfUrls.length, 2);
+    service.dispose();
+  });
+
+  test('DownloaderProvider mapea timeout a mensaje claro', () async {
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: MockClient((request) async {
+        throw TimeoutException('slow');
+      }),
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+    final provider = DownloaderProvider(service);
+    final book = await provider.downloadUrl('https://example.com/slow.pdf');
+    expect(book, isNull);
+    expect(provider.error, contains('Tiempo de espera'));
+    service.dispose();
+  });
+
+  test('download evita UNIQUE de fila huérfana con mismo basename', () async {
+    final libraryDir = Directory(p.join(tempDir.path, 'library'));
+    await libraryDir.create(recursive: true);
+    final ghostPath = p.join(libraryDir.path, 'guide.pdf');
+    await datasource.insertBook(
+      Book(
+        title: 'Ghost',
+        filePath: ghostPath,
+        fileSize: 1,
+        addedAt: DateTime(2026, 7, 1),
+      ),
+    );
+
+    final client = MockClient((request) async {
+      return http.Response.bytes(
+        const [0x25, 0x50, 0x44, 0x46, 0x2D, 0x31],
+        200,
+        headers: {'content-type': 'application/pdf'},
+      );
+    });
+
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: client,
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+
+    final book = await service.downloadFromUrl('https://example.com/guide.pdf');
+    expect(book.filePath, isNot(equals(ghostPath)));
+    expect(p.basename(book.filePath).toLowerCase(), contains('guide'));
+    expect(File(book.filePath).existsSync(), isTrue);
+    service.dispose();
+  });
+
+  test('resolveCaptureCandidates agrupa URL actual y detectados', () {
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: MockClient((_) async => http.Response('', 404)),
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+    final provider = DownloaderProvider(service)
+      ..setDetectedPdfUrls([
+        'https://cdn.example.com/a.pdf',
+        'https://cdn.example.com/b.pdf',
+      ]);
+
+    final candidates = provider.resolveCaptureCandidates(
+      currentUrl: 'https://cdn.example.com/a.pdf',
+    );
+    expect(candidates.length, 2);
+    service.dispose();
+  });
+
   test('downloadFromUrl respeta collectionId activo', () async {
     final collection = await datasource.insertCollection(
       Collection(name: 'Descargas', createdAt: DateTime(2026, 7, 1)),
@@ -193,6 +288,68 @@ void main() {
     expect(provider.error, contains('curso'));
     final book = await first;
     expect(book, isNotNull);
+    service.dispose();
+  });
+
+  test('colección borrada durante descarga se ignora (sin FK)', () async {
+    final collection = await datasource.insertCollection(
+      Collection(name: 'Temporal', createdAt: DateTime(2026, 7, 1)),
+    );
+
+    final client = MockClient((request) async {
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      return http.Response.bytes(
+        const [0x25, 0x50, 0x44, 0x46, 0x2D, 0x31],
+        200,
+        headers: {'content-type': 'application/pdf'},
+      );
+    });
+
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: client,
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+
+    final download = service.downloadFromUrl(
+      'https://example.com/keep.pdf',
+      collectionId: collection.id,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await datasource.removeCollection(collection.id!);
+
+    final book = await download;
+    expect(book.collectionId, isNull);
+    expect(File(book.filePath).existsSync(), isTrue);
+    service.dispose();
+  });
+
+  test('cancelActiveDownload corta stream HTTP colgado', () async {
+    final client = MockClient.streaming((request, _) async {
+      final stream = Stream<List<int>>.periodic(
+        const Duration(milliseconds: 200),
+        (_) => const [0x25, 0x50, 0x44, 0x46],
+      );
+      return http.StreamedResponse(
+        stream,
+        200,
+        headers: {'content-type': 'application/pdf'},
+      );
+    });
+
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: client,
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+
+    final download = service.downloadFromUrl('https://example.com/hang.pdf');
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    await service.cancelActiveDownload();
+
+    await expectLater(download, throwsA(isA<DownloadCancelledException>()));
     service.dispose();
   });
 

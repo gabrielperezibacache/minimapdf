@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/utils/app_paths.dart';
 import '../../core/utils/file_name_sanitizer.dart';
+import '../../core/utils/library_file_coordinator.dart';
 import '../../core/utils/pdf_header.dart';
 import '../../core/utils/pdf_url_utils.dart';
 import '../models/book.dart';
@@ -47,6 +48,8 @@ class PdfDownloadService {
   bool _cancelRequested = false;
   String? _activeNativeTaskId;
   Future<Book>? _activeDownload;
+  StreamSubscription<List<int>>? _httpSubscription;
+  Completer<void>? _httpDone;
 
   static bool get _defaultNativeFlag {
     if (kIsWeb) return false;
@@ -73,6 +76,14 @@ class PdfDownloadService {
   /// Cancela la descarga HTTP/nativa en curso (si hay).
   Future<void> cancelActiveDownload() async {
     _cancelRequested = true;
+    final done = _httpDone;
+    if (done != null && !done.isCompleted) {
+      done.completeError(const DownloadCancelledException());
+    }
+    final subscription = _httpSubscription;
+    if (subscription != null) {
+      await subscription.cancel();
+    }
     final taskId = _activeNativeTaskId;
     if (taskId != null) {
       await _cancelNativeTask(taskId);
@@ -155,16 +166,14 @@ class PdfDownloadService {
     _throwIfCancelled();
     onProgress?.call(0);
 
-    final libraryDir = await _ensureLibraryDir();
+    final stagingDir = await _ensureLibraryDir();
     final fileName = FileNameSanitizer.sanitize(
       PdfUrlUtils.fileNameFromUrl(url),
     );
-    final existing = await _existingFileNames(libraryDir);
-    final unique = FileNameSanitizer.uniqueName(fileName, existing);
-    final destination = p.join(libraryDir.path, unique);
-    final tempPath = '$destination.part';
-    final tempFile = File(tempPath);
-    final destinationFile = File(destination);
+    // Descarga a un temporal único; el nombre final se reserva al persistir.
+    final stagingName =
+        '${DateTime.now().microsecondsSinceEpoch}_$fileName.part';
+    final tempFile = File(p.join(stagingDir.path, stagingName));
 
     var received = 0;
     IOSink? sink;
@@ -191,22 +200,70 @@ class PdfDownloadService {
       final total = response.contentLength ?? 0;
 
       sink = tempFile.openWrite();
-      await for (final chunk in response.stream.timeout(
+      final done = Completer<void>();
+      _httpDone = done;
+      final timedStream = response.stream.timeout(
         const Duration(seconds: 60),
-        onTimeout: (sink) {
-          sink.addError(
+        onTimeout: (eventSink) {
+          eventSink.addError(
             TimeoutException('Tiempo de espera de descarga agotado'),
           );
-          sink.close();
+          eventSink.close();
         },
-      )) {
-        _throwIfCancelled();
-        sink.add(chunk);
-        received += chunk.length;
-        if (total > 0) {
-          onProgress?.call((received / total).clamp(0.0, 1.0));
+      );
+
+      final subscription = timedStream.listen(
+        (chunk) {
+          if (_cancelRequested) {
+            if (!done.isCompleted) {
+              done.completeError(const DownloadCancelledException());
+            }
+            return;
+          }
+          try {
+            sink!.add(chunk);
+            received += chunk.length;
+            if (total > 0) {
+              onProgress?.call((received / total).clamp(0.0, 1.0));
+            }
+          } catch (e, st) {
+            if (!done.isCompleted) {
+              done.completeError(e, st);
+            }
+          }
+        },
+        onError: (Object e, StackTrace st) {
+          if (done.isCompleted) return;
+          if (_cancelRequested) {
+            done.completeError(const DownloadCancelledException());
+          } else {
+            done.completeError(e, st);
+          }
+        },
+        onDone: () {
+          if (done.isCompleted) return;
+          if (_cancelRequested) {
+            done.completeError(const DownloadCancelledException());
+          } else {
+            done.complete();
+          }
+        },
+        cancelOnError: true,
+      );
+      _httpSubscription = subscription;
+
+      try {
+        await done.future;
+      } finally {
+        if (identical(_httpDone, done)) {
+          _httpDone = null;
+        }
+        await subscription.cancel();
+        if (identical(_httpSubscription, subscription)) {
+          _httpSubscription = null;
         }
       }
+
       await sink.flush();
       await sink.close();
       sink = null;
@@ -217,29 +274,20 @@ class PdfDownloadService {
         contentType: contentType,
         invalidMessage: 'La URL no devolvió un PDF válido',
       );
-      await tempFile.rename(destination);
       onProgress?.call(1);
-
-      final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
-      final size = await destinationFile.length();
-      return await _datasource.insertBook(
-        Book(
-          title: title,
-          filePath: destination,
-          fileSize: size,
-          addedAt: DateTime.now(),
-          collectionId: collectionId,
-        ),
+      return await _persistFile(
+        source: tempFile,
+        fileName: fileName,
+        collectionId: collectionId,
+        deleteSource: true,
       );
     } on DownloadCancelledException {
       await sink?.close();
       await _deleteQuietly(tempFile);
-      await _deleteQuietly(destinationFile);
       rethrow;
     } catch (e) {
       await sink?.close();
       await _deleteQuietly(tempFile);
-      await _deleteQuietly(destinationFile);
       if (_cancelRequested) {
         throw const DownloadCancelledException();
       }
@@ -264,11 +312,14 @@ class PdfDownloadService {
     final fileName = FileNameSanitizer.sanitize(
       PdfUrlUtils.fileNameFromUrl(url),
     );
+    // Nombre temporal único: evita colisiones con leftovers de cancel/kill.
+    final stagingName =
+        '${DateTime.now().microsecondsSinceEpoch}_$fileName';
 
     final taskId = await FlutterDownloader.enqueue(
       url: url,
       savedDir: tempDir.path,
-      fileName: fileName,
+      fileName: stagingName,
       showNotification: false,
       openFileFromNotification: false,
       requiresStorageNotLow: false,
@@ -278,12 +329,13 @@ class PdfDownloadService {
       throw StateError('No se pudo encolar la descarga nativa');
     }
 
+    final expectedPath = p.join(tempDir.path, stagingName);
     _activeNativeTaskId = taskId;
     try {
       _throwIfCancelled();
       final path = await _waitForNativeTask(
         taskId,
-        expectedPath: p.join(tempDir.path, fileName),
+        expectedPath: expectedPath,
         onProgress: onProgress,
       );
 
@@ -293,9 +345,11 @@ class PdfDownloadService {
         source: source,
         fileName: fileName,
         collectionId: collectionId,
+        deleteSource: true,
       );
     } catch (e) {
       await _cancelNativeTask(taskId);
+      await _deleteQuietly(File(expectedPath));
       if (_cancelRequested) {
         throw const DownloadCancelledException();
       }
@@ -368,36 +422,56 @@ class PdfDownloadService {
     required File source,
     required String fileName,
     int? collectionId,
+    bool deleteSource = true,
   }) async {
-    final libraryDir = await _ensureLibraryDir();
-    final existing = await _existingFileNames(libraryDir);
-    final unique = FileNameSanitizer.uniqueName(fileName, existing);
-    final destination = p.join(libraryDir.path, unique);
-    final destinationFile = File(destination);
+    return LibraryFileCoordinator.runExclusive(() async {
+      final libraryDir = await _ensureLibraryDir();
+      await _sweepOrphanPartFiles(libraryDir, keepPath: source.path);
+      final onDisk = await _existingFileNames(libraryDir);
+      final reserved = await _datasource.listReservedLibraryBasenames();
+      final existing = {...onDisk, ...reserved};
+      final unique = FileNameSanitizer.uniqueName(fileName, existing);
+      final destination = p.join(libraryDir.path, unique);
+      final destinationFile = File(destination);
 
-    await source.copy(destination);
-    try {
-      await source.delete();
-    } catch (_) {
-      // El temporal nativo puede quedar; no es crítico.
-    }
+      try {
+        if (p.equals(source.path, destination)) {
+          // Ya está en destino (raro); no copiar.
+        } else if (source.path.endsWith('.part') &&
+            p.dirname(source.path) == libraryDir.path) {
+          await source.rename(destination);
+        } else {
+          await source.copy(destination);
+          if (deleteSource) {
+            await _deleteQuietly(source);
+          }
+        }
 
-    try {
-      final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
-      final size = await destinationFile.length();
-      return await _datasource.insertBook(
-        Book(
-          title: title,
-          filePath: destination,
-          fileSize: size,
-          addedAt: DateTime.now(),
-          collectionId: collectionId,
-        ),
-      );
-    } catch (e) {
-      await _deleteQuietly(destinationFile);
-      rethrow;
-    }
+        final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
+        final size = await destinationFile.length();
+        final resolvedCollectionId =
+            await _resolveCollectionId(collectionId);
+        return await _datasource.insertBook(
+          Book(
+            title: title,
+            filePath: destination,
+            fileSize: size,
+            addedAt: DateTime.now(),
+            collectionId: resolvedCollectionId,
+          ),
+        );
+      } catch (e) {
+        await _deleteQuietly(destinationFile);
+        rethrow;
+      }
+    });
+  }
+
+  /// Si la colección se borró durante la descarga, evita fallo FK.
+  Future<int?> _resolveCollectionId(int? collectionId) async {
+    if (collectionId == null) return null;
+    final found = await _datasource.findCollectionById(collectionId);
+    return found?.id;
   }
 
   Future<Directory> _ensureLibraryDir() async {
@@ -410,11 +484,30 @@ class PdfDownloadService {
   }
 
   Future<Set<String>> _existingFileNames(Directory libraryDir) async {
-    return libraryDir
-        .list()
-        .where((entity) => entity is File)
-        .map((entity) => p.basename(entity.path).toLowerCase())
-        .toSet();
+    final names = <String>{};
+    await for (final entity in libraryDir.list()) {
+      if (entity is! File) continue;
+      final base = p.basename(entity.path).toLowerCase();
+      if (base.endsWith('.part')) continue;
+      names.add(base);
+    }
+    return names;
+  }
+
+  Future<void> _sweepOrphanPartFiles(
+    Directory libraryDir, {
+    String? keepPath,
+  }) async {
+    try {
+      await for (final entity in libraryDir.list()) {
+        if (entity is! File) continue;
+        if (!entity.path.toLowerCase().endsWith('.part')) continue;
+        if (keepPath != null && p.equals(entity.path, keepPath)) continue;
+        await _deleteQuietly(entity);
+      }
+    } catch (_) {
+      // Limpieza best-effort.
+    }
   }
 
   Future<void> _deleteQuietly(File file) async {
@@ -429,6 +522,11 @@ class PdfDownloadService {
 
   void dispose() {
     _cancelRequested = true;
+    final subscription = _httpSubscription;
+    if (subscription != null) {
+      unawaited(subscription.cancel());
+      _httpSubscription = null;
+    }
     _http.close();
   }
 }

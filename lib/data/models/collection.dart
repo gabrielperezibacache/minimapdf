@@ -31,10 +31,18 @@ class Collection {
   }
 
   factory Collection.fromMap(Map<String, Object?> map) {
+    final createdRaw = map['created_at'];
+    final createdAt = createdRaw is String && createdRaw.isNotEmpty
+        ? (DateTime.tryParse(createdRaw) ??
+            DateTime.fromMillisecondsSinceEpoch(0))
+        : DateTime.fromMillisecondsSinceEpoch(0);
+
     return Collection(
       id: map['id'] as int?,
-      name: map['name'] as String,
-      createdAt: DateTime.parse(map['created_at'] as String),
+      name: (map['name'] as String?)?.trim().isNotEmpty == true
+          ? (map['name'] as String).trim()
+          : 'Colección',
+      createdAt: createdAt,
     );
   }
 

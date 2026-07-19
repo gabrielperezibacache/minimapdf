@@ -1,3 +1,4 @@
+import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
 import '../../data/models/models.dart';
@@ -98,6 +99,21 @@ class LibraryDatabase {
     );
     if (rows.isEmpty) return null;
     return Book.tryFromMap(rows.first);
+  }
+
+  /// Basenames reservados en DB (incluye filas huérfanas sin archivo en disco).
+  Future<Set<String>> listReservedLibraryBasenames() async {
+    final rows = await _db.query(
+      DatabaseConfig.tableBooks,
+      columns: const ['file_path'],
+    );
+    final names = <String>{};
+    for (final row in rows) {
+      final path = row['file_path'];
+      if (path is! String || path.isEmpty) continue;
+      names.add(p.basename(path).toLowerCase());
+    }
+    return names;
   }
 
   /// Libros de biblioteca: primero por última lectura, luego por alta.

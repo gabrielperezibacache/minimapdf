@@ -53,6 +53,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   bool _controlsVisible = true;
   bool _sidebarVisible = false;
   bool _noteDismissed = false;
+  bool _exiting = false;
   int _pagesCount = 0;
   int _currentPage = 1;
   String? _error;
@@ -151,23 +152,24 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (state == AppLifecycleState.paused) {
       final saver = _progressSaver;
       if (saver == null) return;
-      if (saver.currentPage != _currentPage) {
-        saver.onPageChanged(_currentPage);
-      }
-      unawaited(saver.saveIfNeeded());
+      unawaited(saver.saveNow(page: _currentPage, forceTouch: true));
     }
   }
 
   Future<void> _onExit() async {
-    final saver = _progressSaver;
-    if (saver != null) {
-      if (saver.currentPage != _currentPage) {
-        saver.onPageChanged(_currentPage);
+    if (_exiting) return;
+    _exiting = true;
+    try {
+      final saver = _progressSaver;
+      if (saver != null) {
+        await saver.saveNow(page: _currentPage, forceTouch: true);
       }
-      await saver.saveIfNeeded();
+      if (!mounted) return;
+      Navigator.of(context).pop(_currentPage);
+    } catch (_) {
+      _exiting = false;
+      rethrow;
     }
-    if (!mounted) return;
-    Navigator.of(context).pop(_currentPage);
   }
 
   void _onPageChanged(int page) {

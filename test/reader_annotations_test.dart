@@ -161,6 +161,17 @@ void main() {
     expect(annotations.activeTool, AnnotationTool.highlight);
   });
 
+  test('toggleBookmark serializa toques concurrentes', () async {
+    final first = annotations.toggleBookmark(8);
+    final second = annotations.toggleBookmark(8);
+    await Future.wait([first, second]);
+
+    final rows = await datasource.listBookmarks(book.id!);
+    final onPage = rows.where((b) => b.pageNumber == 8).length;
+    expect(onPage, anyOf(0, 1));
+    expect(annotations.error, isNull);
+  });
+
   test('PdfTocEntry.fromPageCount genera índice navegable', () {
     final toc = PdfTocEntry.fromPageCount(3);
     expect(toc.map((e) => e.pageNumber), [1, 2, 3]);

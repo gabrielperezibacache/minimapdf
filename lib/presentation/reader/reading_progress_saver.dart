@@ -85,10 +85,16 @@ class ReadingProgressSaver {
   }
 
   /// Actualiza página opcionalmente y guarda solo si hay cambios.
-  Future<void> saveNow({int? page}) async {
+  ///
+  /// Con [forceTouch] también persiste `last_read_at` aunque la página no
+  /// haya cambiado (cerrar lector / pausar app → Recientes).
+  Future<void> saveNow({int? page, bool forceTouch = false}) async {
     _autosaveTimer?.cancel();
     if (page != null && page >= 1 && page != _page) {
       _page = page;
+      _dirty = true;
+    }
+    if (forceTouch) {
       _dirty = true;
     }
     await saveIfNeeded();

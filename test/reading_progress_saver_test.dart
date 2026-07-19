@@ -113,4 +113,16 @@ void main() {
     expect(saver.isDirty, isFalse);
     saver.dispose();
   });
+
+  test('saveNow forceTouch actualiza last_read_at sin cambiar página', () async {
+    final saver = ReadingProgressSaver(datasource);
+    saver.attach(bookId: book.id!, initialPage: 1);
+    await saver.saveNow(page: 1, forceTouch: true);
+
+    final updated = await datasource.findBookById(book.id!);
+    expect(updated?.lastPageRead, 1);
+    expect(updated?.lastReadAt, isNotNull);
+    expect(saver.isDirty, isFalse);
+    saver.dispose();
+  });
 }
