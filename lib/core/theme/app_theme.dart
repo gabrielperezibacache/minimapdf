@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app_colors.dart';
+import 'app_radii.dart';
 import 'app_theme_option.dart';
 
 /// Construye [ThemeData] para cada opción de la paleta Hermes Obsidian.
+///
+/// Misma apariencia en Android e iOS: Material 3 + tokens Hermes
+/// (colores, radios, tipografía y componentes).
 abstract final class AppTheme {
   static ThemeData of(AppThemeOption option) => switch (option) {
         AppThemeOption.light => light,
@@ -21,6 +25,7 @@ abstract final class AppTheme {
         textMuted: AppColors.lightTextMuted,
         border: AppColors.lightBorder,
         accent: AppColors.lightAccent,
+        onAccent: Colors.white,
       );
 
   static ThemeData get sepia => _build(
@@ -32,6 +37,7 @@ abstract final class AppTheme {
         textMuted: AppColors.sepiaTextMuted,
         border: AppColors.sepiaBorder,
         accent: AppColors.sepiaAccent,
+        onAccent: Colors.white,
       );
 
   static ThemeData get obsidian => _build(
@@ -43,6 +49,7 @@ abstract final class AppTheme {
         textMuted: AppColors.obsidianTextMuted,
         border: AppColors.obsidianBorder,
         accent: AppColors.obsidianAccent,
+        onAccent: AppColors.obsidianBackground,
       );
 
   static ThemeData _build({
@@ -54,22 +61,31 @@ abstract final class AppTheme {
     required Color textMuted,
     required Color border,
     required Color accent,
+    required Color onAccent,
   }) {
     final colorScheme = ColorScheme(
       brightness: brightness,
       primary: accent,
-      onPrimary: brightness == Brightness.dark
-          ? AppColors.obsidianBackground
-          : Colors.white,
+      onPrimary: onAccent,
       secondary: accent,
-      onSecondary: brightness == Brightness.dark
-          ? AppColors.obsidianBackground
-          : Colors.white,
+      onSecondary: onAccent,
       surface: surface,
       onSurface: text,
       error: const Color(0xFFCF6679),
       onError: Colors.white,
       outline: border,
+    );
+
+    final systemOverlay = SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness:
+          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      statusBarBrightness:
+          brightness == Brightness.dark ? Brightness.dark : Brightness.light,
+      systemNavigationBarColor: background,
+      systemNavigationBarIconBrightness:
+          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarDividerColor: border,
     );
 
     final base = ThemeData(
@@ -80,6 +96,8 @@ abstract final class AppTheme {
       canvasColor: background,
       dividerColor: border,
       cardColor: panel,
+      visualDensity: VisualDensity.standard,
+      materialTapTargetSize: MaterialTapTargetSize.padded,
     );
 
     return base.copyWith(
@@ -88,30 +106,96 @@ abstract final class AppTheme {
         scrolledUnderElevation: 0,
         backgroundColor: panel,
         foregroundColor: text,
-        systemOverlayStyle: brightness == Brightness.dark
-            ? SystemUiOverlayStyle.light
-            : SystemUiOverlayStyle.dark,
+        surfaceTintColor: Colors.transparent,
+        systemOverlayStyle: systemOverlay,
         titleTextStyle: TextStyle(
           color: text,
           fontSize: 18,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.2,
         ),
+        iconTheme: IconThemeData(color: textMuted),
+        actionsIconTheme: IconThemeData(color: textMuted),
       ),
       cardTheme: CardThemeData(
         color: panel,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: AppRadii.smAll,
           side: BorderSide(color: border, width: 1),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: accent,
-        foregroundColor: brightness == Brightness.dark
-            ? AppColors.obsidianBackground
-            : Colors.white,
+        foregroundColor: onAccent,
         elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: AppRadii.smAll),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: accent,
+          foregroundColor: onAccent,
+          shape: RoundedRectangleBorder(borderRadius: AppRadii.smAll),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: text,
+          side: BorderSide(color: border),
+          shape: RoundedRectangleBorder(borderRadius: AppRadii.smAll),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: accent),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: panel,
+        surfaceTintColor: Colors.transparent,
+        modalBackgroundColor: panel,
+        shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheetTop),
+        showDragHandle: false,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: panel,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadii.smAll,
+          side: BorderSide(color: border, width: 1),
+        ),
+        titleTextStyle: TextStyle(
+          color: text,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+        contentTextStyle: TextStyle(color: text, height: 1.45),
+      ),
+      tabBarTheme: TabBarThemeData(
+        labelColor: accent,
+        unselectedLabelColor: textMuted,
+        indicatorColor: accent,
+        dividerColor: border,
+        indicatorSize: TabBarIndicatorSize.tab,
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: accent,
+        textColor: text,
+        selectedColor: accent,
+        selectedTileColor: surface,
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: accent,
+        linearTrackColor: border,
+        circularTrackColor: border,
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: panel,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadii.smAll,
+          side: BorderSide(color: border),
+        ),
+        textStyle: TextStyle(color: text),
       ),
       dividerTheme: DividerThemeData(color: border, thickness: 1, space: 1),
       iconTheme: IconThemeData(color: textMuted),
@@ -121,16 +205,17 @@ abstract final class AppTheme {
         filled: true,
         fillColor: surface,
         hintStyle: TextStyle(color: textMuted),
+        labelStyle: TextStyle(color: textMuted),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: AppRadii.smAll,
           borderSide: BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: AppRadii.smAll,
           borderSide: BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: AppRadii.smAll,
           borderSide: BorderSide(color: accent, width: 1.5),
         ),
       ),
@@ -138,6 +223,11 @@ abstract final class AppTheme {
         backgroundColor: panel,
         contentTextStyle: TextStyle(color: text),
         actionTextColor: accent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadii.smAll,
+          side: BorderSide(color: border),
+        ),
       ),
       extensions: <ThemeExtension<dynamic>>[
         HermesColors(
@@ -148,6 +238,7 @@ abstract final class AppTheme {
           textMuted: textMuted,
           border: border,
           accent: accent,
+          onAccent: onAccent,
         ),
       ],
     );
@@ -172,6 +263,12 @@ abstract final class AppTheme {
       labelSmall: TextStyle(color: muted),
     );
   }
+
+  /// Estilo de barra de estado/navegación alineado con el tema activo.
+  static SystemUiOverlayStyle systemUiFor(AppThemeOption option) {
+    final theme = of(option);
+    return theme.appBarTheme.systemOverlayStyle ?? SystemUiOverlayStyle.dark;
+  }
 }
 
 /// Colores semánticos Hermes accesibles vía `Theme.of(context).extension`.
@@ -185,6 +282,7 @@ class HermesColors extends ThemeExtension<HermesColors> {
     required this.textMuted,
     required this.border,
     required this.accent,
+    required this.onAccent,
   });
 
   final Color background;
@@ -194,6 +292,7 @@ class HermesColors extends ThemeExtension<HermesColors> {
   final Color textMuted;
   final Color border;
   final Color accent;
+  final Color onAccent;
 
   static HermesColors of(BuildContext context) {
     final ext = Theme.of(context).extension<HermesColors>();
@@ -210,6 +309,7 @@ class HermesColors extends ThemeExtension<HermesColors> {
     Color? textMuted,
     Color? border,
     Color? accent,
+    Color? onAccent,
   }) {
     return HermesColors(
       background: background ?? this.background,
@@ -219,6 +319,7 @@ class HermesColors extends ThemeExtension<HermesColors> {
       textMuted: textMuted ?? this.textMuted,
       border: border ?? this.border,
       accent: accent ?? this.accent,
+      onAccent: onAccent ?? this.onAccent,
     );
   }
 
@@ -233,6 +334,7 @@ class HermesColors extends ThemeExtension<HermesColors> {
       textMuted: Color.lerp(textMuted, other.textMuted, t)!,
       border: Color.lerp(border, other.border, t)!,
       accent: Color.lerp(accent, other.accent, t)!,
+      onAccent: Color.lerp(onAccent, other.onAccent, t)!,
     );
   }
 }

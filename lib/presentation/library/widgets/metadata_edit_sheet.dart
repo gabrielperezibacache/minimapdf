@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_radii.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/book.dart';
 
@@ -25,9 +27,7 @@ Future<BookMetadataDraft?> showMetadataEditSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: HermesColors.of(context).panel,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
-    ),
+    shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheetTop),
     builder: (context) => _MetadataEditForm(book: book),
   );
 }
@@ -87,7 +87,12 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomInset),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.lg + bottomInset,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -99,14 +104,14 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
               color: colors.border,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           Text(
             'Editar metadatos',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: colors.accent,
                 ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           TextField(
             controller: _titleController,
             textInputAction: TextInputAction.next,
@@ -114,7 +119,7 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
               labelText: 'Título',
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           TextField(
             controller: _authorController,
             textInputAction: TextInputAction.next,
@@ -122,7 +127,7 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
               labelText: 'Autor',
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           TextField(
             controller: _tagsController,
             textInputAction: TextInputAction.done,
@@ -132,27 +137,19 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
               hintText: 'separados por coma',
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.lg),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: colors.text,
-                    side: BorderSide(color: colors.border),
-                  ),
                   child: const Text('Cancelar'),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: FilledButton(
                   onPressed: _submit,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: colors.accent,
-                    foregroundColor: colors.background,
-                  ),
                   child: const Text('Guardar'),
                 ),
               ),

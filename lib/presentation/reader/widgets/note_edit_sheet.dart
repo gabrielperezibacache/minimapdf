@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_radii.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_theme.dart';
 
 /// Formulario sencillo para nota de texto en la página actual.
@@ -13,9 +14,7 @@ Future<String?> showNoteEditSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: HermesColors.of(context).panel,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
-    ),
+    shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheetTop),
     builder: (context) => _NoteEditForm(
       pageNumber: pageNumber,
       initialText: initialText,
@@ -57,7 +56,12 @@ class _NoteEditFormState extends State<_NoteEditForm> {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomInset),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.lg + bottomInset,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -65,14 +69,14 @@ class _NoteEditFormState extends State<_NoteEditForm> {
           Center(
             child: Container(width: 36, height: 3, color: colors.border),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           Text(
             'Nota · página ${widget.pageNumber}',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.obsidianAccent,
+                  color: colors.accent,
                 ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           TextField(
             controller: _controller,
             autofocus: true,
@@ -82,28 +86,20 @@ class _NoteEditFormState extends State<_NoteEditForm> {
               hintText: 'Escribe una nota…',
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: colors.text,
-                    side: BorderSide(color: colors.border),
-                  ),
                   child: const Text('Cancelar'),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: FilledButton(
                   onPressed: () =>
                       Navigator.of(context).pop(_controller.text),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.obsidianAccent,
-                    foregroundColor: AppColors.obsidianBackground,
-                  ),
                   child: const Text('Guardar'),
                 ),
               ),

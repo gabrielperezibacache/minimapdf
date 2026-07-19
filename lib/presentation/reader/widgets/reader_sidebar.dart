@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/bookmark.dart';
 import '../pdf_toc_entry.dart';
@@ -69,9 +68,9 @@ class ReaderSidebar extends StatelessWidget {
                       child: Column(
                         children: [
                           TabBar(
-                            labelColor: AppColors.obsidianAccent,
+                            labelColor: colors.accent,
                             unselectedLabelColor: colors.textMuted,
-                            indicatorColor: AppColors.obsidianAccent,
+                            indicatorColor: colors.accent,
                             tabs: const [
                               Tab(text: 'Índice'),
                               Tab(text: 'Marcadores'),
@@ -127,7 +126,7 @@ class _SidebarHeader extends StatelessWidget {
           Text(
             'Navegación',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.obsidianAccent,
+                  color: colors.accent,
                 ),
           ),
           const Spacer(),
@@ -205,7 +204,7 @@ class _TocPaneState extends State<_TocPane> {
               IconButton(
                 tooltip: 'Ir',
                 onPressed: _jumpFromField,
-                icon: Icon(Icons.arrow_forward, color: AppColors.obsidianAccent),
+                icon: Icon(Icons.arrow_forward, color: colors.accent),
               ),
             ],
           ),
@@ -238,9 +237,7 @@ class _TocPaneState extends State<_TocPane> {
                     color: selected ? colors.surface : null,
                     border: Border(
                       left: BorderSide(
-                        color: selected
-                            ? AppColors.obsidianAccent
-                            : Colors.transparent,
+                        color: selected ? colors.accent : Colors.transparent,
                         width: 2,
                       ),
                     ),
@@ -248,9 +245,7 @@ class _TocPaneState extends State<_TocPane> {
                   child: Text(
                     entry.title,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: selected
-                              ? AppColors.obsidianAccent
-                              : colors.text,
+                          color: selected ? colors.accent : colors.text,
                         ),
                   ),
                 ),
@@ -285,7 +280,7 @@ class _BookmarksPane extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'Sin marcadores.\nMarca la página actual con el icono bronce.',
+            'Sin marcadores.\nMarca la página actual con el icono de acento.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall,
           ),
@@ -304,10 +299,10 @@ class _BookmarksPane extends StatelessWidget {
 
         return ListTile(
           selected: selected,
-          selectedColor: AppColors.obsidianAccent,
+          selectedColor: colors.accent,
           leading: Icon(
             hasNote ? Icons.sticky_note_2 : Icons.bookmark,
-            color: AppColors.obsidianAccent,
+            color: colors.accent,
           ),
           title: Text('Página ${bookmark.pageNumber}'),
           subtitle: hasNote

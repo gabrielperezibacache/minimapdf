@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/pdf_url_utils.dart';
 import '../providers/downloader_provider.dart';
@@ -26,6 +25,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
   InAppWebViewController? _webController;
   PullToRefreshController? _pullToRefreshController;
   double _pageProgress = 0;
+  bool _pullToRefreshReady = false;
 
   /// WebView embebido soportado principalmente en Android/iOS.
   bool get _supportsEmbeddedBrowser {
@@ -62,21 +62,27 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
       _urlController.text = provider.urlInput;
       _browserUrlController.text = provider.browserUrl;
     });
+  }
 
-    if (_supportsEmbeddedBrowser) {
-      _pullToRefreshController = PullToRefreshController(
-        settings: PullToRefreshSettings(color: AppColors.obsidianAccent),
-        onRefresh: () async {
-          if (defaultTargetPlatform == TargetPlatform.android) {
-            await _webController?.reload();
-          } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-            await _webController?.loadUrl(
-              urlRequest: URLRequest(url: await _webController?.getUrl()),
-            );
-          }
-        },
-      );
-    }
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_supportsEmbeddedBrowser || _pullToRefreshReady) return;
+
+    final accent = HermesColors.of(context).accent;
+    _pullToRefreshController = PullToRefreshController(
+      settings: PullToRefreshSettings(color: accent),
+      onRefresh: () async {
+        if (defaultTargetPlatform == TargetPlatform.android) {
+          await _webController?.reload();
+        } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+          await _webController?.loadUrl(
+            urlRequest: URLRequest(url: await _webController?.getUrl()),
+          );
+        }
+      },
+    );
+    _pullToRefreshReady = true;
   }
 
   @override
@@ -164,13 +170,14 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: downloader.downloading ? null : _capturePdf,
-        backgroundColor: AppColors.obsidianAccent,
-        foregroundColor: AppColors.obsidianBackground,
         icon: downloader.downloading
-            ? const SizedBox(
+            ? SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: colors.onAccent,
+                ),
               )
             : const Icon(Icons.download),
         label: Text(
@@ -195,7 +202,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                 child: Text(
                   downloader.statusMessage!,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.obsidianAccent,
+                        color: colors.accent,
                       ),
                 ),
               ),
@@ -320,7 +327,7 @@ class _DirectUrlBar extends StatelessWidget {
           Text(
             'URL directa de PDF',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppColors.obsidianAccent,
+                  color: colors.accent,
                 ),
           ),
           const SizedBox(height: 8),
@@ -342,10 +349,6 @@ class _DirectUrlBar extends StatelessWidget {
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: downloading ? null : onDownload,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.obsidianAccent,
-                  foregroundColor: AppColors.obsidianBackground,
-                ),
                 child: const Text('Descargar'),
               ),
             ],
@@ -354,7 +357,7 @@ class _DirectUrlBar extends StatelessWidget {
             const SizedBox(height: 10),
             LinearProgressIndicator(
               value: progress <= 0 || progress >= 1 ? null : progress,
-              color: AppColors.obsidianAccent,
+              color: colors.accent,
               backgroundColor: colors.border,
             ),
           ],
@@ -427,7 +430,7 @@ class _BrowserChrome extends StatelessWidget {
           LinearProgressIndicator(
             value: pageProgress,
             minHeight: 2,
-            color: AppColors.obsidianAccent,
+            color: colors.accent,
             backgroundColor: colors.border,
           ),
         Padding(
@@ -439,9 +442,7 @@ class _BrowserChrome extends StatelessWidget {
                   ? '$detectedCount enlace(s) PDF detectado(s)'
                   : 'Mini-navegador privado · sin telemetría',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: detectedCount > 0
-                        ? AppColors.obsidianAccent
-                        : colors.textMuted,
+                    color: detectedCount > 0 ? colors.accent : colors.textMuted,
                   ),
             ),
           ),

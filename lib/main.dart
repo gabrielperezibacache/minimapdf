@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -95,12 +96,26 @@ class _MinimalPdfRoot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeOption = context.watch<ThemeProvider>().option;
+    final theme = AppTheme.of(themeOption);
+    final overlay = AppTheme.systemUiFor(themeOption);
 
-    return MaterialApp(
-      title: AppConstants.appName,
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.of(themeOption),
-      home: const LibraryScreen(),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlay,
+      child: MaterialApp(
+        title: AppConstants.appName,
+        debugShowCheckedModeBanner: false,
+        theme: theme,
+        // Misma tipografía/escala en Android e iOS (sin adaptaciones Cupertino).
+        builder: (context, child) {
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              boldText: false,
+            ),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
+        home: const LibraryScreen(),
+      ),
     );
   }
 }

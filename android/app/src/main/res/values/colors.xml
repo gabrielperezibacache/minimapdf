@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Hermes Obsidian — alineado con lib/core/theme/app_colors.dart -->
+    <color name="hermes_obsidian_background">#0F1714</color>
+    <color name="hermes_obsidian_panel">#121D18</color>
+    <color name="hermes_obsidian_accent">#C89A5A</color>
+    <color name="hermes_obsidian_text">#F3ECDD</color>
+</resources>

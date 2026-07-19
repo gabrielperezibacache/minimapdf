@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/hermes_pdf_filter.dart';
 import '../../data/datasources/library_local_datasource.dart';
@@ -324,7 +323,7 @@ class _ReaderScreenState extends State<ReaderScreen>
             IconButton(
               tooltip: 'Menú / índice',
               onPressed: _toggleSidebar,
-              icon: const Icon(Icons.menu, color: AppColors.obsidianAccent),
+              icon: Icon(Icons.menu, color: colors.accent),
             ),
             IconButton(
               tooltip: 'Volver',
@@ -352,15 +351,15 @@ class _ReaderScreenState extends State<ReaderScreen>
                       onPressed: _toggleBookmark,
                       icon: Icon(
                         isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                        color: AppColors.obsidianAccent,
+                        color: colors.accent,
                       ),
                     ),
                     IconButton(
                       tooltip: 'Añadir nota',
                       onPressed: _editNote,
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.sticky_note_2_outlined,
-                        color: AppColors.obsidianAccent,
+                        color: colors.accent,
                       ),
                     ),
                     IconButton(
@@ -415,13 +414,13 @@ class _ReaderScreenState extends State<ReaderScreen>
         child: Row(
           children: [
             if (isBookmarked) ...[
-              Icon(Icons.bookmark, size: 16, color: AppColors.obsidianAccent),
+              Icon(Icons.bookmark, size: 16, color: colors.accent),
               const SizedBox(width: 6),
             ],
             Text(
               label,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.obsidianAccent,
+                    color: colors.accent,
                   ),
             ),
             const Spacer(),

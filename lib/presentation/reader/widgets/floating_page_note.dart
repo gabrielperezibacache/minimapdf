@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 
-/// Nota flotante sobre la página actual (acento bronce Hermes).
+/// Nota flotante sobre la página actual (acento del tema Hermes activo).
 class FloatingPageNote extends StatelessWidget {
   const FloatingPageNote({
     super.key,
@@ -30,7 +29,7 @@ class FloatingPageNote extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 280),
           padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.obsidianAccent, width: 1),
+            border: Border.all(color: colors.accent, width: 1),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -38,7 +37,7 @@ class FloatingPageNote extends StatelessWidget {
               Icon(
                 Icons.sticky_note_2_outlined,
                 size: 18,
-                color: AppColors.obsidianAccent,
+                color: colors.accent,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -49,7 +48,7 @@ class FloatingPageNote extends StatelessWidget {
                     Text(
                       'Nota · p. $pageNumber',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.obsidianAccent,
+                            color: colors.accent,
                           ),
                     ),
                     const SizedBox(height: 4),
