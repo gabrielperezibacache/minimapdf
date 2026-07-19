@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 
+import '../../core/preferences/app_preferences.dart';
 import '../../data/datasources/library_local_datasource.dart';
 import '../../data/datasources/pdf_import_service.dart';
 import '../../data/models/models.dart';
@@ -9,10 +12,13 @@ class LibraryProvider extends ChangeNotifier {
   LibraryProvider({
     required this.datasource,
     required this.importService,
-  });
+    AppPreferences? preferences,
+  })  : _preferences = preferences,
+        _gridMode = preferences?.gridMode ?? true;
 
   final LibraryLocalDatasource datasource;
   final PdfImportService importService;
+  AppPreferences? _preferences;
 
   List<Book> _books = const [];
   List<Collection> _collections = const [];
@@ -20,7 +26,7 @@ class LibraryProvider extends ChangeNotifier {
   bool _loading = false;
   bool _importing = false;
   String? _error;
-  bool _gridMode = true;
+  bool _gridMode;
 
   List<Book> get books => _books;
   List<Collection> get collections => _collections;
@@ -29,6 +35,15 @@ class LibraryProvider extends ChangeNotifier {
   bool get importing => _importing;
   String? get error => _error;
   bool get gridMode => _gridMode;
+
+  void attachPreferences(AppPreferences preferences) {
+    _preferences = preferences;
+    final stored = preferences.gridMode;
+    if (_gridMode != stored) {
+      _gridMode = stored;
+      notifyListeners();
+    }
+  }
 
   List<Book> get visibleBooks {
     if (_selectedCollectionId == null) return _books;
@@ -60,10 +75,11 @@ class LibraryProvider extends ChangeNotifier {
     }
   }
 
-  void setGridMode(bool value) {
+  Future<void> setGridMode(bool value) async {
     if (_gridMode == value) return;
     _gridMode = value;
     notifyListeners();
+    await _preferences?.setGridMode(value);
   }
 
   void selectCollection(int? collectionId) {
@@ -102,6 +118,8 @@ class LibraryProvider extends ChangeNotifier {
     required String title,
     String? author,
     required List<String> tags,
+    int? collectionId,
+    bool clearCollectionId = false,
   }) async {
     final trimmedTitle = title.trim();
     if (trimmedTitle.isEmpty || book.id == null) return;
@@ -114,10 +132,20 @@ class LibraryProvider extends ChangeNotifier {
       author: clearAuthor ? null : trimmedAuthor,
       tags: tags,
       clearAuthor: clearAuthor,
+      collectionId: collectionId,
+      clearCollectionId: clearCollectionId,
     );
 
-    await datasource.saveBook(updated);
-    await load();
+    try {
+      await datasource.saveBook(updated);
+      await load();
+    } catch (e) {
+      _error = 'No se pudieron guardar los metadatos.';
+      if (kDebugMode) {
+        debugPrint('LibraryProvider.updateBookMetadata: $e');
+      }
+      notifyListeners();
+    }
   }
 
   Future<Collection?> createCollection(String name) async {
@@ -131,10 +159,61 @@ class LibraryProvider extends ChangeNotifier {
     return collection;
   }
 
+  Future<void> deleteCollection(Collection collection) async {
+    final id = collection.id;
+    if (id == null) return;
+    try {
+      await datasource.removeCollection(id);
+      if (_selectedCollectionId == id) {
+        _selectedCollectionId = null;
+      }
+      await load();
+    } catch (e) {
+      _error = 'No se pudo eliminar la colección.';
+      if (kDebugMode) {
+        debugPrint('LibraryProvider.deleteCollection: $e');
+      }
+      notifyListeners();
+    }
+  }
+
+  /// Elimina el registro y el archivo PDF del almacenamiento de la app.
   Future<void> deleteBook(Book book) async {
     final id = book.id;
     if (id == null) return;
-    await datasource.removeBook(id);
-    await load();
+
+    try {
+      await datasource.removeBook(id);
+      await _deleteBookFile(book.filePath);
+      await load();
+    } catch (e) {
+      _error = 'No se pudo eliminar el PDF.';
+      if (kDebugMode) {
+        debugPrint('LibraryProvider.deleteBook: $e');
+      }
+      notifyListeners();
+    }
+  }
+
+  Future<void> _deleteBookFile(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('LibraryProvider._deleteBookFile: $e');
+      }
+    }
+  }
+
+  /// Comprueba que el archivo del libro sigue en disco.
+  Future<bool> bookFileExists(Book book) async {
+    try {
+      return File(book.filePath).exists();
+    } catch (_) {
+      return false;
+    }
   }
 }

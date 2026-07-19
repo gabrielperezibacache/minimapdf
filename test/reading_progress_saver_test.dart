@@ -68,4 +68,16 @@ void main() {
     expect(unchanged?.lastPageRead, 1);
     expect(unchanged?.lastReadAt, isNull);
   });
+
+  test('no pierde página si cambia durante un guardado en vuelo', () async {
+    saver.onPageChanged(5);
+    final first = saver.saveNow();
+    saver.onPageChanged(10);
+    final second = saver.saveNow(page: 10);
+    await Future.wait([first, second]);
+
+    final updated = await datasource.findBookById(book.id!);
+    expect(updated?.lastPageRead, 10);
+    expect(saver.isDirty, isFalse);
+  });
 }

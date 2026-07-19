@@ -9,6 +9,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'core/constants/app_constants.dart';
 import 'core/database/app_database.dart';
 import 'core/database/library_database.dart';
+import 'core/preferences/app_preferences.dart';
 import 'core/theme/app_theme.dart';
 import 'data/datasources/library_local_datasource.dart';
 import 'data/datasources/pdf_download_service.dart';
@@ -29,6 +30,7 @@ Future<void> main() async {
 
   await PdfDownloadService.ensureNativeInitialized();
 
+  final preferences = await AppPreferences.open();
   final appDatabase = AppDatabase();
   await appDatabase.open();
 
@@ -36,6 +38,7 @@ Future<void> main() async {
     MinimalPdfApp(
       appDatabase: appDatabase,
       libraryDatabase: LibraryDatabase(appDatabase),
+      preferences: preferences,
     ),
   );
 }
@@ -45,16 +48,21 @@ class MinimalPdfApp extends StatelessWidget {
     super.key,
     required this.appDatabase,
     required this.libraryDatabase,
+    this.preferences,
   });
 
   final AppDatabase appDatabase;
   final LibraryDatabase libraryDatabase;
+  final AppPreferences? preferences;
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        Provider<AppPreferences?>.value(value: preferences),
+        ChangeNotifierProvider(
+          create: (_) => ThemeProvider(preferences: preferences),
+        ),
         Provider<AppDatabase>.value(value: appDatabase),
         Provider<LibraryDatabase>.value(value: libraryDatabase),
         Provider<LibraryLocalDatasource>(
@@ -77,6 +85,7 @@ class MinimalPdfApp extends StatelessWidget {
           create: (context) => LibraryProvider(
             datasource: context.read<LibraryLocalDatasource>(),
             importService: context.read<PdfImportService>(),
+            preferences: preferences,
           ),
         ),
         ChangeNotifierProvider<DownloaderProvider>(
@@ -105,7 +114,6 @@ class _MinimalPdfRoot extends StatelessWidget {
         title: AppConstants.appName,
         debugShowCheckedModeBanner: false,
         theme: theme,
-        // Misma tipografía/escala en Android e iOS (sin adaptaciones Cupertino).
         builder: (context, child) {
           return MediaQuery(
             data: MediaQuery.of(context).copyWith(

@@ -281,6 +281,17 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                       },
                       onReceivedError: (controller, request, error) {
                         _pullToRefreshController?.endRefreshing();
+                        if (!mounted) return;
+                        // Solo avisar en errores del documento principal.
+                        if (request.isForMainFrame ?? true) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'No se pudo cargar la página.',
+                              ),
+                            ),
+                          );
+                        }
                       },
                     )
                   : Center(

@@ -18,6 +18,7 @@ class DownloaderProvider extends ChangeNotifier {
   String? _error;
   String? _statusMessage;
   Book? _lastDownloaded;
+  int? _targetCollectionId;
 
   String get urlInput => _urlInput;
   String get browserUrl => _browserUrl;
@@ -28,6 +29,7 @@ class DownloaderProvider extends ChangeNotifier {
   String? get statusMessage => _statusMessage;
   Book? get lastDownloaded => _lastDownloaded;
   bool get hasDetectedPdfs => _detectedPdfUrls.isNotEmpty;
+  int? get targetCollectionId => _targetCollectionId;
 
   void setUrlInput(String value) {
     _urlInput = value;
@@ -37,6 +39,11 @@ class DownloaderProvider extends ChangeNotifier {
   void setBrowserUrl(String value) {
     _browserUrl = value;
     notifyListeners();
+  }
+
+  /// Colección activa de la biblioteca donde se registrará la descarga.
+  void setTargetCollectionId(int? collectionId) {
+    _targetCollectionId = collectionId;
   }
 
   void setDetectedPdfUrls(List<String> urls) {
@@ -73,6 +80,7 @@ class DownloaderProvider extends ChangeNotifier {
           _progress = value;
           notifyListeners();
         },
+        collectionId: _targetCollectionId,
       );
       _lastDownloaded = book;
       _statusMessage = 'Guardado en biblioteca: ${book.title}';

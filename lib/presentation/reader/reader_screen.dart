@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/preferences/app_preferences.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/hermes_pdf_filter.dart';
 import '../../data/datasources/library_local_datasource.dart';
@@ -32,6 +34,8 @@ class _ReaderScreenState extends State<ReaderScreen>
   late final PdfController _controller;
   ReadingProgressSaver? _progressSaver;
   ReaderAnnotationsProvider? _annotations;
+  AppPreferences? _preferences;
+  bool _prefsLoaded = false;
 
   ReaderScrollMode _scrollMode = ReaderScrollMode.verticalContinuous;
   bool _obsidianFilter = true;
@@ -63,6 +67,19 @@ class _ReaderScreenState extends State<ReaderScreen>
 
     final bookId = widget.book.id;
 
+    if (!_prefsLoaded) {
+      _prefsLoaded = true;
+      _preferences = context.read<AppPreferences?>();
+      final prefs = _preferences;
+      if (prefs != null) {
+        _obsidianFilter = prefs.obsidianFilter;
+        _scrollMode = ReaderScrollMode.values.firstWhere(
+          (mode) => mode.name == prefs.scrollModeName,
+          orElse: () => ReaderScrollMode.verticalContinuous,
+        );
+      }
+    }
+
     if (_progressSaver == null) {
       final saver = ReadingProgressSaver(datasource);
       if (bookId != null) {
@@ -90,7 +107,8 @@ class _ReaderScreenState extends State<ReaderScreen>
     WidgetsBinding.instance.removeObserver(this);
     _annotations?.removeListener(_onAnnotationsChanged);
     _annotations?.dispose();
-    _progressSaver?.saveNow(page: _currentPage);
+    // El guardado fiable ocurre en _onExit / lifecycle; aquí best-effort.
+    unawaited(_progressSaver?.saveNow(page: _currentPage) ?? Future.value());
     _controller.dispose();
     super.dispose();
   }
@@ -100,7 +118,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden) {
-      _progressSaver?.saveNow(page: _currentPage);
+      unawaited(_progressSaver?.saveNow(page: _currentPage) ?? Future.value());
     }
   }
 
@@ -127,16 +145,18 @@ class _ReaderScreenState extends State<ReaderScreen>
     });
   }
 
-  void _toggleScrollMode() {
-    setState(() {
-      _scrollMode = _scrollMode == ReaderScrollMode.verticalContinuous
-          ? ReaderScrollMode.horizontalPaged
-          : ReaderScrollMode.verticalContinuous;
-    });
+  Future<void> _toggleScrollMode() async {
+    final next = _scrollMode == ReaderScrollMode.verticalContinuous
+        ? ReaderScrollMode.horizontalPaged
+        : ReaderScrollMode.verticalContinuous;
+    setState(() => _scrollMode = next);
+    await _preferences?.setScrollModeName(next.name);
   }
 
-  void _toggleFilter() {
-    setState(() => _obsidianFilter = !_obsidianFilter);
+  Future<void> _toggleFilter() async {
+    final next = !_obsidianFilter;
+    setState(() => _obsidianFilter = next);
+    await _preferences?.setObsidianFilter(next);
   }
 
   void _toggleControls() {

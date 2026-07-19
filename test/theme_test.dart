@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:minimal_pdf/core/preferences/app_preferences.dart';
 import 'package:minimal_pdf/core/theme/app_colors.dart';
 import 'package:minimal_pdf/core/theme/app_radii.dart';
 import 'package:minimal_pdf/core/theme/app_theme.dart';
 import 'package:minimal_pdf/core/theme/app_theme_option.dart';
 import 'package:minimal_pdf/presentation/providers/theme_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('AppTheme', () {
@@ -46,10 +48,7 @@ void main() {
 
       expect(theme.floatingActionButtonTheme.backgroundColor, colors.accent);
       expect(theme.floatingActionButtonTheme.foregroundColor, colors.onAccent);
-      expect(
-        theme.progressIndicatorTheme.color,
-        colors.accent,
-      );
+      expect(theme.progressIndicatorTheme.color, colors.accent);
       expect(theme.tabBarTheme.labelColor, colors.accent);
       expect(theme.bottomSheetTheme.backgroundColor, colors.panel);
 
@@ -96,21 +95,33 @@ void main() {
   });
 
   group('ThemeProvider', () {
-    test('ciclo Claro → Sepia → Obsidian → Claro', () {
-      final provider = ThemeProvider();
+    test('ciclo Claro → Sepia → Obsidian → Claro', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await AppPreferences.open();
+      final provider = ThemeProvider(preferences: prefs);
       expect(provider.option, AppThemeOption.obsidian);
 
-      provider.setTheme(AppThemeOption.light);
+      await provider.setTheme(AppThemeOption.light);
       expect(provider.option, AppThemeOption.light);
+      expect(prefs.themeOption, AppThemeOption.light);
 
-      provider.cycleTheme();
+      await provider.cycleTheme();
       expect(provider.option, AppThemeOption.sepia);
 
-      provider.cycleTheme();
+      await provider.cycleTheme();
       expect(provider.option, AppThemeOption.obsidian);
 
-      provider.cycleTheme();
+      await provider.cycleTheme();
       expect(provider.option, AppThemeOption.light);
+    });
+
+    test('restaura tema guardado al crear provider', () async {
+      SharedPreferences.setMockInitialValues({
+        'theme_option': 'sepia',
+      });
+      final prefs = await AppPreferences.open();
+      final provider = ThemeProvider(preferences: prefs);
+      expect(provider.option, AppThemeOption.sepia);
     });
   });
 }

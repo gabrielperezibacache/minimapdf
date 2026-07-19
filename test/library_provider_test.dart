@@ -93,4 +93,54 @@ void main() {
     provider.selectCollection(null);
     expect(provider.visibleBooks, isNotEmpty);
   });
+
+  test('deleteBook elimina registro y archivo del disco', () async {
+    final book = await provider.importPdf();
+    expect(book, isNotNull);
+    expect(File(book!.filePath).existsSync(), isTrue);
+
+    await provider.deleteBook(book);
+
+    expect(provider.books, isEmpty);
+    expect(File(book.filePath).existsSync(), isFalse);
+  });
+
+  test('updateBookMetadata puede asignar colección', () async {
+    final book = await provider.importPdf();
+    final collection = await provider.createCollection('Técnicos');
+
+    await provider.updateBookMetadata(
+      book: book!,
+      title: book.title,
+      author: null,
+      tags: const [],
+      collectionId: collection!.id,
+    );
+
+    expect(provider.books.single.collectionId, collection.id);
+
+    provider.selectCollection(collection.id);
+    expect(provider.visibleBooks, hasLength(1));
+  });
+
+  test('deleteCollection deja libros sin carpeta', () async {
+    final book = await provider.importPdf();
+    final collection = await provider.createCollection('Temporal');
+    await provider.updateBookMetadata(
+      book: book!,
+      title: book.title,
+      author: null,
+      tags: const [],
+      collectionId: collection!.id,
+    );
+
+    provider.selectCollection(collection.id);
+    expect(provider.visibleBooks, hasLength(1));
+
+    await provider.deleteCollection(collection);
+
+    expect(provider.collections, isEmpty);
+    expect(provider.selectedCollectionId, isNull);
+    expect(provider.books.single.collectionId, isNull);
+  });
 }

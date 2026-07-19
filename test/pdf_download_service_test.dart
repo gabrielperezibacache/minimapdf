@@ -7,6 +7,7 @@ import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
 import 'package:minimal_pdf/data/datasources/library_local_datasource.dart';
 import 'package:minimal_pdf/data/datasources/pdf_download_service.dart';
+import 'package:minimal_pdf/data/models/collection.dart';
 import 'package:minimal_pdf/presentation/providers/downloader_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -87,6 +88,33 @@ void main() {
     );
     expect(book, isNotNull);
     expect(book!.filePath, contains('paper'));
+    service.dispose();
+  });
+
+  test('downloadFromUrl respeta collectionId activo', () async {
+    final collection = await datasource.insertCollection(
+      Collection(name: 'Descargas', createdAt: DateTime(2026, 7, 1)),
+    );
+
+    final client = MockClient((request) async {
+      return http.Response.bytes(
+        const [0x25, 0x50, 0x44, 0x46, 0x2D, 0x31],
+        200,
+        headers: {'content-type': 'application/pdf'},
+      );
+    });
+
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: client,
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+    final provider = DownloaderProvider(service)..setTargetCollectionId(collection.id);
+
+    final book = await provider.downloadUrl('https://example.com/doc.pdf');
+    expect(book, isNotNull);
+    expect(book!.collectionId, collection.id);
     service.dispose();
   });
 }

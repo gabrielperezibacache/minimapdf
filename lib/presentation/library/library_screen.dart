@@ -5,7 +5,9 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_theme_option.dart';
 import '../../data/models/book.dart';
+import '../../data/models/collection.dart';
 import '../downloader/downloader_screen.dart';
+import '../providers/downloader_provider.dart';
 import '../providers/library_provider.dart';
 import '../providers/theme_provider.dart';
 import '../reader/reader_screen.dart';
@@ -46,15 +48,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _editMetadata(Book book) async {
-    final draft = await showMetadataEditSheet(context, book: book);
+    final library = context.read<LibraryProvider>();
+    final draft = await showMetadataEditSheet(
+      context,
+      book: book,
+      collections: library.collections,
+    );
     if (draft == null || !mounted) return;
 
-    await context.read<LibraryProvider>().updateBookMetadata(
-          book: book,
-          title: draft.title,
-          author: draft.author,
-          tags: draft.tags,
-        );
+    await library.updateBookMetadata(
+      book: book,
+      title: draft.title,
+      author: draft.author,
+      tags: draft.tags,
+      collectionId: draft.collectionId,
+      clearCollectionId: draft.clearCollectionId,
+    );
+    if (!mounted) return;
+    if (library.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(library.error!)),
+      );
+    }
   }
 
   Future<void> _confirmDelete(Book book) async {
@@ -79,18 +94,38 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
 
     if (confirmed == true && mounted) {
-      await context.read<LibraryProvider>().deleteBook(book);
+      final library = context.read<LibraryProvider>();
+      await library.deleteBook(book);
+      if (!mounted) return;
+      if (library.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(library.error!)),
+        );
+      }
     }
   }
 
   Future<void> _openReader(Book book) async {
+    final library = context.read<LibraryProvider>();
+    final exists = await library.bookFileExists(book);
+    if (!mounted) return;
+
+    if (!exists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El archivo PDF ya no está en el dispositivo.'),
+        ),
+      );
+      return;
+    }
+
     await Navigator.of(context).push<int>(
       MaterialPageRoute<int>(
         builder: (_) => ReaderScreen(book: book),
       ),
     );
     if (!mounted) return;
-    await context.read<LibraryProvider>().load();
+    await library.load();
   }
 
   Future<void> _createCollection() async {
@@ -127,6 +162,35 @@ class _LibraryScreenState extends State<LibraryScreen> {
     await context.read<LibraryProvider>().createCollection(name);
   }
 
+  Future<void> _confirmDeleteCollection(Collection collection) async {
+    final colors = HermesColors.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: colors.panel,
+        title: const Text('Eliminar colección'),
+        content: Text(
+          '¿Eliminar “${collection.name}”? Los PDFs no se borran; '
+          'quedan sin carpeta.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Eliminar', style: TextStyle(color: colors.accent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await context.read<LibraryProvider>().deleteCollection(collection);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
@@ -140,6 +204,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
           IconButton(
             tooltip: 'Descargas / navegador',
             onPressed: () async {
+              context.read<DownloaderProvider>().setTargetCollectionId(
+                    library.selectedCollectionId,
+                  );
               await Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => const DownloaderScreen(),
@@ -163,7 +230,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           PopupMenuButton<AppThemeOption>(
             tooltip: 'Tema',
             icon: Icon(Icons.palette_outlined, color: colors.accent),
-            onSelected: themeProvider.setTheme,
+            onSelected: (option) => themeProvider.setTheme(option),
             itemBuilder: (context) => AppThemeOption.values
                 .map(
                   (option) => CheckedPopupMenuItem<AppThemeOption>(
@@ -180,10 +247,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
         onPressed: library.importing ? null : _importPdf,
         tooltip: 'Importar PDF',
         child: library.importing
-            ? const SizedBox(
+            ? SizedBox(
                 width: 22,
                 height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: colors.onAccent,
+                ),
               )
             : const Icon(Icons.add),
       ),
@@ -214,10 +284,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ),
               ),
             ),
+            if (library.error != null && library.books.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: _LibraryErrorBanner(
+                    message: library.error!,
+                    onRetry: library.load,
+                  ),
+                ),
+              ),
             SliverToBoxAdapter(
               child: _CollectionsRow(
                 library: library,
                 onCreate: _createCollection,
+                onDeleteCollection: _confirmDeleteCollection,
               ),
             ),
             if (library.loading && library.books.isEmpty)
@@ -231,6 +312,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 child: _EmptyLibrary(
                   onImport: _importPdf,
                   filtered: library.selectedCollectionId != null,
+                  hasError: library.error != null,
                 ),
               )
             else if (library.gridMode)
@@ -287,10 +369,12 @@ class _CollectionsRow extends StatelessWidget {
   const _CollectionsRow({
     required this.library,
     required this.onCreate,
+    required this.onDeleteCollection,
   });
 
   final LibraryProvider library;
   final VoidCallback onCreate;
+  final ValueChanged<Collection> onDeleteCollection;
 
   @override
   Widget build(BuildContext context) {
@@ -315,6 +399,7 @@ class _CollectionsRow extends StatelessWidget {
                 label: collection.name,
                 selected: library.selectedCollectionId == collection.id,
                 onTap: () => library.selectCollection(collection.id),
+                onLongPress: () => onDeleteCollection(collection),
               ),
             ),
           ),
@@ -352,11 +437,13 @@ class _CollectionChip extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.onLongPress,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -364,6 +451,7 @@ class _CollectionChip extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14),
         alignment: Alignment.center,
@@ -385,18 +473,64 @@ class _CollectionChip extends StatelessWidget {
   }
 }
 
-class _EmptyLibrary extends StatelessWidget {
-  const _EmptyLibrary({
-    required this.onImport,
-    required this.filtered,
+class _LibraryErrorBanner extends StatelessWidget {
+  const _LibraryErrorBanner({
+    required this.message,
+    required this.onRetry,
   });
 
-  final VoidCallback onImport;
-  final bool filtered;
+  final String message;
+  final Future<void> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border.all(color: colors.border, width: 1),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: colors.accent, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            child: const Text('Reintentar'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyLibrary extends StatelessWidget {
+  const _EmptyLibrary({
+    required this.onImport,
+    required this.filtered,
+    this.hasError = false,
+  });
+
+  final VoidCallback onImport;
+  final bool filtered;
+  final bool hasError;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = HermesColors.of(context);
+
+    if (hasError) {
+      return const SizedBox.shrink();
+    }
 
     return Center(
       child: Padding(
@@ -425,10 +559,6 @@ class _EmptyLibrary extends StatelessWidget {
               const SizedBox(height: 20),
               OutlinedButton(
                 onPressed: onImport,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: colors.accent,
-                  side: BorderSide(color: colors.border),
-                ),
                 child: const Text('Importar PDF'),
               ),
             ],
