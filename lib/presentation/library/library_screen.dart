@@ -7,6 +7,7 @@ import '../../core/theme/app_theme_option.dart';
 import '../../data/models/book.dart';
 import '../providers/library_provider.dart';
 import '../providers/theme_provider.dart';
+import '../reader/reader_screen.dart';
 import 'widgets/library_book_tile.dart';
 import 'widgets/metadata_edit_sheet.dart';
 
@@ -79,6 +80,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (confirmed == true && mounted) {
       await context.read<LibraryProvider>().deleteBook(book);
     }
+  }
+
+  Future<void> _openReader(Book book) async {
+    await Navigator.of(context).push<int>(
+      MaterialPageRoute<int>(
+        builder: (_) => ReaderScreen(book: book),
+      ),
+    );
+    if (!mounted) return;
+    await context.read<LibraryProvider>().load();
   }
 
   Future<void> _createCollection() async {
@@ -224,6 +235,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       return LibraryBookTile(
                         book: book,
                         compact: true,
+                        onTap: () => _openReader(book),
                         onEditMetadata: () => _editMetadata(book),
                         onDelete: () => _confirmDelete(book),
                       );
@@ -243,6 +255,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     return LibraryBookTile(
                       book: book,
                       compact: false,
+                      onTap: () => _openReader(book),
                       onEditMetadata: () => _editMetadata(book),
                       onDelete: () => _confirmDelete(book),
                     );

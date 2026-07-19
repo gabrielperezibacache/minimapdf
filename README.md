@@ -14,6 +14,7 @@ Estética **Hermes Obsidian** · Pago único · Sin IA · Sin analíticas · Pri
 - **Estado:** Provider + ChangeNotifier
 - **Base de datos local:** Sqflite (+ path / path_provider)
 - **Importación:** file_picker → copia a documentos de la app
+- **Lector:** pdfx (carga diferida de páginas)
 - **Temas:** Claro (Pergamino), Sepia, Oscuro Hermes Obsidian
 
 ## Estructura
@@ -39,6 +40,6 @@ flutter run
 1. ✅ Base + temas Hermes Obsidian + dependencias
 2. ✅ Base de datos y modelos locales (Book, Collection, Bookmark + CRUD Sqflite)
 3. ✅ Interfaz de biblioteca (grid/lista, importación file_picker, metadatos)
-4. Lector PDF de alto rendimiento
+4. ✅ Lector PDF (pdfx, scroll vertical/horizontal, filtro Obsidian, progreso)
 5. Anotaciones y marcadores
 6. Gestor de descargas y mini-navegador
