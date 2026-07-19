@@ -34,14 +34,17 @@ class SignaturePadState extends State<SignaturePad> {
 
   bool get hasInk => _strokes.any((stroke) => stroke.length >= 2);
 
-  void _emit() {
-    final size = _padSize;
-    if (size.width <= 0 || size.height <= 0) {
-      widget.onStrokesChanged(const []);
-      return;
-    }
+  /// Expone trazos normalizados (para tests / validación directa).
+  List<List<List<double>>> get normalizedStrokes => _normalize(_padSize);
 
-    final normalized = _strokes
+  void _emit() {
+    widget.onStrokesChanged(_normalize(_padSize));
+  }
+
+  List<List<List<double>>> _normalize(Size size) {
+    if (size.width <= 0 || size.height <= 0) return const [];
+
+    return _strokes
         .where((stroke) => stroke.length >= 2)
         .map(
           (stroke) => stroke
@@ -53,34 +56,45 @@ class SignaturePadState extends State<SignaturePad> {
               )
               .toList(),
         )
-        .toList();
-    widget.onStrokesChanged(normalized);
+        .toList(growable: false);
   }
 
-  void _start(Offset local) {
-    final clamped = _clampToPad(local);
+  void _start(Offset local, Size padSize) {
+    _padSize = padSize;
+    final clamped = _clampToPad(local, padSize);
     setState(() {
       _current = [clamped];
       _strokes.add(_current!);
     });
   }
 
-  void _update(Offset local) {
+  void _update(Offset local, Size padSize) {
     final current = _current;
     if (current == null) return;
-    final clamped = _clampToPad(local);
+    _padSize = padSize;
+    final clamped = _clampToPad(local, padSize);
     final last = current.last;
     if ((clamped - last).distance < 1.2) return;
     setState(() => current.add(clamped));
   }
 
   void _end() {
-    _current = null;
+    // Un toque puntual no firma: exige al menos 2 puntos por trazo.
+    final current = _current;
+    if (current != null && current.length < 2) {
+      setState(() {
+        if (_strokes.isNotEmpty && identical(_strokes.last, current)) {
+          _strokes.removeLast();
+        }
+        _current = null;
+      });
+    } else {
+      _current = null;
+    }
     _emit();
   }
 
-  Offset _clampToPad(Offset local) {
-    final size = _padSize;
+  Offset _clampToPad(Offset local, Size size) {
     if (size == Size.zero) return local;
     return Offset(
       local.dx.clamp(0.0, size.width),
@@ -133,18 +147,12 @@ class SignaturePadState extends State<SignaturePad> {
             builder: (context, constraints) {
               final padSize =
                   Size(constraints.maxWidth, constraints.maxHeight);
-              if (_padSize != padSize) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _padSize = padSize;
-                });
-              }
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onPanStart: (details) {
-                  _padSize = padSize;
-                  _start(details.localPosition);
-                },
-                onPanUpdate: (details) => _update(details.localPosition),
+                onPanStart: (details) =>
+                    _start(details.localPosition, padSize),
+                onPanUpdate: (details) =>
+                    _update(details.localPosition, padSize),
                 onPanEnd: (_) => _end(),
                 onPanCancel: _end,
                 child: CustomPaint(

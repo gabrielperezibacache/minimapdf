@@ -127,4 +127,45 @@ void main() {
     expect(moved.offsetX, closeTo(0.2, 0.001));
     expect(moved.offsetY, closeTo(0.3, 0.001));
   });
+
+  test('lastSignerName usa la firma más reciente por fecha', () async {
+    await signing.signPage(
+      pageNumber: 1,
+      draft: const SignatureDraft(
+        type: SignatureType.typed,
+        signerName: 'Antigua',
+        typedText: 'Antigua',
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    await signing.signPage(
+      pageNumber: 3,
+      draft: const SignatureDraft(
+        type: SignatureType.typed,
+        signerName: 'Reciente',
+        typedText: 'Reciente',
+      ),
+    );
+
+    expect(signing.lastSignerName, 'Reciente');
+  });
+
+  test('moveSignature ignora cambios insignificantes', () async {
+    final saved = await signing.signPage(
+      pageNumber: 1,
+      draft: const SignatureDraft(
+        type: SignatureType.typed,
+        signerName: 'Eva',
+        typedText: 'Eva',
+      ),
+    );
+
+    final before = saved!.offsetX;
+    await signing.moveSignature(
+      signature: saved,
+      offsetX: saved.offsetX + 0.0004,
+      offsetY: saved.offsetY,
+    );
+    expect(signing.signaturesForPage(1).first.offsetX, before);
+  });
 }

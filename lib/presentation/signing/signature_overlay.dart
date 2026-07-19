@@ -93,16 +93,21 @@ class _PositionedSignatureState extends State<_PositionedSignature> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  (double, double) _clampedPosition() {
     final baseLeft = widget.signature.offsetX * widget.maxLeft;
     final baseTop = widget.signature.offsetY * widget.maxTop;
     final left = (baseLeft + _dragDelta.dx).clamp(0.0, widget.maxLeft);
     final top = (baseTop + _dragDelta.dy).clamp(0.0, widget.maxTop);
+    return (left.toDouble(), top.toDouble());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final position = _clampedPosition();
 
     return Positioned(
-      left: left,
-      top: widget.topReserve + top,
+      left: position.$1,
+      top: widget.topReserve + position.$2,
       child: SignatureOverlay(
         signature: widget.signature,
         onDelete: () => widget.onDelete(widget.signature),
@@ -110,11 +115,23 @@ class _PositionedSignatureState extends State<_PositionedSignature> {
           setState(() => _dragDelta += delta);
         },
         onDragEnd: () {
+          // Recalcular con el delta actual (no cerrar sobre el build).
+          final pos = _clampedPosition();
           final nextX =
-              widget.maxLeft <= 0 ? 0.0 : left / widget.maxLeft;
-          final nextY = widget.maxTop <= 0 ? 0.0 : top / widget.maxTop;
-          _dragDelta = Offset.zero;
+              widget.maxLeft <= 0 ? 0.0 : pos.$1 / widget.maxLeft;
+          final nextY = widget.maxTop <= 0 ? 0.0 : pos.$2 / widget.maxTop;
+          final shouldPersist = _dragDelta.distanceSquared > 1.0;
+          if (!shouldPersist) {
+            setState(() => _dragDelta = Offset.zero);
+            return;
+          }
+          // No resetear delta aquí: evita un salto visual a la posición
+          // antigua antes de que el provider actualice offsetX/Y.
+          // didUpdateWidget limpia el delta al recibir los nuevos offsets.
           widget.onMove(widget.signature, nextX, nextY);
+        },
+        onDragCancel: () {
+          setState(() => _dragDelta = Offset.zero);
         },
       ),
     );
@@ -129,12 +146,14 @@ class SignatureOverlay extends StatelessWidget {
     this.onDelete,
     this.onDragUpdate,
     this.onDragEnd,
+    this.onDragCancel,
   });
 
   final DocumentSignature signature;
   final VoidCallback? onDelete;
   final ValueChanged<Offset>? onDragUpdate;
   final VoidCallback? onDragEnd;
+  final VoidCallback? onDragCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +164,7 @@ class SignatureOverlay extends StatelessWidget {
     return GestureDetector(
       onPanUpdate: canDrag ? (details) => onDragUpdate!(details.delta) : null,
       onPanEnd: canDrag ? (_) => onDragEnd!() : null,
-      onPanCancel: canDrag ? onDragEnd : null,
+      onPanCancel: canDrag ? (onDragCancel ?? onDragEnd) : null,
       child: Material(
         color: colors.panel.withValues(alpha: 0.96),
         elevation: 0,

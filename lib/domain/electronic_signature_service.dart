@@ -50,8 +50,10 @@ class ElectronicSignatureService {
   static const int maxReasonLength = 120;
   static const double defaultOffsetX = 0.58;
   static const double defaultOffsetY = 0.70;
-  static const double _offsetStepX = 0.04;
-  static const double _offsetStepY = 0.08;
+  static const double minOffsetDistance = 0.12;
+  static const double _offsetStepX = 0.05;
+  static const double _offsetStepY = 0.10;
+  static final RegExp _multiSpace = RegExp(r'\s+');
 
   /// Valida un borrador sin construir la firma (útil en UI).
   void validateDraft(SignatureDraft draft, {required int pageNumber}) {
@@ -59,7 +61,7 @@ class ElectronicSignatureService {
       throw SignatureValidationException('Página no válida para firmar.');
     }
 
-    final signerName = draft.signerName.trim();
+    final signerName = normalizePersonText(draft.signerName);
     if (signerName.isEmpty) {
       throw SignatureValidationException('Indica el nombre del firmante.');
     }
@@ -69,14 +71,14 @@ class ElectronicSignatureService {
       );
     }
 
-    final reason = draft.reason?.trim();
+    final reason = normalizeOptionalText(draft.reason);
     if (reason != null && reason.length > maxReasonLength) {
       throw SignatureValidationException('El motivo es demasiado largo.');
     }
 
     switch (draft.type) {
       case SignatureType.typed:
-        final typed = (draft.typedText ?? signerName).trim();
+        final typed = normalizePersonText(draft.typedText ?? signerName);
         if (typed.isEmpty) {
           throw SignatureValidationException(
             'Escribe el texto de la firma mecanografiada.',
@@ -88,7 +90,7 @@ class ElectronicSignatureService {
           );
         }
       case SignatureType.drawn:
-        if (_normalizeStrokes(draft.inkStrokes).isEmpty) {
+        if (normalizeStrokes(draft.inkStrokes).isEmpty) {
           throw SignatureValidationException(
             'Dibuja tu firma antes de guardar.',
           );
@@ -112,41 +114,39 @@ class ElectronicSignatureService {
     }
     validateDraft(draft, pageNumber: pageNumber);
 
-    final signerName = draft.signerName.trim();
-    final reason = draft.reason?.trim();
+    final signerName = normalizePersonText(draft.signerName);
+    final reason = normalizeOptionalText(draft.reason);
     final when = signedAt ?? DateTime.now();
     final suggested = suggestOffset(existingOnPage);
     final offsetX =
         (draft.offsetX ?? suggested.$1).clamp(0.0, 1.0).toDouble();
     final offsetY =
         (draft.offsetY ?? suggested.$2).clamp(0.0, 1.0).toDouble();
-    final cleanReason =
-        (reason == null || reason.isEmpty) ? null : reason;
 
     switch (draft.type) {
       case SignatureType.typed:
-        final typed = (draft.typedText ?? signerName).trim();
+        final typed = normalizePersonText(draft.typedText ?? signerName);
         return DocumentSignature(
           bookId: bookId,
           pageNumber: pageNumber,
           type: SignatureType.typed,
           signerName: signerName,
           typedText: typed,
-          reason: cleanReason,
+          reason: reason,
           offsetX: offsetX,
           offsetY: offsetY,
           signedAt: when,
         );
 
       case SignatureType.drawn:
-        final strokes = _normalizeStrokes(draft.inkStrokes);
+        final strokes = normalizeStrokes(draft.inkStrokes);
         return DocumentSignature(
           bookId: bookId,
           pageNumber: pageNumber,
           type: SignatureType.drawn,
           signerName: signerName,
           inkJson: jsonEncode(strokes),
-          reason: cleanReason,
+          reason: reason,
           offsetX: offsetX,
           offsetY: offsetY,
           signedAt: when,
@@ -160,21 +160,46 @@ class ElectronicSignatureService {
       return (defaultOffsetX, defaultOffsetY);
     }
 
-    var x = defaultOffsetX;
-    var y = defaultOffsetY;
-    for (var i = 0; i < existingOnPage.length; i++) {
-      x = (defaultOffsetX - (i + 1) * _offsetStepX).clamp(0.05, 0.85);
-      y = (defaultOffsetY - (i + 1) * _offsetStepY).clamp(0.08, 0.85);
+    for (var i = 0; i < 24; i++) {
+      final x = (defaultOffsetX - i * _offsetStepX).clamp(0.05, 0.85).toDouble();
+      final y = (defaultOffsetY - i * _offsetStepY).clamp(0.08, 0.85).toDouble();
+      if (_isFarFromAll(x, y, existingOnPage)) {
+        return (x, y);
+      }
     }
-    return (x.toDouble(), y.toDouble());
+
+    // Barrido secundario (rejilla) si la escalera está ocupada.
+    for (var row = 0; row < 5; row++) {
+      for (var col = 0; col < 5; col++) {
+        final x = (0.15 + col * 0.15).clamp(0.05, 0.85).toDouble();
+        final y = (0.20 + row * 0.15).clamp(0.08, 0.85).toDouble();
+        if (_isFarFromAll(x, y, existingOnPage)) {
+          return (x, y);
+        }
+      }
+    }
+
+    return (0.10, 0.12);
   }
 
   /// Serializa trazos dibujados a JSON (útil para previsualización / tests).
   String encodeInk(List<List<List<double>>> strokes) {
-    return jsonEncode(_normalizeStrokes(strokes));
+    return jsonEncode(normalizeStrokes(strokes));
   }
 
-  List<List<List<double>>> _normalizeStrokes(
+  /// Normaliza nombre/rúbrica: trim + colapsa espacios internos.
+  String normalizePersonText(String raw) {
+    return raw.trim().replaceAll(_multiSpace, ' ');
+  }
+
+  String? normalizeOptionalText(String? raw) {
+    if (raw == null) return null;
+    final normalized = normalizePersonText(raw);
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  /// Normaliza trazos: clamp 0–1, descarta NaN/Inf y puntos casi duplicados.
+  List<List<List<double>>> normalizeStrokes(
     List<List<List<double>>> strokes,
   ) {
     final normalized = <List<List<double>>>[];
@@ -182,15 +207,17 @@ class ElectronicSignatureService {
       final points = <List<double>>[];
       for (final point in stroke) {
         if (point.length < 2) continue;
+        final x = point[0];
+        final y = point[1];
+        if (!x.isFinite || !y.isFinite) continue;
         final next = [
-          point[0].clamp(0.0, 1.0).toDouble(),
-          point[1].clamp(0.0, 1.0).toDouble(),
+          x.clamp(0.0, 1.0).toDouble(),
+          y.clamp(0.0, 1.0).toDouble(),
         ];
         if (points.isNotEmpty) {
           final prev = points.last;
           final dx = next[0] - prev[0];
           final dy = next[1] - prev[1];
-          // Descarta puntos casi idénticos para reducir ruido/JSON.
           if (math.sqrt(dx * dx + dy * dy) < 0.002) continue;
         }
         points.add(next);
@@ -200,5 +227,19 @@ class ElectronicSignatureService {
       }
     }
     return normalized;
+  }
+
+  bool _isFarFromAll(
+    double x,
+    double y,
+    List<DocumentSignature> existingOnPage,
+  ) {
+    final minDist2 = minOffsetDistance * minOffsetDistance;
+    for (final item in existingOnPage) {
+      final dx = item.offsetX - x;
+      final dy = item.offsetY - y;
+      if (dx * dx + dy * dy < minDist2) return false;
+    }
+    return true;
   }
 }

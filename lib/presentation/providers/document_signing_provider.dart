@@ -19,16 +19,23 @@ class DocumentSigningProvider extends ChangeNotifier {
   bool _loading = false;
   bool _saving = false;
   String? _error;
+  int _moveGeneration = 0;
 
   List<DocumentSignature> get signatures => _signatures;
   bool get loading => _loading;
   bool get saving => _saving;
   String? get error => _error;
 
-  /// Último nombre de firmante usado en este documento (para rellenar el form).
+  /// Firmante de la firma más reciente (por [DocumentSignature.signedAt]).
   String? get lastSignerName {
     if (_signatures.isEmpty) return null;
-    return _signatures.last.signerName;
+    var latest = _signatures.first;
+    for (final signature in _signatures.skip(1)) {
+      if (signature.signedAt.isAfter(latest.signedAt)) {
+        latest = signature;
+      }
+    }
+    return latest.signerName;
   }
 
   List<DocumentSignature> signaturesForPage(int pageNumber) {
@@ -105,10 +112,15 @@ class DocumentSigningProvider extends ChangeNotifier {
     final id = signature.id;
     if (id == null) return;
 
-    final moved = signature.copyWith(
-      offsetX: offsetX.clamp(0.0, 1.0).toDouble(),
-      offsetY: offsetY.clamp(0.0, 1.0).toDouble(),
-    );
+    final nextX = offsetX.clamp(0.0, 1.0).toDouble();
+    final nextY = offsetY.clamp(0.0, 1.0).toDouble();
+    if ((signature.offsetX - nextX).abs() < 0.001 &&
+        (signature.offsetY - nextY).abs() < 0.001) {
+      return;
+    }
+
+    final moved = signature.copyWith(offsetX: nextX, offsetY: nextY);
+    final generation = ++_moveGeneration;
 
     // Actualización optimista para que el arrastre se sienta fluido.
     _signatures = [
@@ -119,24 +131,34 @@ class DocumentSigningProvider extends ChangeNotifier {
 
     try {
       await _datasource.saveSignature(moved);
+      // Ignora respuestas antiguas si hubo movimientos más recientes.
+      if (generation != _moveGeneration) return;
     } catch (_) {
+      if (generation != _moveGeneration) return;
       _error = 'No se pudo mover la firma.';
       final bookId = _bookId;
       if (bookId != null) await loadForBook(bookId);
     }
   }
 
-  Future<void> deleteSignature(DocumentSignature signature) async {
+  Future<bool> deleteSignature(DocumentSignature signature) async {
     final bookId = _bookId;
     final id = signature.id;
-    if (bookId == null || id == null) return;
+    if (bookId == null || id == null) return false;
 
-    await _datasource.removeSignature(id);
-    _signatures = [
-      for (final item in _signatures)
-        if (item.id != id) item,
-    ];
-    notifyListeners();
+    try {
+      await _datasource.removeSignature(id);
+      _signatures = [
+        for (final item in _signatures)
+          if (item.id != id) item,
+      ];
+      notifyListeners();
+      return true;
+    } catch (_) {
+      _error = 'No se pudo eliminar la firma.';
+      notifyListeners();
+      return false;
+    }
   }
 
   void clearError() {

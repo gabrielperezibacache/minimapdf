@@ -146,8 +146,8 @@ class AppDatabase {
         typed_text TEXT,
         ink_json TEXT,
         reason TEXT,
-        offset_x REAL NOT NULL DEFAULT 0.55,
-        offset_y REAL NOT NULL DEFAULT 0.72,
+        offset_x REAL NOT NULL DEFAULT 0.58,
+        offset_y REAL NOT NULL DEFAULT 0.70,
         signed_at TEXT NOT NULL,
         FOREIGN KEY (book_id)
           REFERENCES ${DatabaseConfig.tableBooks} (id)

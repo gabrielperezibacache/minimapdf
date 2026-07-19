@@ -186,12 +186,15 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _signDocument() async {
+    if (_signing?.saving == true) return;
+
     final draft = await showSignatureSheet(
       context,
       pageNumber: _currentPage,
       initialSignerName: _signing?.lastSignerName,
     );
     if (draft == null || !mounted) return;
+    if (_signing?.saving == true) return;
 
     final saved = await _signing?.signPage(
       pageNumber: _currentPage,
@@ -246,8 +249,18 @@ class _ReaderScreenState extends State<ReaderScreen>
         );
       },
     );
-    if (confirmed == true) {
-      await _signing?.deleteSignature(signature);
+    if (confirmed != true || !mounted) return;
+    final deleted = await _signing?.deleteSignature(signature) ?? false;
+    if (!mounted) return;
+    if (!deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _signing?.error ?? 'No se pudo eliminar la firma.',
+          ),
+        ),
+      );
+      _signing?.clearError();
     }
   }
 
