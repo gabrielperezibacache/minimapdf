@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/utils/app_paths.dart';
 import '../../core/utils/file_name_sanitizer.dart';
 import '../../core/utils/pdf_url_utils.dart';
 import '../models/book.dart';
@@ -27,7 +28,7 @@ class PdfDownloadService {
     bool? useFlutterDownloader,
   })  : _http = httpClient ?? http.Client(),
         _documentsDirectory =
-            documentsDirectory ?? getApplicationDocumentsDirectory,
+            documentsDirectory ?? AppPaths.documentsDirectory,
         _useFlutterDownloader = useFlutterDownloader ?? _defaultNativeFlag;
 
   final LibraryLocalDatasource _datasource;

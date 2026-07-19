@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -25,6 +27,16 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
   PullToRefreshController? _pullToRefreshController;
   double _pageProgress = 0;
 
+  /// WebView embebido soportado principalmente en Android/iOS.
+  bool get _supportsEmbeddedBrowser {
+    if (kIsWeb) return false;
+    try {
+      return Platform.isAndroid || Platform.isIOS;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static final _privacySettings = InAppWebViewSettings(
     javaScriptEnabled: true,
     domStorageEnabled: false,
@@ -51,7 +63,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
       _browserUrlController.text = provider.browserUrl;
     });
 
-    if (!kIsWeb) {
+    if (_supportsEmbeddedBrowser) {
       _pullToRefreshController = PullToRefreshController(
         settings: PullToRefreshSettings(color: AppColors.obsidianAccent),
         onRefresh: () async {
@@ -205,59 +217,76 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                   top: BorderSide(color: colors.border, width: 1),
                 ),
               ),
-              child: InAppWebView(
-                key: const ValueKey('minimal-pdf-browser'),
-                initialUrlRequest: URLRequest(
-                  url: WebUri(downloader.browserUrl),
-                ),
-                initialSettings: _privacySettings,
-                pullToRefreshController: _pullToRefreshController,
-                onWebViewCreated: (controller) {
-                  _webController = controller;
-                },
-                onLoadStart: (controller, url) {
-                  setState(() => _pageProgress = 0.05);
-                  if (url != null) {
-                    _browserUrlController.text = url.toString();
-                    context
-                        .read<DownloaderProvider>()
-                        .setBrowserUrl(url.toString());
-                  }
-                },
-                onProgressChanged: (controller, progress) {
-                  setState(() => _pageProgress = progress / 100);
-                  if (progress == 100) {
-                    _pullToRefreshController?.endRefreshing();
-                  }
-                },
-                onLoadStop: (controller, url) async {
-                  setState(() => _pageProgress = 1);
-                  _pullToRefreshController?.endRefreshing();
-                  if (url != null) {
-                    _browserUrlController.text = url.toString();
-                    context
-                        .read<DownloaderProvider>()
-                        .setBrowserUrl(url.toString());
-                  }
-                  await _scanPdfLinks();
-                },
-                shouldOverrideUrlLoading: (controller, action) async {
-                  final uri = action.request.url;
-                  if (uri == null) {
-                    return NavigationActionPolicy.ALLOW;
-                  }
-                  final href = uri.toString();
-                  if (PdfUrlUtils.looksLikePdfUrl(href)) {
-                    context.read<DownloaderProvider>().setDetectedPdfUrls(
-                      [href, ...context.read<DownloaderProvider>().detectedPdfUrls],
-                    );
-                  }
-                  return NavigationActionPolicy.ALLOW;
-                },
-                onReceivedError: (controller, request, error) {
-                  _pullToRefreshController?.endRefreshing();
-                },
-              ),
+              child: _supportsEmbeddedBrowser
+                  ? InAppWebView(
+                      key: const ValueKey('minimal-pdf-browser'),
+                      initialUrlRequest: URLRequest(
+                        url: WebUri(downloader.browserUrl),
+                      ),
+                      initialSettings: _privacySettings,
+                      pullToRefreshController: _pullToRefreshController,
+                      onWebViewCreated: (controller) {
+                        _webController = controller;
+                      },
+                      onLoadStart: (controller, url) {
+                        setState(() => _pageProgress = 0.05);
+                        if (url != null) {
+                          _browserUrlController.text = url.toString();
+                          context
+                              .read<DownloaderProvider>()
+                              .setBrowserUrl(url.toString());
+                        }
+                      },
+                      onProgressChanged: (controller, progress) {
+                        setState(() => _pageProgress = progress / 100);
+                        if (progress == 100) {
+                          _pullToRefreshController?.endRefreshing();
+                        }
+                      },
+                      onLoadStop: (controller, url) async {
+                        setState(() => _pageProgress = 1);
+                        _pullToRefreshController?.endRefreshing();
+                        if (url != null) {
+                          _browserUrlController.text = url.toString();
+                          context
+                              .read<DownloaderProvider>()
+                              .setBrowserUrl(url.toString());
+                        }
+                        await _scanPdfLinks();
+                      },
+                      shouldOverrideUrlLoading: (controller, action) async {
+                        final uri = action.request.url;
+                        if (uri == null) {
+                          return NavigationActionPolicy.ALLOW;
+                        }
+                        final href = uri.toString();
+                        if (PdfUrlUtils.looksLikePdfUrl(href)) {
+                          context
+                              .read<DownloaderProvider>()
+                              .setDetectedPdfUrls([
+                            href,
+                            ...context
+                                .read<DownloaderProvider>()
+                                .detectedPdfUrls,
+                          ]);
+                        }
+                        return NavigationActionPolicy.ALLOW;
+                      },
+                      onReceivedError: (controller, request, error) {
+                        _pullToRefreshController?.endRefreshing();
+                      },
+                    )
+                  : Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'El mini-navegador está disponible en Android e iOS.\n'
+                          'En escritorio puedes usar la URL directa de arriba.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    ),
             ),
           ),
         ],

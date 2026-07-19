@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
+import '../../core/utils/app_paths.dart';
 import '../../core/utils/file_name_sanitizer.dart';
 import '../models/book.dart';
 import 'library_local_datasource.dart';
@@ -31,7 +31,7 @@ class PdfImportService {
     Future<Directory> Function()? documentsDirectory,
   })  : _picker = picker ?? _defaultPicker,
         _documentsDirectory =
-            documentsDirectory ?? getApplicationDocumentsDirectory;
+            documentsDirectory ?? AppPaths.documentsDirectory;
 
   final LibraryLocalDatasource _datasource;
   final PdfFilePicker _picker;

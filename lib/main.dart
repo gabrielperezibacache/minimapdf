@@ -1,5 +1,9 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/database/app_database.dart';
@@ -15,6 +19,13 @@ import 'presentation/providers/theme_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Sqflite nativo solo en móvil; en escritorio usamos FFI.
+  if (!kIsWeb && (Platform.isLinux || Platform.isWindows)) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+
   await PdfDownloadService.ensureNativeInitialized();
 
   final appDatabase = AppDatabase();

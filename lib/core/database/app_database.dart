@@ -1,7 +1,7 @@
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../utils/app_paths.dart';
 import 'database_config.dart';
 
 /// Abre y mantiene la conexión Sqflite de Minimal PDF.
@@ -62,7 +62,7 @@ class AppDatabase {
   }
 
   Future<String> _defaultPath() async {
-    final dir = await getApplicationDocumentsDirectory();
+    final dir = await AppPaths.documentsDirectory();
     return p.join(dir.path, DatabaseConfig.databaseName);
   }
 
