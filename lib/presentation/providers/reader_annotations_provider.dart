@@ -140,6 +140,24 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     }
   }
 
+  /// Recarga tras mutación exitosa sin reportar fallo de reload como error
+  /// de guardado (la UI no debe mostrar "no se pudo guardar" si ya persistió).
+  Future<void> _refreshAfterMutation(int bookId) async {
+    final generation = ++_loadGeneration;
+    try {
+      final bookmarks = await _datasource.listBookmarks(bookId);
+      final annotations = await _datasource.listPageAnnotations(bookId);
+      if (_disposed || generation != _loadGeneration) return;
+      _bookmarks = bookmarks;
+      _annotations = annotations;
+      _safeNotify();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('ReaderAnnotationsProvider._refreshAfterMutation: $e');
+      }
+    }
+  }
+
   void toggleToolbox() {
     if (_disposed) return;
     _toolboxVisible = !_toolboxVisible;
@@ -214,7 +232,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
         await _datasource.removeBookmark(id);
         if (_disposed) return true;
         _error = null;
-        await loadForBook(bookId);
+        await _refreshAfterMutation(bookId);
       } catch (e) {
         if (_disposed) return true;
         _error = 'No se pudo quitar el marcador.';
@@ -237,7 +255,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
       );
       if (_disposed) return true;
       _error = null;
-      await loadForBook(bookId);
+      await _refreshAfterMutation(bookId);
     } catch (e) {
       if (_disposed) return true;
       _error = 'No se pudo crear el marcador.';
@@ -281,7 +299,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
         }
         if (_disposed) return;
         _error = null;
-        await loadForBook(bookId);
+        await _refreshAfterMutation(bookId);
         return;
       }
 
@@ -296,7 +314,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
       );
       if (_disposed) return;
       _error = null;
-      await loadForBook(bookId);
+      await _refreshAfterMutation(bookId);
     } catch (e) {
       if (_disposed) return;
       _error = 'No se pudo guardar la nota.';
@@ -319,7 +337,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
       await _datasource.removeBookmark(id);
       if (_disposed) return;
       _error = null;
-      await loadForBook(bookId);
+      await _refreshAfterMutation(bookId);
     } catch (e) {
       if (_disposed) return;
       _error = 'No se pudo eliminar el marcador.';
@@ -384,7 +402,14 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
       );
       if (_disposed) return null;
       _error = null;
-      await loadForBook(bookId);
+      // Actualización optimista: la UI ve el alta aunque falle el reload.
+      _annotations = [
+        for (final item in _annotations)
+          if (item.id != created.id) item,
+        created,
+      ];
+      _safeNotify();
+      await _refreshAfterMutation(bookId);
       return created;
     } catch (e) {
       if (_disposed) return null;
@@ -416,15 +441,19 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
 
     final trimmed = text.trim();
     try {
-      await _datasource.savePageAnnotation(
-        annotation.copyWith(
-          text: trimmed,
-          clearText: trimmed.isEmpty,
-        ),
+      final updated = annotation.copyWith(
+        text: trimmed,
+        clearText: trimmed.isEmpty,
       );
+      await _datasource.savePageAnnotation(updated);
       if (_disposed) return;
       _error = null;
-      await loadForBook(bookId);
+      _annotations = [
+        for (final item in _annotations)
+          if (item.id == id) updated else item,
+      ];
+      _safeNotify();
+      await _refreshAfterMutation(bookId);
     } catch (e) {
       if (_disposed) return;
       _error = 'No se pudo actualizar la anotación.';
@@ -447,7 +476,12 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
       await _datasource.removePageAnnotation(id);
       if (_disposed) return;
       _error = null;
-      await loadForBook(bookId);
+      _annotations = [
+        for (final item in _annotations)
+          if (item.id != id) item,
+      ];
+      _safeNotify();
+      await _refreshAfterMutation(bookId);
     } catch (e) {
       if (_disposed) return;
       _error = 'No se pudo eliminar la anotación.';

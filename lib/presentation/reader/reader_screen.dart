@@ -58,6 +58,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   String? _error;
   Map<int, Size> _pageSizes = const {};
   PdfDocument? _openedDocument;
+  late final Future<PdfDocument> _documentFuture;
   int _pageSizeCacheGeneration = 0;
 
   @override
@@ -68,8 +69,11 @@ class _ReaderScreenState extends State<ReaderScreen>
     final initialPage = math.max(1, widget.book.lastPageRead);
     _currentPage = initialPage;
 
+    // Conservamos el Future para cerrar el documento aunque el usuario
+    // salga antes de onDocumentLoaded.
+    _documentFuture = PdfDocument.openFile(widget.book.filePath);
     _controller = PdfController(
-      document: PdfDocument.openFile(widget.book.filePath),
+      document: _documentFuture,
       initialPage: initialPage,
     );
   }
@@ -151,8 +155,22 @@ class _ReaderScreenState extends State<ReaderScreen>
     _openedDocument = null;
     if (document != null && !document.isClosed) {
       unawaited(document.close());
+    } else {
+      // Carga aún pendiente o fallida: cierra al resolver el Future.
+      unawaited(_closeDocumentWhenReady(_documentFuture));
     }
     super.dispose();
+  }
+
+  Future<void> _closeDocumentWhenReady(Future<PdfDocument> future) async {
+    try {
+      final document = await future;
+      if (!document.isClosed) {
+        await document.close();
+      }
+    } catch (_) {
+      // Apertura fallida: nada que cerrar.
+    }
   }
 
   @override
@@ -167,6 +185,16 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Future<void> _onExit() async {
     if (_exiting) return;
+    if (_signing?.exporting == true) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Espera a que termine la exportación.'),
+          ),
+        );
+      }
+      return;
+    }
     _exiting = true;
     try {
       final saver = _progressSaver;
@@ -600,20 +628,25 @@ class _ReaderScreenState extends State<ReaderScreen>
     int generation,
   ) async {
     final sizes = <int, Size>{};
-    for (var pageNumber = 1; pageNumber <= document.pagesCount; pageNumber++) {
-      if (!mounted ||
-          generation != _pageSizeCacheGeneration ||
-          document.isClosed) {
-        return;
-      }
-      final page = await document.getPage(pageNumber);
-      try {
-        if (page.width > 0 && page.height > 0) {
-          sizes[pageNumber] = Size(page.width, page.height);
+    try {
+      for (var pageNumber = 1; pageNumber <= document.pagesCount; pageNumber++) {
+        if (!mounted ||
+            generation != _pageSizeCacheGeneration ||
+            document.isClosed) {
+          return;
         }
-      } finally {
-        await page.close();
+        final page = await document.getPage(pageNumber);
+        try {
+          if (page.width > 0 && page.height > 0) {
+            sizes[pageNumber] = Size(page.width, page.height);
+          }
+        } finally {
+          await page.close();
+        }
       }
+    } catch (_) {
+      // Salida rápida / documento cerrado: cancelación silenciosa.
+      return;
     }
     if (!mounted || generation != _pageSizeCacheGeneration) return;
     setState(() => _pageSizes = sizes);
@@ -754,6 +787,14 @@ class _ReaderScreenState extends State<ReaderScreen>
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        if (_signing?.exporting == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Espera a que termine la exportación.'),
+            ),
+          );
+          return;
+        }
         if (_signing?.placementMode == true) {
           _signing?.cancelPlacementMode();
           setState(() {});

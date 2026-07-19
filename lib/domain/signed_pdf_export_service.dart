@@ -234,16 +234,20 @@ class SignedPdfExportService {
         }
 
         final picture = recorder.endRecording();
-        final stamped = await picture.toImage(width, height);
         try {
-          final byteData =
-              await stamped.toByteData(format: ui.ImageByteFormat.png);
-          if (byteData == null) {
-            throw StateError('No se pudo codificar la página firmada.');
+          final stamped = await picture.toImage(width, height);
+          try {
+            final byteData =
+                await stamped.toByteData(format: ui.ImageByteFormat.png);
+            if (byteData == null) {
+              throw StateError('No se pudo codificar la página firmada.');
+            }
+            return byteData.buffer.asUint8List();
+          } finally {
+            stamped.dispose();
           }
-          return byteData.buffer.asUint8List();
         } finally {
-          stamped.dispose();
+          picture.dispose();
         }
       } finally {
         pageImage.dispose();
