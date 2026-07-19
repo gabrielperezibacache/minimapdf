@@ -41,5 +41,5 @@ flutter run
 2. ✅ Base de datos y modelos locales (Book, Collection, Bookmark + CRUD Sqflite)
 3. ✅ Interfaz de biblioteca (grid/lista, importación file_picker, metadatos)
 4. ✅ Lector PDF (pdfx, scroll vertical/horizontal, filtro Obsidian, progreso)
-5. Anotaciones y marcadores
+5. ✅ Anotaciones y marcadores (bronce, notas flotantes, sidebar TOC)
 6. Gestor de descargas y mini-navegador

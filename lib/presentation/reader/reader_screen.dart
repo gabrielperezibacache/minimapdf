@@ -5,12 +5,18 @@ import 'package:flutter/services.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/hermes_pdf_filter.dart';
 import '../../data/datasources/library_local_datasource.dart';
 import '../../data/models/book.dart';
+import '../../data/models/bookmark.dart';
+import '../providers/reader_annotations_provider.dart';
 import 'reader_scroll_mode.dart';
 import 'reading_progress_saver.dart';
+import 'widgets/floating_page_note.dart';
+import 'widgets/note_edit_sheet.dart';
+import 'widgets/reader_sidebar.dart';
 
 /// Lector PDF de alto rendimiento (pdfx) con filtro Hermes Obsidian.
 class ReaderScreen extends StatefulWidget {
@@ -26,10 +32,13 @@ class _ReaderScreenState extends State<ReaderScreen>
     with WidgetsBindingObserver {
   late final PdfController _controller;
   ReadingProgressSaver? _progressSaver;
+  ReaderAnnotationsProvider? _annotations;
 
   ReaderScrollMode _scrollMode = ReaderScrollMode.verticalContinuous;
   bool _obsidianFilter = true;
   bool _controlsVisible = true;
+  bool _sidebarVisible = false;
+  bool _noteDismissed = false;
   int _pagesCount = 0;
   int _currentPage = 1;
   String? _error;
@@ -51,21 +60,37 @@ class _ReaderScreenState extends State<ReaderScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_progressSaver != null) return;
+    final datasource = context.read<LibraryLocalDatasource>();
 
-    final saver = ReadingProgressSaver(
-      context.read<LibraryLocalDatasource>(),
-    );
     final bookId = widget.book.id;
-    if (bookId != null) {
-      saver.attach(bookId: bookId, initialPage: _currentPage);
+
+    if (_progressSaver == null) {
+      final saver = ReadingProgressSaver(datasource);
+      if (bookId != null) {
+        saver.attach(bookId: bookId, initialPage: _currentPage);
+      }
+      _progressSaver = saver;
     }
-    _progressSaver = saver;
+
+    if (_annotations == null) {
+      final annotations = ReaderAnnotationsProvider(datasource);
+      _annotations = annotations;
+      if (bookId != null) {
+        annotations.loadForBook(bookId);
+      }
+      annotations.addListener(_onAnnotationsChanged);
+    }
+  }
+
+  void _onAnnotationsChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _annotations?.removeListener(_onAnnotationsChanged);
+    _annotations?.dispose();
     _progressSaver?.saveNow(page: _currentPage);
     _controller.dispose();
     super.dispose();
@@ -89,7 +114,18 @@ class _ReaderScreenState extends State<ReaderScreen>
   void _onPageChanged(int page) {
     _currentPage = page;
     _progressSaver?.onPageChanged(page);
+    _noteDismissed = false;
     if (mounted) setState(() {});
+  }
+
+  void _jumpToPage(int page) {
+    if (page < 1) return;
+    _controller.jumpToPage(page);
+    setState(() {
+      _currentPage = page;
+      _sidebarVisible = false;
+      _noteDismissed = false;
+    });
   }
 
   void _toggleScrollMode() {
@@ -108,16 +144,49 @@ class _ReaderScreenState extends State<ReaderScreen>
     setState(() => _controlsVisible = !_controlsVisible);
   }
 
+  void _toggleSidebar() {
+    setState(() => _sidebarVisible = !_sidebarVisible);
+  }
+
+  Future<void> _toggleBookmark() async {
+    await _annotations?.toggleBookmark(_currentPage);
+  }
+
+  Future<void> _editNote() async {
+    final existing = _annotations?.bookmarkForPage(_currentPage);
+    final result = await showNoteEditSheet(
+      context,
+      pageNumber: _currentPage,
+      initialText: existing?.noteText,
+    );
+    if (result == null || !mounted) return;
+    await _annotations?.saveNote(pageNumber: _currentPage, noteText: result);
+    setState(() => _noteDismissed = false);
+  }
+
+  Future<void> _deleteBookmark(Bookmark bookmark) async {
+    await _annotations?.deleteBookmark(bookmark);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
     final scaffoldBg =
         _obsidianFilter ? HermesPdfFilter.background : colors.background;
+    final annotations = _annotations;
+    final currentBookmark = annotations?.bookmarkForPage(_currentPage);
+    final noteText = currentBookmark?.noteText;
+    final hasNote = noteText != null && noteText.isNotEmpty;
+    final isBookmarked = currentBookmark != null;
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        if (_sidebarVisible) {
+          setState(() => _sidebarVisible = false);
+          return;
+        }
         await _onExit();
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
@@ -137,8 +206,19 @@ class _ReaderScreenState extends State<ReaderScreen>
                     child: _buildPdfView(colors),
                   ),
                 ),
-                if (_controlsVisible) _buildTopBar(colors),
-                if (_controlsVisible) _buildBottomBar(colors),
+                if (hasNote && !_noteDismissed)
+                  Positioned(
+                    right: 12,
+                    bottom: _controlsVisible ? 64 : 16,
+                    child: FloatingPageNote(
+                      noteText: noteText,
+                      pageNumber: _currentPage,
+                      onEdit: _editNote,
+                      onDismiss: () => setState(() => _noteDismissed = true),
+                    ),
+                  ),
+                if (_controlsVisible) _buildTopBar(colors, isBookmarked),
+                if (_controlsVisible) _buildBottomBar(colors, isBookmarked),
                 if (!_controlsVisible)
                   Positioned(
                     top: 8,
@@ -152,6 +232,15 @@ class _ReaderScreenState extends State<ReaderScreen>
                       icon: Icon(Icons.more_horiz, color: colors.accent),
                     ),
                   ),
+                ReaderSidebar(
+                  visible: _sidebarVisible,
+                  pagesCount: _pagesCount,
+                  currentPage: _currentPage,
+                  bookmarks: annotations?.bookmarks ?? const [],
+                  onClose: () => setState(() => _sidebarVisible = false),
+                  onOpenPage: _jumpToPage,
+                  onDeleteBookmark: _deleteBookmark,
+                ),
               ],
             ),
           ),
@@ -222,7 +311,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
   }
 
-  Widget _buildTopBar(HermesColors colors) {
+  Widget _buildTopBar(HermesColors colors, bool isBookmarked) {
     return Positioned(
       top: 0,
       left: 0,
@@ -232,6 +321,11 @@ class _ReaderScreenState extends State<ReaderScreen>
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Row(
           children: [
+            IconButton(
+              tooltip: 'Menú / índice',
+              onPressed: _toggleSidebar,
+              icon: const Icon(Icons.menu, color: AppColors.obsidianAccent),
+            ),
             IconButton(
               tooltip: 'Volver',
               onPressed: _onExit,
@@ -245,28 +339,61 @@ class _ReaderScreenState extends State<ReaderScreen>
                 style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
-            IconButton(
-              tooltip: _obsidianFilter
-                  ? 'Desactivar filtro Obsidian'
-                  : 'Filtro Hermes Obsidian',
-              onPressed: _toggleFilter,
-              icon: Icon(
-                _obsidianFilter ? Icons.dark_mode : Icons.dark_mode_outlined,
-                color: _obsidianFilter ? colors.accent : colors.textMuted,
+            Flexible(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                reverse: true,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip:
+                          isBookmarked ? 'Quitar marcador' : 'Marcar página',
+                      onPressed: _toggleBookmark,
+                      icon: Icon(
+                        isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                        color: AppColors.obsidianAccent,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Añadir nota',
+                      onPressed: _editNote,
+                      icon: const Icon(
+                        Icons.sticky_note_2_outlined,
+                        color: AppColors.obsidianAccent,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: _obsidianFilter
+                          ? 'Desactivar filtro Obsidian'
+                          : 'Filtro Hermes Obsidian',
+                      onPressed: _toggleFilter,
+                      icon: Icon(
+                        _obsidianFilter
+                            ? Icons.dark_mode
+                            : Icons.dark_mode_outlined,
+                        color:
+                            _obsidianFilter ? colors.accent : colors.textMuted,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Modo: ${_scrollMode.label}',
+                      onPressed: _toggleScrollMode,
+                      icon: Icon(
+                        _scrollMode.isVertical
+                            ? Icons.swap_vert
+                            : Icons.swap_horiz,
+                        color: colors.accent,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Ocultar controles',
+                      onPressed: _toggleControls,
+                      icon: Icon(Icons.fullscreen, color: colors.textMuted),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            IconButton(
-              tooltip: 'Modo: ${_scrollMode.label}',
-              onPressed: _toggleScrollMode,
-              icon: Icon(
-                _scrollMode.isVertical ? Icons.swap_vert : Icons.swap_horiz,
-                color: colors.accent,
-              ),
-            ),
-            IconButton(
-              tooltip: 'Ocultar controles',
-              onPressed: _toggleControls,
-              icon: Icon(Icons.fullscreen, color: colors.textMuted),
             ),
           ],
         ),
@@ -274,7 +401,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
   }
 
-  Widget _buildBottomBar(HermesColors colors) {
+  Widget _buildBottomBar(HermesColors colors, bool isBookmarked) {
     final label =
         _pagesCount > 0 ? '$_currentPage / $_pagesCount' : '$_currentPage';
 
@@ -287,10 +414,14 @@ class _ReaderScreenState extends State<ReaderScreen>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
+            if (isBookmarked) ...[
+              Icon(Icons.bookmark, size: 16, color: AppColors.obsidianAccent),
+              const SizedBox(width: 6),
+            ],
             Text(
               label,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: colors.accent,
+                    color: AppColors.obsidianAccent,
                   ),
             ),
             const Spacer(),

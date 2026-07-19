@@ -52,10 +52,19 @@ class LibraryLocalDatasource {
   Future<Bookmark> insertBookmark(Bookmark bookmark) =>
       _db.createBookmark(bookmark);
 
+  Future<Bookmark?> findBookmarkForPage(int bookId, int pageNumber) =>
+      _db.getBookmarkForPage(bookId, pageNumber);
+
   Future<List<Bookmark>> listBookmarks(int bookId) =>
       _db.getBookmarksForBook(bookId);
+
+  Future<Bookmark> upsertBookmark(Bookmark bookmark) =>
+      _db.upsertBookmark(bookmark);
 
   Future<int> saveBookmark(Bookmark bookmark) => _db.updateBookmark(bookmark);
 
   Future<int> removeBookmark(int id) => _db.deleteBookmark(id);
+
+  Future<int> removeBookmarkForPage(int bookId, int pageNumber) =>
+      _db.deleteBookmarkForPage(bookId, pageNumber);
 }

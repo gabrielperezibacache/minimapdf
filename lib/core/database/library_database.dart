@@ -187,6 +187,17 @@ class LibraryDatabase {
     return bookmark.copyWith(id: id);
   }
 
+  Future<Bookmark?> getBookmarkForPage(int bookId, int pageNumber) async {
+    final rows = await _db.query(
+      DatabaseConfig.tableBookmarks,
+      where: 'book_id = ? AND page_number = ?',
+      whereArgs: [bookId, pageNumber],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return Bookmark.fromMap(rows.first);
+  }
+
   Future<List<Bookmark>> getBookmarksForBook(int bookId) async {
     final rows = await _db.query(
       DatabaseConfig.tableBookmarks,
@@ -210,11 +221,37 @@ class LibraryDatabase {
     );
   }
 
+  /// Crea o actualiza el marcador de una página (única por libro+página).
+  Future<Bookmark> upsertBookmark(Bookmark bookmark) async {
+    final existing = await getBookmarkForPage(
+      bookmark.bookId,
+      bookmark.pageNumber,
+    );
+    if (existing == null) {
+      return createBookmark(bookmark);
+    }
+
+    final merged = existing.copyWith(
+      noteText: bookmark.noteText,
+      clearNoteText: bookmark.noteText == null,
+    );
+    await updateBookmark(merged);
+    return merged;
+  }
+
   Future<int> deleteBookmark(int id) async {
     return _db.delete(
       DatabaseConfig.tableBookmarks,
       where: 'id = ?',
       whereArgs: [id],
+    );
+  }
+
+  Future<int> deleteBookmarkForPage(int bookId, int pageNumber) async {
+    return _db.delete(
+      DatabaseConfig.tableBookmarks,
+      where: 'book_id = ? AND page_number = ?',
+      whereArgs: [bookId, pageNumber],
     );
   }
 }

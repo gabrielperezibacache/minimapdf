@@ -118,6 +118,41 @@ void main() {
   });
 
   group('Bookmarks CRUD', () {
+    test('upsertBookmark actualiza nota sin duplicar página', () async {
+      final book = await library.createBook(
+        Book(
+          title: 'Notas',
+          filePath: '/docs/notas.pdf',
+          fileSize: 20,
+          addedAt: DateTime(2026, 3, 5),
+        ),
+      );
+
+      final first = await library.upsertBookmark(
+        Bookmark(
+          bookId: book.id!,
+          pageNumber: 4,
+          noteText: 'Uno',
+          createdAt: DateTime(2026, 3, 5),
+        ),
+      );
+      final second = await library.upsertBookmark(
+        Bookmark(
+          bookId: book.id!,
+          pageNumber: 4,
+          noteText: 'Dos',
+          createdAt: DateTime(2026, 3, 6),
+        ),
+      );
+
+      expect(second.id, first.id);
+      expect(
+        (await library.getBookmarkForPage(book.id!, 4))?.noteText,
+        'Dos',
+      );
+      expect(await library.getBookmarksForBook(book.id!), hasLength(1));
+    });
+
     test('crear, listar, actualizar y cascade al borrar libro', () async {
       final book = await library.createBook(
         Book(
