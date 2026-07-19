@@ -115,6 +115,29 @@ void main() {
       final updated = await library.getBookById(book.id!);
       expect(updated?.collectionId, isNull);
     });
+
+    test('filas corruptas no tumba getRecentBooks', () async {
+      await library.createBook(
+        Book(
+          title: 'Válido',
+          filePath: '/docs/ok.pdf',
+          fileSize: 10,
+          addedAt: DateTime(2026, 3, 1),
+        ),
+      );
+
+      await appDatabase.database.insert('books', {
+        'title': '',
+        'file_path': '/docs/roto.pdf',
+        'file_size': 1,
+        'added_at': 'fecha-invalida',
+        'tags': '[',
+      });
+
+      final recent = await library.getRecentBooks();
+      expect(recent, hasLength(1));
+      expect(recent.single.title, 'Válido');
+    });
   });
 
   group('Bookmarks CRUD', () {

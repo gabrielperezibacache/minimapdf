@@ -63,7 +63,10 @@ class MinimalPdfApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => ThemeProvider(preferences: preferences),
         ),
-        Provider<AppDatabase>.value(value: appDatabase),
+        Provider<AppDatabase>(
+          create: (_) => appDatabase,
+          dispose: (_, db) => db.close(),
+        ),
         Provider<LibraryDatabase>.value(value: libraryDatabase),
         Provider<LibraryLocalDatasource>(
           create: (context) => LibraryLocalDatasource(

@@ -71,30 +71,92 @@ class Book {
     };
   }
 
+  /// Parseo estricto; lanza si faltan título o ruta.
   factory Book.fromMap(Map<String, Object?> map) {
-    final rawTags = map['tags'];
-    List<String> tags = const [];
-    if (rawTags is String && rawTags.isNotEmpty) {
+    final book = Book.tryFromMap(map);
+    if (book == null) {
+      throw FormatException('Fila de libro inválida o corrupta');
+    }
+    return book;
+  }
+
+  /// Parseo tolerante: filas corruptas → null (no tumba la biblioteca).
+  static Book? tryFromMap(Map<String, Object?> map) {
+    try {
+      final title = _asNonEmptyString(map['title']);
+      final filePath = _asNonEmptyString(map['file_path']);
+      if (title == null || filePath == null) return null;
+
+      final addedAt = _asDateTime(map['added_at']);
+      if (addedAt == null) return null;
+
+      return Book(
+        id: _asInt(map['id']),
+        title: title,
+        filePath: filePath,
+        fileSize: _asInt(map['file_size']) ?? 0,
+        addedAt: addedAt,
+        lastReadAt: _asDateTime(map['last_read_at']),
+        lastPageRead: _asInt(map['last_page_read']) ?? 0,
+        author: _asNullableString(map['author']),
+        tags: _parseTags(map['tags']),
+        collectionId: _asInt(map['collection_id']),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Coincide con búsqueda por título, autor o etiquetas.
+  bool matchesQuery(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    if (title.toLowerCase().contains(q)) return true;
+    final a = author;
+    if (a != null && a.toLowerCase().contains(q)) return true;
+    for (final tag in tags) {
+      if (tag.toLowerCase().contains(q)) return true;
+    }
+    return false;
+  }
+
+  static List<String> _parseTags(Object? rawTags) {
+    if (rawTags is! String || rawTags.isEmpty) return const [];
+    try {
       final decoded = jsonDecode(rawTags);
       if (decoded is List) {
-        tags = decoded.map((e) => e.toString()).toList();
+        return decoded.map((e) => e.toString()).toList(growable: false);
       }
+    } catch (_) {
+      // Tags corruptos → lista vacía.
     }
+    return const [];
+  }
 
-    return Book(
-      id: map['id'] as int?,
-      title: map['title'] as String,
-      filePath: map['file_path'] as String,
-      fileSize: map['file_size'] as int,
-      addedAt: DateTime.parse(map['added_at'] as String),
-      lastReadAt: map['last_read_at'] != null
-          ? DateTime.parse(map['last_read_at'] as String)
-          : null,
-      lastPageRead: (map['last_page_read'] as int?) ?? 0,
-      author: map['author'] as String?,
-      tags: tags,
-      collectionId: map['collection_id'] as int?,
-    );
+  static String? _asNonEmptyString(Object? value) {
+    if (value is! String) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static String? _asNullableString(Object? value) {
+    if (value == null) return null;
+    if (value is! String) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static int? _asInt(Object? value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  static DateTime? _asDateTime(Object? value) {
+    if (value == null) return null;
+    if (value is! String || value.isEmpty) return null;
+    return DateTime.tryParse(value);
   }
 
   @override

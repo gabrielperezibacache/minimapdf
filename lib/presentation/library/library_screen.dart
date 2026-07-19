@@ -23,6 +23,8 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
+  final _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -30,6 +32,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
       if (!mounted) return;
       context.read<LibraryProvider>().load();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _importPdf() async {
@@ -161,6 +169,80 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
     final library = context.read<LibraryProvider>();
     await library.createCollection(name);
+    if (!mounted) return;
+    if (library.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(library.error!)),
+      );
+    }
+  }
+
+  Future<void> _manageCollection(Collection collection) async {
+    final colors = HermesColors.of(context);
+    final action = await showModalBottomSheet<_CollectionAction>(
+      context: context,
+      backgroundColor: colors.panel,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.edit_outlined, color: colors.accent),
+              title: const Text('Renombrar'),
+              onTap: () => Navigator.pop(context, _CollectionAction.rename),
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline, color: colors.accent),
+              title: const Text('Eliminar colección'),
+              onTap: () => Navigator.pop(context, _CollectionAction.delete),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted || action == null) return;
+    switch (action) {
+      case _CollectionAction.rename:
+        await _renameCollection(collection);
+      case _CollectionAction.delete:
+        await _confirmDeleteCollection(collection);
+    }
+  }
+
+  Future<void> _renameCollection(Collection collection) async {
+    final colors = HermesColors.of(context);
+    final controller = TextEditingController(text: collection.name);
+
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: colors.panel,
+        title: const Text('Renombrar colección'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Nombre'),
+          onSubmitted: (value) => Navigator.pop(context, value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: Text('Guardar', style: TextStyle(color: colors.accent)),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+    if (name == null || !mounted) return;
+
+    final library = context.read<LibraryProvider>();
+    await library.renameCollection(collection, name);
     if (!mounted) return;
     if (library.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -303,10 +385,42 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ),
               ),
             SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: library.setSearchQuery,
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    hintText: 'Buscar por título, autor o etiqueta',
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: colors.accent,
+                      size: 20,
+                    ),
+                    suffixIcon: library.searchQuery.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Limpiar búsqueda',
+                            onPressed: () {
+                              _searchController.clear();
+                              library.clearSearch();
+                            },
+                            icon: Icon(
+                              Icons.close,
+                              size: 18,
+                              color: colors.textMuted,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
               child: _CollectionsRow(
                 library: library,
                 onCreate: _createCollection,
-                onDeleteCollection: _confirmDeleteCollection,
+                onManageCollection: _manageCollection,
               ),
             ),
             if (library.loading && library.books.isEmpty)
@@ -319,7 +433,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 hasScrollBody: false,
                 child: _EmptyLibrary(
                   onImport: library.importing ? null : _importPdf,
-                  filtered: library.selectedCollectionId != null,
+                  filtered: library.selectedCollectionId != null ||
+                      library.searchQuery.trim().isNotEmpty,
+                  searching: library.searchQuery.trim().isNotEmpty,
                   // Solo oculta empty global si no hay libros y hay error de carga.
                   hasError:
                       library.error != null && library.books.isEmpty,
@@ -376,16 +492,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 }
 
+enum _CollectionAction { rename, delete }
+
 class _CollectionsRow extends StatelessWidget {
   const _CollectionsRow({
     required this.library,
     required this.onCreate,
-    required this.onDeleteCollection,
+    required this.onManageCollection,
   });
 
   final LibraryProvider library;
   final VoidCallback onCreate;
-  final ValueChanged<Collection> onDeleteCollection;
+  final ValueChanged<Collection> onManageCollection;
 
   @override
   Widget build(BuildContext context) {
@@ -410,7 +528,7 @@ class _CollectionsRow extends StatelessWidget {
                 label: collection.name,
                 selected: library.selectedCollectionId == collection.id,
                 onTap: () => library.selectCollection(collection.id),
-                onLongPress: () => onDeleteCollection(collection),
+                onLongPress: () => onManageCollection(collection),
               ),
             ),
           ),
@@ -536,12 +654,14 @@ class _EmptyLibrary extends StatelessWidget {
   const _EmptyLibrary({
     required this.onImport,
     required this.filtered,
+    this.searching = false,
     this.hasError = false,
     this.importing = false,
   });
 
   final VoidCallback? onImport;
   final bool filtered;
+  final bool searching;
   final bool hasError;
   final bool importing;
 
@@ -553,26 +673,37 @@ class _EmptyLibrary extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final title = searching
+        ? 'Sin resultados'
+        : filtered
+            ? 'No hay PDFs en esta colección'
+            : 'Tu biblioteca está vacía';
+    final subtitle = searching
+        ? 'Prueba con otro título, autor o etiqueta.'
+        : filtered
+            ? 'Importa un PDF o elige otra carpeta.'
+            : 'Pulsa + para importar un PDF del dispositivo.';
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.menu_book_outlined, size: 42, color: colors.accent),
+            Icon(
+              searching ? Icons.search_off : Icons.menu_book_outlined,
+              size: 42,
+              color: colors.accent,
+            ),
             const SizedBox(height: 16),
             Text(
-              filtered
-                  ? 'No hay PDFs en esta colección'
-                  : 'Tu biblioteca está vacía',
+              title,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              filtered
-                  ? 'Importa un PDF o elige otra carpeta.'
-                  : 'Pulsa + para importar un PDF del dispositivo.',
+              subtitle,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),

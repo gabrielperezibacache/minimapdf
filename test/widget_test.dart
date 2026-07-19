@@ -63,6 +63,10 @@ void main() {
 
     expect(find.text(AppConstants.appName), findsWidgets);
     expect(find.text('Biblioteca'), findsOneWidget);
+    expect(
+      find.text('Buscar por título, autor o etiqueta'),
+      findsOneWidget,
+    );
     expect(find.byTooltip('Importar PDF'), findsOneWidget);
     expect(find.byTooltip('Descargas / navegador'), findsOneWidget);
     expect(find.text('Tu biblioteca está vacía'), findsOneWidget);

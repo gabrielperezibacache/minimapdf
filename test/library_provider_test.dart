@@ -144,6 +144,38 @@ void main() {
     expect(provider.books.single.collectionId, isNull);
   });
 
+  test('renameCollection actualiza el nombre', () async {
+    final collection = await provider.createCollection('Borrador');
+    final renamed = await provider.renameCollection(collection!, 'Final');
+    expect(renamed?.name, 'Final');
+    expect(provider.collections.single.name, 'Final');
+  });
+
+  test('setSearchQuery filtra por título autor y tags', () async {
+    final book = await provider.importPdf();
+    await provider.updateBookMetadata(
+      book: book!,
+      title: 'Patrones de Diseño',
+      author: 'Gamma',
+      tags: const ['oop', 'gof'],
+    );
+
+    provider.setSearchQuery('patrones');
+    expect(provider.visibleBooks, hasLength(1));
+
+    provider.setSearchQuery('gamma');
+    expect(provider.visibleBooks, hasLength(1));
+
+    provider.setSearchQuery('gof');
+    expect(provider.visibleBooks, hasLength(1));
+
+    provider.setSearchQuery('inexistente');
+    expect(provider.visibleBooks, isEmpty);
+
+    provider.clearSearch();
+    expect(provider.visibleBooks, hasLength(1));
+  });
+
   test('bookFileExists refleja el archivo en disco', () async {
     final book = await provider.importPdf();
     expect(await provider.bookFileExists(book!), isTrue);

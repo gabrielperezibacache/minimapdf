@@ -48,7 +48,6 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
     useShouldOverrideUrlLoading: true,
     javaScriptCanOpenWindowsAutomatically: false,
     supportZoom: true,
-    clearCache: true,
     userAgent:
         'MinimalPDF/1.0 (Privacy Browser; no-telemetry; Flutter InAppWebView)',
   );
@@ -88,9 +87,13 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
 
   @override
   void dispose() {
+    final web = _webController;
+    if (web != null) {
+      unawaited(web.stopLoading());
+    }
+    _webController = null;
     _urlController.dispose();
     _browserUrlController.dispose();
-    _webController = null;
     _pullToRefreshController?.dispose();
     super.dispose();
   }
@@ -259,6 +262,9 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                       pullToRefreshController: _pullToRefreshController,
                       onWebViewCreated: (controller) {
                         _webController = controller;
+                        unawaited(
+                          InAppWebViewController.clearAllCache(),
+                        );
                       },
                       onLoadStart: (controller, url) {
                         if (!mounted) return;
@@ -307,18 +313,19 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                         }
                         return NavigationActionPolicy.ALLOW;
                       },
-                      onDownloadStartRequest: (controller, request) async {
+                      onDownloadStarting: (controller, request) async {
                         final href = request.url.toString();
                         final mime = request.mimeType?.toLowerCase() ?? '';
                         final isPdf = PdfUrlUtils.looksLikePdfUrl(href) ||
                             mime.contains('pdf');
-                        if (!isPdf) return;
+                        if (!isPdf) return null;
                         final provider = context.read<DownloaderProvider>();
                         provider.setDetectedPdfUrls([
                           href,
                           ...provider.detectedPdfUrls,
                         ]);
                         unawaited(_downloadPdfLink(href));
+                        return null;
                       },
                       onReceivedError: (controller, request, error) {
                         _pullToRefreshController?.endRefreshing();

@@ -44,3 +44,4 @@ flutter run
 4. ✅ Lector PDF (pdfx, scroll vertical/horizontal, filtro Obsidian, progreso)
 5. ✅ Anotaciones y marcadores (bronce, notas flotantes, sidebar TOC)
 6. ✅ Descargas por URL + mini-navegador con Capturar PDF
+7. ✅ Endurecimiento: streaming, cancelación, búsqueda, colecciones, errores claros

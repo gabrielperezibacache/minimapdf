@@ -328,9 +328,8 @@ class PdfDownloadService {
     while (DateTime.now().difference(started) < timeout) {
       _throwIfCancelled();
 
-      final tasks = await FlutterDownloader.loadTasksWithRawQuery(
-        query: "SELECT * FROM task WHERE task_id='$taskId'",
-      );
+      // Evita SQL crudo con interpolación; filtra en cliente.
+      final tasks = await FlutterDownloader.loadTasks();
       DownloadTask? task;
       if (tasks != null) {
         for (final item in tasks) {

@@ -86,7 +86,7 @@ class LibraryDatabase {
       limit: 1,
     );
     if (rows.isEmpty) return null;
-    return Book.fromMap(rows.first);
+    return Book.tryFromMap(rows.first);
   }
 
   Future<Book?> getBookByFilePath(String filePath) async {
@@ -97,19 +97,20 @@ class LibraryDatabase {
       limit: 1,
     );
     if (rows.isEmpty) return null;
-    return Book.fromMap(rows.first);
+    return Book.tryFromMap(rows.first);
   }
 
   /// Libros de biblioteca: primero por última lectura, luego por alta.
   ///
   /// Si [limit] es null, devuelve todos (sin truncar silenciosamente).
+  /// Filas corruptas se omiten para no tumbar la carga de la biblioteca.
   Future<List<Book>> getRecentBooks({int? limit}) async {
     final rows = await _db.query(
       DatabaseConfig.tableBooks,
       orderBy: 'last_read_at IS NULL, last_read_at DESC, added_at DESC',
       limit: limit,
     );
-    return rows.map(Book.fromMap).toList();
+    return _parseBooks(rows);
   }
 
   Future<List<Book>> getAllBooks() async {
@@ -117,7 +118,7 @@ class LibraryDatabase {
       DatabaseConfig.tableBooks,
       orderBy: 'title COLLATE NOCASE ASC',
     );
-    return rows.map(Book.fromMap).toList();
+    return _parseBooks(rows);
   }
 
   Future<List<Book>> getBooksByCollection(int? collectionId) async {
@@ -127,7 +128,7 @@ class LibraryDatabase {
         where: 'collection_id IS NULL',
         orderBy: 'title COLLATE NOCASE ASC',
       );
-      return rows.map(Book.fromMap).toList();
+      return _parseBooks(rows);
     }
 
     final rows = await _db.query(
@@ -136,7 +137,16 @@ class LibraryDatabase {
       whereArgs: [collectionId],
       orderBy: 'title COLLATE NOCASE ASC',
     );
-    return rows.map(Book.fromMap).toList();
+    return _parseBooks(rows);
+  }
+
+  List<Book> _parseBooks(List<Map<String, Object?>> rows) {
+    final books = <Book>[];
+    for (final row in rows) {
+      final book = Book.tryFromMap(row);
+      if (book != null) books.add(book);
+    }
+    return books;
   }
 
   Future<int> updateBook(Book book) async {

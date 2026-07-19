@@ -23,6 +23,7 @@ class LibraryProvider extends ChangeNotifier {
   List<Book> _books = const [];
   List<Collection> _collections = const [];
   int? _selectedCollectionId;
+  String _searchQuery = '';
   bool _loading = false;
   bool _importing = false;
   String? _error;
@@ -32,6 +33,7 @@ class LibraryProvider extends ChangeNotifier {
   List<Book> get books => _books;
   List<Collection> get collections => _collections;
   int? get selectedCollectionId => _selectedCollectionId;
+  String get searchQuery => _searchQuery;
   bool get loading => _loading;
   bool get importing => _importing;
   String? get error => _error;
@@ -53,10 +55,27 @@ class LibraryProvider extends ChangeNotifier {
   }
 
   List<Book> get visibleBooks {
-    if (_selectedCollectionId == null) return _books;
-    return _books
-        .where((book) => book.collectionId == _selectedCollectionId)
-        .toList(growable: false);
+    final query = _searchQuery;
+    return _books.where((book) {
+      if (_selectedCollectionId != null &&
+          book.collectionId != _selectedCollectionId) {
+        return false;
+      }
+      return book.matchesQuery(query);
+    }).toList(growable: false);
+  }
+
+  void setSearchQuery(String value) {
+    final next = value.trimLeft();
+    if (_searchQuery == next) return;
+    _searchQuery = next;
+    notifyListeners();
+  }
+
+  void clearSearch() {
+    if (_searchQuery.isEmpty) return;
+    _searchQuery = '';
+    notifyListeners();
   }
 
   Future<void> load() async {
@@ -186,6 +205,30 @@ class LibraryProvider extends ChangeNotifier {
       _error = 'No se pudo crear la colección.';
       if (kDebugMode) {
         debugPrint('LibraryProvider.createCollection: $e');
+      }
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<Collection?> renameCollection(
+    Collection collection,
+    String name,
+  ) async {
+    final id = collection.id;
+    final trimmed = name.trim();
+    if (id == null || trimmed.isEmpty) return null;
+
+    try {
+      final updated = collection.copyWith(name: trimmed);
+      await datasource.saveCollection(updated);
+      _error = null;
+      await load();
+      return updated;
+    } catch (e) {
+      _error = 'No se pudo renombrar la colección.';
+      if (kDebugMode) {
+        debugPrint('LibraryProvider.renameCollection: $e');
       }
       notifyListeners();
       return null;

@@ -19,6 +19,55 @@ void main() {
       expect(restored.author, isNull);
       expect(restored.collectionId, isNull);
     });
+
+    test('tryFromMap ignora filas corruptas', () {
+      expect(Book.tryFromMap(const {}), isNull);
+      expect(
+        Book.tryFromMap({
+          'title': 'Solo título',
+          'file_path': '',
+          'file_size': 1,
+          'added_at': 'no-es-fecha',
+          'tags': '{',
+        }),
+        isNull,
+      );
+    });
+
+    test('tryFromMap tolera tags corruptos y file_size string', () {
+      final book = Book.tryFromMap({
+        'id': '12',
+        'title': 'Resiliente',
+        'file_path': '/a.pdf',
+        'file_size': '2048',
+        'added_at': '2026-07-01T12:00:00.000Z',
+        'tags': 'no-json',
+        'last_page_read': '4',
+      });
+
+      expect(book, isNotNull);
+      expect(book!.id, 12);
+      expect(book.fileSize, 2048);
+      expect(book.lastPageRead, 4);
+      expect(book.tags, isEmpty);
+    });
+
+    test('matchesQuery busca en título, autor y tags', () {
+      final book = Book(
+        title: 'Clean Architecture',
+        filePath: '/a.pdf',
+        fileSize: 1,
+        addedAt: DateTime.utc(2026, 1, 1),
+        author: 'Uncle Bob',
+        tags: const ['software', 'design'],
+      );
+
+      expect(book.matchesQuery('clean'), isTrue);
+      expect(book.matchesQuery('uncle'), isTrue);
+      expect(book.matchesQuery('design'), isTrue);
+      expect(book.matchesQuery('xyz'), isFalse);
+      expect(book.matchesQuery('  '), isTrue);
+    });
   });
 
   group('Collection / Bookmark serialization', () {

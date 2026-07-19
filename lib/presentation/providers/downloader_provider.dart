@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 import '../../core/utils/pdf_url_utils.dart';
 import '../../data/datasources/pdf_download_service.dart';
@@ -119,11 +123,7 @@ class DownloaderProvider extends ChangeNotifier {
       _statusMessage = 'Descarga cancelada.';
       return null;
     } catch (e) {
-      if (e is FormatException) {
-        _error = e.message;
-      } else {
-        _error = 'No se pudo descargar el PDF.';
-      }
+      _error = _mapDownloadError(e);
       _statusMessage = null;
       if (kDebugMode) {
         debugPrint('DownloaderProvider.downloadUrl: $e');
@@ -141,6 +141,31 @@ class DownloaderProvider extends ChangeNotifier {
   }
 
   Future<Book?> downloadFromInput() => downloadUrl(_urlInput);
+
+  static String _mapDownloadError(Object e) {
+    if (e is FormatException) return e.message;
+    if (e is TimeoutException) {
+      return 'La descarga tardó demasiado. Inténtalo de nuevo.';
+    }
+    if (e is SocketException) {
+      return 'Sin conexión de red. Comprueba tu acceso a Internet.';
+    }
+    if (e is http.ClientException) {
+      return 'No se pudo conectar con el servidor.';
+    }
+    if (e is StateError) {
+      final message = e.message;
+      if (message.contains('Ya hay una descarga')) {
+        return 'Ya hay una descarga en curso.';
+      }
+      if (message.contains('nativa fallida') ||
+          message.contains('archivo no existe')) {
+        return 'La descarga falló en el dispositivo.';
+      }
+      return message;
+    }
+    return 'No se pudo descargar el PDF.';
+  }
 
   /// Captura solo URLs que parezcan PDF (nunca HTML genérico).
   Future<Book?> capturePdf({String? currentUrl}) async {
