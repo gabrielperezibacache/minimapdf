@@ -28,7 +28,7 @@ Límite: 80 caracteres (incluye espacios)
 
 Lector PDF offline ultraligero. Biblioteca local, sin cuentas ni anuncios.
 
-(Caracteres: 72)
+(Caracteres: 74)
 
 
 ================================================================
