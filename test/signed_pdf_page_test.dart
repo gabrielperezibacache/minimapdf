@@ -55,13 +55,13 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.of(AppThemeOption.obsidian),
+        theme: AppTheme.of(AppThemeOption.ebony),
         home: Scaffold(
           body: SignedPdfPage(
             pageImageFuture: Future<_FakePageImage>.value(_FakePageImage(png)),
             pageNumber: 1,
             signatures: [signature],
-            obsidianFilter: false,
+            ebonyFilter: false,
             placementMode: false,
             onPlaceTap: (_, _) {},
             onMove: (_, _, _) {},

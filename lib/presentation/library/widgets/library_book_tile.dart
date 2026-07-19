@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/book.dart';
 
-/// Celda técnica de libro con borde 1px (paleta Hermes).
+/// Celda técnica de libro con borde 1px (paleta Minimal PDF).
 class LibraryBookTile extends StatelessWidget {
   const LibraryBookTile({
     super.key,
@@ -22,7 +22,7 @@ class LibraryBookTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final subtitle = [
       if (book.author != null && book.author!.isNotEmpty) book.author!,
       _formatSize(book.fileSize),
@@ -45,7 +45,7 @@ class LibraryBookTile extends StatelessWidget {
     );
   }
 
-  Widget _gridContent(BuildContext context, HermesColors colors, String subtitle) {
+  Widget _gridContent(BuildContext context, AppPalette colors, String subtitle) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -83,7 +83,7 @@ class LibraryBookTile extends StatelessWidget {
     );
   }
 
-  Widget _listContent(BuildContext context, HermesColors colors, String subtitle) {
+  Widget _listContent(BuildContext context, AppPalette colors, String subtitle) {
     return Row(
       children: [
         Icon(Icons.picture_as_pdf_outlined, color: colors.accent, size: 28),
@@ -113,7 +113,7 @@ class LibraryBookTile extends StatelessWidget {
     );
   }
 
-  Widget _menuButton(HermesColors colors) {
+  Widget _menuButton(AppPalette colors) {
     return PopupMenuButton<_BookAction>(
       tooltip: 'Opciones',
       icon: Icon(Icons.more_vert, color: colors.textMuted, size: 20),

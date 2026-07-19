@@ -3,20 +3,20 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:pdfx/pdfx.dart';
 
-import '../../../core/theme/hermes_pdf_filter.dart';
+import '../../../core/theme/ebony_pdf_filter.dart';
 import '../../../data/models/document_signature.dart';
 import '../../signing/signature_overlay.dart';
 
 /// Página PDF con sellos de firma anclados al rectángulo de la página.
 ///
-/// El filtro Obsidian se aplica solo a la imagen, no a los sellos.
+/// El filtro Ébano se aplica solo a la imagen, no a los sellos.
 class SignedPdfPage extends StatelessWidget {
   const SignedPdfPage({
     super.key,
     required this.pageImageFuture,
     required this.pageNumber,
     required this.signatures,
-    required this.obsidianFilter,
+    required this.ebonyFilter,
     required this.placementMode,
     required this.onPlaceTap,
     required this.onMove,
@@ -27,7 +27,7 @@ class SignedPdfPage extends StatelessWidget {
   final Future<PdfPageImage> pageImageFuture;
   final int pageNumber;
   final List<DocumentSignature> signatures;
-  final bool obsidianFilter;
+  final bool ebonyFilter;
   final bool placementMode;
   final void Function(double x, double y) onPlaceTap;
   final void Function(DocumentSignature signature, double x, double y) onMove;
@@ -69,8 +69,8 @@ class SignedPdfPage extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              HermesPdfFilter.wrap(
-                enabled: obsidianFilter,
+              EbonyPdfFilter.wrap(
+                enabled: ebonyFilter,
                 child: Image.memory(
                   bytes,
                   fit: BoxFit.fill,

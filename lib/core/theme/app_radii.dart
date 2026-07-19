@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Radios Hermes: técnico, de bajo radio (sin pastillas).
+/// Radios de la app: técnico, de bajo radio (sin pastillas).
 abstract final class AppRadii {
   static const double none = 0;
   static const double sm = 4;

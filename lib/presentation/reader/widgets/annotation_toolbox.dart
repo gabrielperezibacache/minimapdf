@@ -5,7 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../providers/reader_annotations_provider.dart';
 
-/// Caja de herramientas de anotación (acento bronce Hermes).
+/// Caja de herramientas de anotación (acento bronce Ébano).
 class AnnotationToolbox extends StatelessWidget {
   const AnnotationToolbox({
     super.key,
@@ -40,7 +40,7 @@ class AnnotationToolbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return IgnorePointer(
@@ -58,7 +58,7 @@ class AnnotationToolbox extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 border: Border(
-                  top: BorderSide(color: AppColors.obsidianAccent.withValues(alpha: 0.45)),
+                  top: BorderSide(color: AppColors.ebonyAccent.withValues(alpha: 0.45)),
                 ),
               ),
               padding: EdgeInsets.fromLTRB(12, 10, 8, 10 + bottomInset),
@@ -71,7 +71,7 @@ class AnnotationToolbox extends StatelessWidget {
                       const Icon(
                         Icons.border_color,
                         size: 18,
-                        color: AppColors.obsidianAccent,
+                        color: AppColors.ebonyAccent,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -80,7 +80,7 @@ class AnnotationToolbox extends StatelessWidget {
                               ? 'Herramientas'
                               : 'Herramientas · p. $pageNumber',
                           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                color: AppColors.obsidianAccent,
+                                color: AppColors.ebonyAccent,
                               ),
                         ),
                       ),
@@ -194,9 +194,9 @@ class _ToolChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
-    final fg = selected ? AppColors.obsidianBackground : colors.text;
-    final bg = selected ? AppColors.obsidianAccent : colors.surface;
+    final colors = AppPalette.of(context);
+    final fg = selected ? AppColors.ebonyBackground : colors.text;
+    final bg = selected ? AppColors.ebonyAccent : colors.surface;
 
     return Semantics(
       button: true,
@@ -212,7 +212,7 @@ class _ToolChip extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border.all(
                 color: selected
-                    ? AppColors.obsidianAccent
+                    ? AppColors.ebonyAccent
                     : colors.border,
                 width: selected ? 1.5 : 1,
               ),
@@ -223,7 +223,7 @@ class _ToolChip extends StatelessWidget {
                 Icon(
                   icon,
                   size: 18,
-                  color: selected ? fg : AppColors.obsidianAccent,
+                  color: selected ? fg : AppColors.ebonyAccent,
                 ),
                 const SizedBox(width: 6),
                 Text(

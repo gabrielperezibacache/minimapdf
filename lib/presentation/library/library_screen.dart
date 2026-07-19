@@ -81,7 +81,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _confirmDelete(Book book) async {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -137,7 +137,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _createCollection() async {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final controller = TextEditingController();
 
     final name = await showDialog<String>(
@@ -178,7 +178,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _manageCollection(Collection collection) async {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final action = await showModalBottomSheet<_CollectionAction>(
       context: context,
       backgroundColor: colors.panel,
@@ -211,7 +211,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _renameCollection(Collection collection) async {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final controller = TextEditingController(text: collection.name);
 
     final name = await showDialog<String>(
@@ -252,7 +252,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _confirmDeleteCollection(Collection collection) async {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -282,7 +282,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final themeProvider = context.watch<ThemeProvider>();
     final library = context.watch<LibraryProvider>();
 
@@ -507,7 +507,7 @@ class _CollectionsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     return SizedBox(
       height: 48,
@@ -576,7 +576,7 @@ class _CollectionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     return InkWell(
       onTap: onTap,
@@ -615,7 +615,7 @@ class _LibraryErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     return Container(
       width: double.infinity,
@@ -667,7 +667,7 @@ class _EmptyLibrary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     if (hasError) {
       return const SizedBox.shrink();

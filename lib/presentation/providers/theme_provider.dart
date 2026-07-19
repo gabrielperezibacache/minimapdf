@@ -3,11 +3,11 @@ import 'package:flutter/foundation.dart';
 import '../../core/preferences/app_preferences.dart';
 import '../../core/theme/app_theme_option.dart';
 
-/// Gestiona el tema activo (Claro / Sepia / Hermes Obsidian) con persistencia.
+/// Gestiona el tema activo (Claro / Sepia / Ébano) con persistencia.
 class ThemeProvider extends ChangeNotifier {
   ThemeProvider({AppPreferences? preferences})
       : _preferences = preferences,
-        _option = preferences?.themeOption ?? AppThemeOption.obsidian;
+        _option = preferences?.themeOption ?? AppThemeOption.ebony;
 
   AppPreferences? _preferences;
   AppThemeOption _option;

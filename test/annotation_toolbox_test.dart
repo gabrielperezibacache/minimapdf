@@ -7,7 +7,7 @@ import 'package:minimal_pdf/presentation/reader/widgets/annotation_toolbox.dart'
 void main() {
   Widget wrap(Widget child) {
     return MaterialApp(
-      theme: AppTheme.obsidian,
+      theme: AppTheme.ebony,
       home: Scaffold(
         body: Align(
           alignment: Alignment.bottomCenter,

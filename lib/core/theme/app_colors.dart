@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Paletas Hermes Obsidian: Claro (Pergamino), Sepia y Oscuro.
+/// Paletas Minimal PDF: Claro (Pergamino), Sepia y Oscuro (Ébano).
 abstract final class AppColors {
   // --- Claro (Luz Pergamino) ---
   static const Color lightBackground = Color(0xFFF4EEE7);
@@ -20,12 +20,12 @@ abstract final class AppColors {
   static const Color sepiaBorder = Color(0xFFB8A07A);
   static const Color sepiaAccent = Color(0xFFA67C3D);
 
-  // --- Oscuro Hermes Obsidian ---
-  static const Color obsidianBackground = Color(0xFF0F1714);
-  static const Color obsidianPanel = Color(0xFF121D18);
-  static const Color obsidianSurface = Color(0xFF16211C);
-  static const Color obsidianText = Color(0xFFF3ECDD);
-  static const Color obsidianTextMuted = Color(0xFFB8B09E);
-  static const Color obsidianBorder = Color(0xFF22342C);
-  static const Color obsidianAccent = Color(0xFFC89A5A);
+  // --- Oscuro Ébano ---
+  static const Color ebonyBackground = Color(0xFF0F1714);
+  static const Color ebonyPanel = Color(0xFF121D18);
+  static const Color ebonySurface = Color(0xFF16211C);
+  static const Color ebonyText = Color(0xFFF3ECDD);
+  static const Color ebonyTextMuted = Color(0xFFB8B09E);
+  static const Color ebonyBorder = Color(0xFF22342C);
+  static const Color ebonyAccent = Color(0xFFC89A5A);
 }

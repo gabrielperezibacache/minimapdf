@@ -85,7 +85,7 @@ void main() {
 
     expect(find.text('Claro'), findsWidgets);
     expect(find.text('Sepia'), findsWidgets);
-    expect(find.text('Hermes Obsidian'), findsWidgets);
+    expect(find.text('Ébano'), findsWidgets);
 
     await tester.tap(
       find.widgetWithText(CheckedPopupMenuItem<AppThemeOption>, 'Claro'),

@@ -155,7 +155,7 @@ class SignaturePadState extends State<SignaturePad> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final absoluteStrokes = _strokes
         .map(
           (stroke) => stroke
@@ -181,7 +181,7 @@ class SignaturePadState extends State<SignaturePad> {
               child: Text(
                 'Limpiar',
                 style: TextStyle(
-                  color: hasInk ? AppColors.obsidianAccent : colors.textMuted,
+                  color: hasInk ? AppColors.ebonyAccent : colors.textMuted,
                 ),
               ),
             ),

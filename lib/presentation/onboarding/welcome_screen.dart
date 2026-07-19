@@ -46,7 +46,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     ),
     _WelcomePageData(
       icon: Icons.chrome_reader_mode_outlined,
-      title: 'Lector Hermes Obsidian',
+      title: 'Lector Ébano',
       body:
           'Scroll continuo o página a página, filtro de bajo cansancio visual, '
           'progreso automático, marcadores en bronce y notas flotantes. '
@@ -88,7 +88,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final textTheme = Theme.of(context).textTheme;
     final isFirst = _pageIndex == 0;
     final isLast = _pageIndex >= _pages.length - 1;
@@ -274,7 +274,7 @@ class _WelcomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final textTheme = Theme.of(context).textTheme;
 
     return LayoutBuilder(

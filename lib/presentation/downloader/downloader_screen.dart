@@ -69,7 +69,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
     super.didChangeDependencies();
     if (!_supportsEmbeddedBrowser || _pullToRefreshReady) return;
 
-    final accent = HermesColors.of(context).accent;
+    final accent = AppPalette.of(context).accent;
     _pullToRefreshController = PullToRefreshController(
       settings: PullToRefreshSettings(color: accent),
       onRefresh: () async {
@@ -177,7 +177,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final downloader = context.watch<DownloaderProvider>();
 
     return Scaffold(
@@ -376,7 +376,7 @@ class _DirectUrlBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -447,7 +447,7 @@ class _BrowserChrome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     return Column(
       children: [

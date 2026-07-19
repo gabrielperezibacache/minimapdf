@@ -214,7 +214,7 @@ class _DraftRect extends StatelessWidget {
       height = 3;
     }
 
-    final color = tool.annotationType?.defaultColor ?? AppColors.obsidianAccent;
+    final color = tool.annotationType?.defaultColor ?? AppColors.ebonyAccent;
 
     return Positioned(
       left: left,
@@ -228,7 +228,7 @@ class _DraftRect extends StatelessWidget {
                 ? color
                 : color.withValues(alpha: 0.35),
             border: Border.all(
-              color: AppColors.obsidianAccent.withValues(alpha: 0.85),
+              color: AppColors.ebonyAccent.withValues(alpha: 0.85),
               width: 1,
             ),
           ),
@@ -255,7 +255,7 @@ class _AnnotationMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final left = annotation.x * canvasSize.width;
     final top = annotation.y * canvasSize.height;
     final width =
@@ -268,7 +268,7 @@ class _AnnotationMark extends StatelessWidget {
           decoration: BoxDecoration(
             color: annotation.color,
             border: Border.all(
-              color: AppColors.obsidianAccent.withValues(alpha: 0.35),
+              color: AppColors.ebonyAccent.withValues(alpha: 0.35),
             ),
           ),
         ),
@@ -320,7 +320,7 @@ class _PinnedMark extends StatelessWidget {
   });
 
   final PageAnnotation annotation;
-  final HermesColors colors;
+  final AppPalette colors;
 
   @override
   Widget build(BuildContext context) {
@@ -330,12 +330,12 @@ class _PinnedMark extends StatelessWidget {
         padding: const EdgeInsets.all(5),
         decoration: BoxDecoration(
           color: colors.panel.withValues(alpha: 0.95),
-          border: Border.all(color: AppColors.obsidianAccent, width: 1.5),
+          border: Border.all(color: AppColors.ebonyAccent, width: 1.5),
         ),
         child: Icon(
           annotation.type.icon,
           size: 16,
-          color: AppColors.obsidianAccent,
+          color: AppColors.ebonyAccent,
         ),
       ),
     );

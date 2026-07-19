@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 
-/// Nota flotante sobre la página actual (acento del tema Hermes activo).
+/// Nota flotante sobre la página actual (acento del tema activo).
 class FloatingPageNote extends StatelessWidget {
   const FloatingPageNote({
     super.key,
@@ -19,7 +19,7 @@ class FloatingPageNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     return Material(
       color: colors.panel.withValues(alpha: 0.96),

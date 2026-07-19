@@ -12,7 +12,7 @@ void main() {
   group('AppTheme', () {
     test('Claro usa fondo #F4EEE7 y texto #121D18', () {
       final theme = AppTheme.light;
-      final colors = theme.extension<HermesColors>()!;
+      final colors = theme.extension<AppPalette>()!;
 
       expect(colors.background, AppColors.lightBackground);
       expect(colors.text, AppColors.lightText);
@@ -22,16 +22,16 @@ void main() {
 
     test('Sepia define paleta cálida distinta del claro', () {
       final theme = AppTheme.sepia;
-      final colors = theme.extension<HermesColors>()!;
+      final colors = theme.extension<AppPalette>()!;
 
       expect(colors.background, AppColors.sepiaBackground);
       expect(colors.accent, AppColors.sepiaAccent);
       expect(colors.background, isNot(AppColors.lightBackground));
     });
 
-    test('Obsidian usa fondo #0F1714, paneles y acento bronce', () {
-      final theme = AppTheme.obsidian;
-      final colors = theme.extension<HermesColors>()!;
+    test('Ébano usa fondo #0F1714, paneles y acento bronce', () {
+      final theme = AppTheme.ebony;
+      final colors = theme.extension<AppPalette>()!;
 
       expect(colors.background, const Color(0xFF0F1714));
       expect(colors.panel, const Color(0xFF121D18));
@@ -39,12 +39,12 @@ void main() {
       expect(colors.text, const Color(0xFFF3ECDD));
       expect(colors.accent, const Color(0xFFC89A5A));
       expect(colors.border, const Color(0xFF22342C));
-      expect(colors.onAccent, AppColors.obsidianBackground);
+      expect(colors.onAccent, AppColors.ebonyBackground);
     });
 
-    test('componentes Hermes usan radio sm y acento del tema', () {
-      final theme = AppTheme.obsidian;
-      final colors = theme.extension<HermesColors>()!;
+    test('componentes del tema usan radio sm y acento del tema', () {
+      final theme = AppTheme.ebony;
+      final colors = theme.extension<AppPalette>()!;
 
       expect(theme.floatingActionButtonTheme.backgroundColor, colors.accent);
       expect(theme.floatingActionButtonTheme.foregroundColor, colors.onAccent);
@@ -57,25 +57,25 @@ void main() {
     });
 
     test('systemUiFor alinea status bar con cada tema', () {
-      final dark = AppTheme.systemUiFor(AppThemeOption.obsidian);
+      final dark = AppTheme.systemUiFor(AppThemeOption.ebony);
       final light = AppTheme.systemUiFor(AppThemeOption.light);
 
       expect(dark.statusBarIconBrightness, Brightness.light);
-      expect(dark.systemNavigationBarColor, AppColors.obsidianBackground);
+      expect(dark.systemNavigationBarColor, AppColors.ebonyBackground);
       expect(light.statusBarIconBrightness, Brightness.dark);
       expect(light.systemNavigationBarColor, AppColors.lightBackground);
     });
 
-    testWidgets('HermesColors.of resuelve tokens en MaterialApp',
+    testWidgets('AppPalette.of resuelve tokens en MaterialApp',
         (tester) async {
-      late HermesColors resolved;
+      late AppPalette resolved;
 
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.sepia,
           home: Builder(
             builder: (context) {
-              resolved = HermesColors.of(context);
+              resolved = AppPalette.of(context);
               return const SizedBox.shrink();
             },
           ),
@@ -95,11 +95,11 @@ void main() {
   });
 
   group('ThemeProvider', () {
-    test('ciclo Claro → Sepia → Obsidian → Claro', () async {
+    test('ciclo Claro → Sepia → Ébano → Claro', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await AppPreferences.open();
       final provider = ThemeProvider(preferences: prefs);
-      expect(provider.option, AppThemeOption.obsidian);
+      expect(provider.option, AppThemeOption.ebony);
 
       await provider.setTheme(AppThemeOption.light);
       expect(provider.option, AppThemeOption.light);
@@ -109,7 +109,7 @@ void main() {
       expect(provider.option, AppThemeOption.sepia);
 
       await provider.cycleTheme();
-      expect(provider.option, AppThemeOption.obsidian);
+      expect(provider.option, AppThemeOption.ebony);
 
       await provider.cycleTheme();
       expect(provider.option, AppThemeOption.light);

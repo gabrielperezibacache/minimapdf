@@ -5,15 +5,15 @@ import 'app_colors.dart';
 import 'app_radii.dart';
 import 'app_theme_option.dart';
 
-/// Construye [ThemeData] para cada opción de la paleta Hermes Obsidian.
+/// Construye [ThemeData] para cada opción de la paleta Ébano.
 ///
-/// Misma apariencia en Android e iOS: Material 3 + tokens Hermes
+/// Misma apariencia en Android e iOS: Material 3 + tokens Minimal PDF
 /// (colores, radios, tipografía y componentes).
 abstract final class AppTheme {
   static ThemeData of(AppThemeOption option) => switch (option) {
         AppThemeOption.light => light,
         AppThemeOption.sepia => sepia,
-        AppThemeOption.obsidian => obsidian,
+        AppThemeOption.ebony => ebony,
       };
 
   static ThemeData get light => _build(
@@ -40,16 +40,16 @@ abstract final class AppTheme {
         onAccent: Colors.white,
       );
 
-  static ThemeData get obsidian => _build(
+  static ThemeData get ebony => _build(
         brightness: Brightness.dark,
-        background: AppColors.obsidianBackground,
-        surface: AppColors.obsidianSurface,
-        panel: AppColors.obsidianPanel,
-        text: AppColors.obsidianText,
-        textMuted: AppColors.obsidianTextMuted,
-        border: AppColors.obsidianBorder,
-        accent: AppColors.obsidianAccent,
-        onAccent: AppColors.obsidianBackground,
+        background: AppColors.ebonyBackground,
+        surface: AppColors.ebonySurface,
+        panel: AppColors.ebonyPanel,
+        text: AppColors.ebonyText,
+        textMuted: AppColors.ebonyTextMuted,
+        border: AppColors.ebonyBorder,
+        accent: AppColors.ebonyAccent,
+        onAccent: AppColors.ebonyBackground,
       );
 
   static ThemeData _build({
@@ -230,7 +230,7 @@ abstract final class AppTheme {
         ),
       ),
       extensions: <ThemeExtension<dynamic>>[
-        HermesColors(
+        AppPalette(
           background: background,
           panel: panel,
           surface: surface,
@@ -271,10 +271,10 @@ abstract final class AppTheme {
   }
 }
 
-/// Colores semánticos Hermes accesibles vía `Theme.of(context).extension`.
+/// Colores semánticos accesibles vía `Theme.of(context).extension`.
 @immutable
-class HermesColors extends ThemeExtension<HermesColors> {
-  const HermesColors({
+class AppPalette extends ThemeExtension<AppPalette> {
+  const AppPalette({
     required this.background,
     required this.panel,
     required this.surface,
@@ -294,14 +294,14 @@ class HermesColors extends ThemeExtension<HermesColors> {
   final Color accent;
   final Color onAccent;
 
-  static HermesColors of(BuildContext context) {
-    final ext = Theme.of(context).extension<HermesColors>();
-    assert(ext != null, 'HermesColors no está registrado en el ThemeData');
+  static AppPalette of(BuildContext context) {
+    final ext = Theme.of(context).extension<AppPalette>();
+    assert(ext != null, 'AppPalette no está registrado en el ThemeData');
     return ext!;
   }
 
   @override
-  HermesColors copyWith({
+  AppPalette copyWith({
     Color? background,
     Color? panel,
     Color? surface,
@@ -311,7 +311,7 @@ class HermesColors extends ThemeExtension<HermesColors> {
     Color? accent,
     Color? onAccent,
   }) {
-    return HermesColors(
+    return AppPalette(
       background: background ?? this.background,
       panel: panel ?? this.panel,
       surface: surface ?? this.surface,
@@ -324,9 +324,9 @@ class HermesColors extends ThemeExtension<HermesColors> {
   }
 
   @override
-  HermesColors lerp(ThemeExtension<HermesColors>? other, double t) {
-    if (other is! HermesColors) return this;
-    return HermesColors(
+  AppPalette lerp(ThemeExtension<AppPalette>? other, double t) {
+    if (other is! AppPalette) return this;
+    return AppPalette(
       background: Color.lerp(background, other.background, t)!,
       panel: Color.lerp(panel, other.panel, t)!,
       surface: Color.lerp(surface, other.surface, t)!,

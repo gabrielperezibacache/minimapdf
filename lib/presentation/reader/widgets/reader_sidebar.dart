@@ -43,7 +43,7 @@ class ReaderSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final width = MediaQuery.sizeOf(context).width * 0.82;
 
     return Stack(
@@ -147,7 +147,7 @@ class _SidebarHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
@@ -213,7 +213,7 @@ class _TocPaneState extends State<_TocPane> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final pagesCount = widget.pagesCount < 0 ? 0 : widget.pagesCount;
 
     return Column(
@@ -306,7 +306,7 @@ class _BookmarksPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     if (bookmarks.isEmpty) {
       return Center(
@@ -374,7 +374,7 @@ class _AnnotationsPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     if (annotations.isEmpty) {
       return Center(
@@ -399,8 +399,8 @@ class _AnnotationsPane extends StatelessWidget {
 
         return ListTile(
           selected: selected,
-          selectedColor: AppColors.obsidianAccent,
-          leading: Icon(annotation.type.icon, color: AppColors.obsidianAccent),
+          selectedColor: AppColors.ebonyAccent,
+          leading: Icon(annotation.type.icon, color: AppColors.ebonyAccent),
           title: Text(
             '${annotation.type.label} · p. ${annotation.pageNumber}',
           ),
@@ -447,7 +447,7 @@ class _SignaturesPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     if (signatures.isEmpty) {
       return Center(
@@ -471,12 +471,12 @@ class _SignaturesPane extends StatelessWidget {
 
         return ListTile(
           selected: selected,
-          selectedColor: AppColors.obsidianAccent,
+          selectedColor: AppColors.ebonyAccent,
           leading: Icon(
             signature.type == SignatureType.typed
                 ? Icons.text_fields
                 : Icons.gesture,
-            color: AppColors.obsidianAccent,
+            color: AppColors.ebonyAccent,
           ),
           title: Text(signature.signerName),
           subtitle: Text(

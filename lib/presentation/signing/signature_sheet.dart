@@ -22,7 +22,7 @@ Future<SignatureDraft?> showSignatureSheet(
   return showModalBottomSheet<SignatureDraft>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: HermesColors.of(context).panel,
+    backgroundColor: AppPalette.of(context).panel,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
     ),
@@ -178,7 +178,7 @@ class _SignatureFormState extends State<_SignatureForm> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final narrow = MediaQuery.sizeOf(context).width < 380;
 
@@ -196,7 +196,7 @@ class _SignatureFormState extends State<_SignatureForm> {
             Text(
               'Firmar documento · página ${widget.pageNumber}',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.obsidianAccent,
+                    color: AppColors.ebonyAccent,
                   ),
             ),
             if (widget.initialOffsetX != null) ...[
@@ -260,13 +260,13 @@ class _SignatureFormState extends State<_SignatureForm> {
               style: ButtonStyle(
                 foregroundColor: WidgetStateProperty.resolveWith((states) {
                   if (states.contains(WidgetState.selected)) {
-                    return AppColors.obsidianBackground;
+                    return AppColors.ebonyBackground;
                   }
                   return colors.text;
                 }),
                 backgroundColor: WidgetStateProperty.resolveWith((states) {
                   if (states.contains(WidgetState.selected)) {
-                    return AppColors.obsidianAccent;
+                    return AppColors.ebonyAccent;
                   }
                   return colors.surface;
                 }),
@@ -396,7 +396,7 @@ class _SignatureFormState extends State<_SignatureForm> {
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
               value: _saveAsTemplate,
-              activeColor: AppColors.obsidianAccent,
+              activeColor: AppColors.ebonyAccent,
               title: Text(
                 'Guardar como plantilla',
                 style: Theme.of(context).textTheme.bodyMedium,
@@ -442,10 +442,10 @@ class _SignatureFormState extends State<_SignatureForm> {
                   child: FilledButton(
                     onPressed: _submitting ? null : _submit,
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.obsidianAccent,
-                      foregroundColor: AppColors.obsidianBackground,
+                      backgroundColor: AppColors.ebonyAccent,
+                      foregroundColor: AppColors.ebonyBackground,
                       disabledBackgroundColor:
-                          AppColors.obsidianAccent.withValues(alpha: 0.5),
+                          AppColors.ebonyAccent.withValues(alpha: 0.5),
                     ),
                     child: Text(_submitting ? 'Firmando…' : 'Firmar'),
                   ),

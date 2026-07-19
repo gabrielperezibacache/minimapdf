@@ -2,7 +2,7 @@
 
 Lector de PDF y gestor de biblioteca ultraligero, rápido y 100% offline para Android e iOS.
 
-Estética **Hermes Obsidian** · Pago único · Sin IA · Sin analíticas · Privacidad absoluta.
+Estética **Ébano** · Pago único · Sin IA · Sin analíticas · Privacidad absoluta.
 
 ## Documentación
 
@@ -16,7 +16,7 @@ Estética **Hermes Obsidian** · Pago único · Sin IA · Sin analíticas · Pri
 - **Importación:** file_picker → copia a documentos de la app
 - **Lector:** pdfx (carga diferida de páginas)
 - **Descargas:** flutter_downloader + HTTP fallback; mini-navegador flutter_inappwebview
-- **Temas:** Claro (Pergamino), Sepia, Oscuro Hermes Obsidian
+- **Temas:** Claro (Pergamino), Sepia, Oscuro Ébano
 
 ## Estructura
 
@@ -38,10 +38,10 @@ flutter run
 
 ## Plan de implementación
 
-1. ✅ Base + temas Hermes Obsidian + dependencias
+1. ✅ Base + temas Ébano + dependencias
 2. ✅ Base de datos y modelos locales (Book, Collection, Bookmark + CRUD Sqflite)
 3. ✅ Interfaz de biblioteca (grid/lista, importación file_picker, metadatos)
-4. ✅ Lector PDF (pdfx, scroll vertical/horizontal, filtro Obsidian, progreso)
+4. ✅ Lector PDF (pdfx, scroll vertical/horizontal, filtro Ébano, progreso)
 5. ✅ Anotaciones y marcadores (bronce, notas flotantes, sidebar TOC)
 6. ✅ Descargas por URL + mini-navegador con Capturar PDF
 7. ✅ Endurecimiento: streaming, cancelación, búsqueda, colecciones, errores claros

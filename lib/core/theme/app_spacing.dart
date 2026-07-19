@@ -1,4 +1,4 @@
-/// Escala de espaciado Hermes (múltiplos de 4).
+/// Escala de espaciado (múltiplos de 4).
 abstract final class AppSpacing {
   static const double xxs = 4;
   static const double xs = 8;

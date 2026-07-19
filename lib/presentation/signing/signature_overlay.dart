@@ -87,7 +87,7 @@ class SignatureLayer extends StatelessWidget {
                     onPlaceTap!(x.toDouble(), y.toDouble());
                   },
                   child: ColoredBox(
-                    color: AppColors.obsidianAccent.withValues(alpha: 0.08),
+                    color: AppColors.ebonyAccent.withValues(alpha: 0.08),
                     child: Align(
                       alignment: Alignment.topCenter,
                       child: Padding(
@@ -97,7 +97,7 @@ class SignatureLayer extends StatelessWidget {
                           style: Theme.of(context)
                               .textTheme
                               .labelLarge
-                              ?.copyWith(color: AppColors.obsidianAccent),
+                              ?.copyWith(color: AppColors.ebonyAccent),
                         ),
                       ),
                     ),
@@ -223,7 +223,7 @@ class SignatureOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final dateLabel = formatSignatureDate(signature.signedAt);
     final canDrag = onDragUpdate != null && onDragEnd != null;
     final scale = width / SignatureStampGeometry.referenceStampWidth;
@@ -241,7 +241,7 @@ class SignatureOverlay extends StatelessWidget {
           height: height,
           padding: EdgeInsets.fromLTRB(10 * scale, 8 * scale, 6 * scale, 8 * scale),
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.obsidianAccent, width: 1),
+            border: Border.all(color: AppColors.ebonyAccent, width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -253,7 +253,7 @@ class SignatureOverlay extends StatelessWidget {
                         ? Icons.text_fields
                         : Icons.gesture,
                     size: 14 * scale,
-                    color: AppColors.obsidianAccent,
+                    color: AppColors.ebonyAccent,
                   ),
                   SizedBox(width: 6 * scale),
                   Expanded(
@@ -262,7 +262,7 @@ class SignatureOverlay extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.obsidianAccent,
+                            color: AppColors.ebonyAccent,
                             fontSize: 11 * scale,
                           ),
                     ),

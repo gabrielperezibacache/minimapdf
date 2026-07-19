@@ -10,7 +10,8 @@ class AppPreferences {
 
   static const _themeKey = 'theme_option';
   static const _gridModeKey = 'library_grid_mode';
-  static const _obsidianFilterKey = 'reader_obsidian_filter';
+  static const _ebonyFilterKey = 'reader_ebony_filter';
+  static const _legacyEbonyFilterKey = 'reader_obsidian_filter';
   static const _scrollModeKey = 'reader_scroll_mode';
   static const _hasSeenWelcomeKey = 'has_seen_welcome';
 
@@ -21,10 +22,12 @@ class AppPreferences {
 
   AppThemeOption get themeOption {
     final raw = _prefs.getString(_themeKey);
-    if (raw == null) return AppThemeOption.obsidian;
+    if (raw == null) return AppThemeOption.ebony;
+    // Migración desde el nombre antiguo del tema oscuro.
+    if (raw == 'obsidian') return AppThemeOption.ebony;
     return AppThemeOption.values.firstWhere(
       (option) => option.name == raw,
-      orElse: () => AppThemeOption.obsidian,
+      orElse: () => AppThemeOption.ebony,
     );
   }
 
@@ -38,10 +41,13 @@ class AppPreferences {
     await _prefs.setBool(_gridModeKey, value);
   }
 
-  bool get obsidianFilter => _prefs.getBool(_obsidianFilterKey) ?? true;
+  bool get ebonyFilter =>
+      _prefs.getBool(_ebonyFilterKey) ??
+      _prefs.getBool(_legacyEbonyFilterKey) ??
+      true;
 
-  Future<void> setObsidianFilter(bool value) async {
-    await _prefs.setBool(_obsidianFilterKey, value);
+  Future<void> setEbonyFilter(bool value) async {
+    await _prefs.setBool(_ebonyFilterKey, value);
   }
 
   /// Nombre de [ReaderScrollMode] (p. ej. `verticalContinuous`).

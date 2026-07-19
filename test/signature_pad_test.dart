@@ -10,7 +10,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.of(AppThemeOption.obsidian),
+        theme: AppTheme.of(AppThemeOption.ebony),
         home: Scaffold(
           body: SignaturePad(
             onStrokesChanged: (value) => strokes = value,
@@ -42,7 +42,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.of(AppThemeOption.obsidian),
+        theme: AppTheme.of(AppThemeOption.ebony),
         home: Scaffold(
           body: SignaturePad(
             onStrokesChanged: (value) => strokes = value,

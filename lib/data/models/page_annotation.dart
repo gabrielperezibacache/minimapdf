@@ -43,13 +43,13 @@ enum AnnotationType {
       this == AnnotationType.comment ||
       this == AnnotationType.annotation;
 
-  /// Color de acento bronce Hermes para cada herramienta.
+  /// Color de acento bronce Ébano para cada herramienta.
   Color get defaultColor => switch (this) {
         AnnotationType.highlight => const Color(0x99C89A5A),
-        AnnotationType.underline => AppColors.obsidianAccent,
-        AnnotationType.note => AppColors.obsidianAccent,
+        AnnotationType.underline => AppColors.ebonyAccent,
+        AnnotationType.note => AppColors.ebonyAccent,
         AnnotationType.comment => const Color(0xFFD4B483),
-        AnnotationType.annotation => AppColors.obsidianAccent,
+        AnnotationType.annotation => AppColors.ebonyAccent,
       };
 }
 

@@ -15,7 +15,7 @@ Future<String?> showNoteEditSheet(
   return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: HermesColors.of(context).panel,
+    backgroundColor: AppPalette.of(context).panel,
     shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheetTop),
     builder: (context) => _NoteEditForm(
       pageNumber: pageNumber,
@@ -60,7 +60,7 @@ class _NoteEditFormState extends State<_NoteEditForm> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return Padding(

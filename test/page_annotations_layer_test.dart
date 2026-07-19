@@ -14,7 +14,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.obsidian,
+        theme: AppTheme.ebony,
         home: Scaffold(
           body: Center(
             child: SizedBox(
@@ -57,7 +57,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.obsidian,
+        theme: AppTheme.ebony,
         home: Scaffold(
           body: Center(
             child: SizedBox(
@@ -109,13 +109,13 @@ void main() {
       y: 0.4,
       width: 0.2,
       height: 0.1,
-      colorValue: AppColors.obsidianAccent.toARGB32(),
+      colorValue: AppColors.ebonyAccent.toARGB32(),
       createdAt: DateTime(2026, 7, 19),
     );
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.obsidian,
+        theme: AppTheme.ebony,
         home: Scaffold(
           body: Center(
             child: SizedBox(

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Splash Hermes Obsidian (mismo tono en Android e iOS). -->
+<!-- Splash Ébano (mismo tono en Android e iOS). -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/hermes_obsidian_background" />
+    <item android:drawable="@color/ebony_background" />
 </layer-list>

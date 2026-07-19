@@ -27,7 +27,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.of(AppThemeOption.obsidian),
+        theme: AppTheme.of(AppThemeOption.ebony),
         home: Builder(
           builder: (context) {
             return Scaffold(
@@ -65,7 +65,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.of(AppThemeOption.obsidian),
+        theme: AppTheme.of(AppThemeOption.ebony),
         home: Builder(
           builder: (context) {
             return Scaffold(

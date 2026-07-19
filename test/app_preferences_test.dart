@@ -13,20 +13,20 @@ void main() {
   test('persiste tema, grid y preferencias del lector', () async {
     final prefs = await AppPreferences.open();
 
-    expect(prefs.themeOption, AppThemeOption.obsidian);
+    expect(prefs.themeOption, AppThemeOption.ebony);
     expect(prefs.gridMode, isTrue);
-    expect(prefs.obsidianFilter, isTrue);
+    expect(prefs.ebonyFilter, isTrue);
     expect(prefs.scrollModeName, 'verticalContinuous');
 
     await prefs.setThemeOption(AppThemeOption.light);
     await prefs.setGridMode(false);
-    await prefs.setObsidianFilter(false);
+    await prefs.setEbonyFilter(false);
     await prefs.setScrollModeName('horizontalPaged');
 
     final reloaded = await AppPreferences.open();
     expect(reloaded.themeOption, AppThemeOption.light);
     expect(reloaded.gridMode, isFalse);
-    expect(reloaded.obsidianFilter, isFalse);
+    expect(reloaded.ebonyFilter, isFalse);
     expect(reloaded.scrollModeName, 'horizontalPaged');
   });
 

@@ -72,7 +72,7 @@ void main() {
       (WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.obsidian,
+        theme: AppTheme.ebony,
         home: WelcomeScreen(onFinished: () {}),
       ),
     );
@@ -94,7 +94,7 @@ void main() {
     await tester.tap(find.text('Continuar'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Lector Hermes Obsidian'), findsOneWidget);
+    expect(find.text('Lector Ébano'), findsOneWidget);
     expect(find.text('Empezar a leer'), findsOneWidget);
     expect(find.text('Omitir'), findsNothing);
     expect(find.text('Rápido · Cómodo · Sin distracciones'), findsOneWidget);
@@ -154,7 +154,7 @@ void main() {
     var finished = false;
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.obsidian,
+        theme: AppTheme.ebony,
         home: WelcomeScreen(onFinished: () => finished = true),
       ),
     );

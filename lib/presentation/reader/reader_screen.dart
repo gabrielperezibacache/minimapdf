@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 import '../../core/preferences/app_preferences.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/hermes_pdf_filter.dart';
+import '../../core/theme/ebony_pdf_filter.dart';
 import '../../data/datasources/library_local_datasource.dart';
 import '../../data/models/book.dart';
 import '../../data/models/bookmark.dart';
@@ -29,7 +29,7 @@ import 'widgets/page_annotations_layer.dart';
 import 'widgets/reader_sidebar.dart';
 import 'widgets/signed_pdf_page.dart';
 
-/// Lector PDF de alto rendimiento (pdfx) con filtro Hermes Obsidian.
+/// Lector PDF de alto rendimiento (pdfx) con filtro Ébano.
 class ReaderScreen extends StatefulWidget {
   const ReaderScreen({super.key, required this.book});
 
@@ -49,7 +49,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   DocumentSigningProvider? _signing;
 
   ReaderScrollMode _scrollMode = ReaderScrollMode.verticalContinuous;
-  bool _obsidianFilter = true;
+  bool _ebonyFilter = true;
   bool _controlsVisible = true;
   bool _sidebarVisible = false;
   bool _noteDismissed = false;
@@ -84,7 +84,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       _preferences = context.read<AppPreferences?>();
       final prefs = _preferences;
       if (prefs != null) {
-        _obsidianFilter = prefs.obsidianFilter;
+        _ebonyFilter = prefs.ebonyFilter;
         _scrollMode = ReaderScrollMode.values.firstWhere(
           (mode) => mode.name == prefs.scrollModeName,
           orElse: () => ReaderScrollMode.verticalContinuous,
@@ -198,9 +198,9 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _toggleFilter() async {
-    final next = !_obsidianFilter;
-    setState(() => _obsidianFilter = next);
-    await _preferences?.setObsidianFilter(next);
+    final next = !_ebonyFilter;
+    setState(() => _ebonyFilter = next);
+    await _preferences?.setEbonyFilter(next);
   }
 
   void _toggleControls() {
@@ -225,7 +225,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       return;
     }
 
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -343,7 +343,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _openAnnotation(PageAnnotation annotation) async {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
 
     if (annotation.type.needsText || annotation.hasText) {
       final action = await showModalBottomSheet<_AnnotationAction>(
@@ -360,11 +360,11 @@ class _ReaderScreenState extends State<ReaderScreen>
                 ListTile(
                   leading: Icon(
                     annotation.type.icon,
-                    color: AppColors.obsidianAccent,
+                    color: AppColors.ebonyAccent,
                   ),
                   title: Text(
                     annotation.type.label,
-                    style: const TextStyle(color: AppColors.obsidianAccent),
+                    style: const TextStyle(color: AppColors.ebonyAccent),
                   ),
                   subtitle: Text(
                     annotation.hasText
@@ -439,11 +439,11 @@ class _ReaderScreenState extends State<ReaderScreen>
               ListTile(
                 leading: Icon(
                   annotation.type.icon,
-                  color: AppColors.obsidianAccent,
+                  color: AppColors.ebonyAccent,
                 ),
                 title: Text(
                   '${annotation.type.label} · página ${annotation.pageNumber}',
-                  style: const TextStyle(color: AppColors.obsidianAccent),
+                  style: const TextStyle(color: AppColors.ebonyAccent),
                 ),
               ),
               const Divider(height: 1),
@@ -469,14 +469,14 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _confirmDeleteAnnotation(PageAnnotation annotation) async {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.panel,
         title: Text(
           'Eliminar ${annotation.type.label.toLowerCase()}',
-          style: const TextStyle(color: AppColors.obsidianAccent),
+          style: const TextStyle(color: AppColors.ebonyAccent),
         ),
         content: Text(
           '¿Quieres eliminar esta anotación de la página ${annotation.pageNumber}?',
@@ -491,7 +491,7 @@ class _ReaderScreenState extends State<ReaderScreen>
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text(
               'Eliminar',
-              style: TextStyle(color: AppColors.obsidianAccent),
+              style: TextStyle(color: AppColors.ebonyAccent),
             ),
           ),
         ],
@@ -631,7 +631,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
-        final colors = HermesColors.of(context);
+        final colors = AppPalette.of(context);
         return AlertDialog(
           backgroundColor: colors.panel,
           title: const Text('Eliminar firma'),
@@ -648,7 +648,7 @@ class _ReaderScreenState extends State<ReaderScreen>
               onPressed: () => Navigator.of(context).pop(true),
               child: const Text(
                 'Eliminar',
-                style: TextStyle(color: AppColors.obsidianAccent),
+                style: TextStyle(color: AppColors.ebonyAccent),
               ),
             ),
           ],
@@ -677,7 +677,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     final hasNote =
         bookmark.noteText != null && bookmark.noteText!.trim().isNotEmpty;
     if (hasNote) {
-      final colors = HermesColors.of(context);
+      final colors = AppPalette.of(context);
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -712,9 +712,9 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   @override
   Widget build(BuildContext context) {
-    final colors = HermesColors.of(context);
+    final colors = AppPalette.of(context);
     final scaffoldBg =
-        _obsidianFilter ? HermesPdfFilter.background : colors.background;
+        _ebonyFilter ? EbonyPdfFilter.background : colors.background;
     final annotations = _annotations;
     final signing = _signing;
     final currentBookmark = annotations?.bookmarkForPage(_currentPage);
@@ -751,7 +751,7 @@ class _ReaderScreenState extends State<ReaderScreen>
         await _onExit();
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: _obsidianFilter
+        value: _ebonyFilter
             ? SystemUiOverlayStyle.light
             : (Theme.of(context).brightness == Brightness.dark
                 ? SystemUiOverlayStyle.light
@@ -854,7 +854,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                       ),
                       icon: const Icon(
                         Icons.border_color,
-                        color: AppColors.obsidianAccent,
+                        color: AppColors.ebonyAccent,
                       ),
                     ),
                   ),
@@ -881,7 +881,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
   }
 
-  Widget _buildPdfView(HermesColors colors) {
+  Widget _buildPdfView(AppPalette colors) {
     if (_error != null) {
       return Center(
         child: Padding(
@@ -899,7 +899,7 @@ class _ReaderScreenState extends State<ReaderScreen>
 
     final signing = _signing;
     final scaffoldBg =
-        _obsidianFilter ? HermesPdfFilter.background : colors.background;
+        _ebonyFilter ? EbonyPdfFilter.background : colors.background;
 
     return PdfView(
       // Sin ValueKey: cambiar scrollDirection no recrea el PdfView
@@ -962,7 +962,7 @@ class _ReaderScreenState extends State<ReaderScreen>
               pageNumber: pageNumber,
               fallbackSize: pageSize,
               signatures: signing?.signaturesForPage(pageNumber) ?? const [],
-              obsidianFilter: _obsidianFilter,
+              ebonyFilter: _ebonyFilter,
               placementMode: signing?.placementMode ?? false,
               onPlaceTap: _openSignatureSheetAt,
               onMove: (signature, x, y) {
@@ -988,7 +988,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Widget _buildTopBar(
-    HermesColors colors,
+    AppPalette colors,
     bool isBookmarked,
     DocumentSigningProvider? signing, {
     required bool toolboxVisible,
@@ -1038,12 +1038,12 @@ class _ReaderScreenState extends State<ReaderScreen>
               onPressed: _toggleAnnotationToolbox,
               style: IconButton.styleFrom(
                 backgroundColor: toolboxVisible
-                    ? AppColors.obsidianAccent.withValues(alpha: 0.22)
+                    ? AppColors.ebonyAccent.withValues(alpha: 0.22)
                     : null,
               ),
               icon: Icon(
                 Icons.border_color,
-                color: AppColors.obsidianAccent,
+                color: AppColors.ebonyAccent,
                 size: toolboxVisible ? 24 : 22,
               ),
             ),
@@ -1072,16 +1072,16 @@ class _ReaderScreenState extends State<ReaderScreen>
                       ),
                     ),
                     IconButton(
-                      tooltip: _obsidianFilter
-                          ? 'Desactivar filtro Obsidian'
-                          : 'Filtro Hermes Obsidian',
+                      tooltip: _ebonyFilter
+                          ? 'Desactivar filtro Ébano'
+                          : 'Filtro Ébano',
                       onPressed: _toggleFilter,
                       icon: Icon(
-                        _obsidianFilter
+                        _ebonyFilter
                             ? Icons.dark_mode
                             : Icons.dark_mode_outlined,
                         color:
-                            _obsidianFilter ? colors.accent : colors.textMuted,
+                            _ebonyFilter ? colors.accent : colors.textMuted,
                       ),
                     ),
                     IconButton(
@@ -1118,7 +1118,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     },
               icon: Icon(
                 placement ? Icons.close : Icons.draw_outlined,
-                color: AppColors.obsidianAccent,
+                color: AppColors.ebonyAccent,
               ),
             ),
             IconButton(
@@ -1132,7 +1132,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                   : _exportSignedPdf,
               icon: Icon(
                 Icons.ios_share_outlined,
-                color: canExport ? AppColors.obsidianAccent : colors.textMuted,
+                color: canExport ? AppColors.ebonyAccent : colors.textMuted,
               ),
             ),
           ],
@@ -1142,7 +1142,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Widget _buildBottomBar(
-    HermesColors colors, {
+    AppPalette colors, {
     required bool isBookmarked,
     required int signatureCount,
     required int annotationCount,
@@ -1164,12 +1164,12 @@ class _ReaderScreenState extends State<ReaderScreen>
               const SizedBox(width: 6),
             ],
             if (signatureCount > 0) ...[
-              Icon(Icons.draw, size: 16, color: AppColors.obsidianAccent),
+              Icon(Icons.draw, size: 16, color: AppColors.ebonyAccent),
               const SizedBox(width: 4),
               Text(
                 '$signatureCount',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: AppColors.obsidianAccent,
+                      color: AppColors.ebonyAccent,
                     ),
               ),
               const SizedBox(width: 10),
@@ -1185,13 +1185,13 @@ class _ReaderScreenState extends State<ReaderScreen>
               const Icon(
                 Icons.border_color,
                 size: 14,
-                color: AppColors.obsidianAccent,
+                color: AppColors.ebonyAccent,
               ),
               const SizedBox(width: 4),
               Text(
                 '$annotationCount',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.obsidianAccent,
+                      color: AppColors.ebonyAccent,
                     ),
               ),
             ],
@@ -1200,10 +1200,10 @@ class _ReaderScreenState extends State<ReaderScreen>
               _scrollMode.label,
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            if (_obsidianFilter) ...[
+            if (_ebonyFilter) ...[
               const SizedBox(width: 12),
               Text(
-                'Obsidian',
+                'Ébano',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colors.accent,
                     ),
