@@ -4,12 +4,34 @@ Ultra-lightweight, 100% offline PDF reader and library manager.
 
 **Slogan:** Read, organize, focus. Once.
 
+## App
+
+The React app under `src/` uses the Hermes Obsidian design system for tokens, primitives, and the Library → Reader → Settings product surface.
+
+```bash
+npm install
+npm run dev
+```
+
+```bash
+npm run build
+npm run preview
+```
+
+### What’s wired up
+
+- Design tokens + global styles from `design-system/styles.css`
+- UI primitives imported via the `@ds` alias (`design-system/index.js`)
+- Library grid, three-panel reader, tool drawer, and settings dialog
+- Dark / Light Canvas themes and ultra-low-glare mode
+- Responsive sidebar / drawer on smaller viewports
+
 ## Design system
 
-The Hermes Obsidian design system lives in [`design-system/`](./design-system/):
+Source package: [`design-system/`](./design-system/). Full docs: [`design-system/readme.md`](./design-system/readme.md).
 
-- Tokens, guidelines, and React components
-- Interactive app prototype UI kit (`ui_kits/minima-pdf-app/`)
-- Full prototype: `design-system/Minima PDF Design System - App Prototype.html`
+Prototype HTML (reference): `design-system/Minima PDF Design System - App Prototype.html`
 
-See [`design-system/readme.md`](./design-system/readme.md) for brand rules, tokens, and component inventory.
+## Deploy
+
+`render.yaml` publishes the Vite `dist/` output as a static site with SPA rewrite to `index.html`.

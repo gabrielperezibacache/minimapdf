@@ -3,7 +3,7 @@ import React from "react";
 export function Dialog({ open, title, children, onClose }) {
   if (!open) return null;
   return (
-    <div style={{ position: "absolute", inset: 0, background: "rgba(15,23,20,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={onClose}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,20,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
         style={{

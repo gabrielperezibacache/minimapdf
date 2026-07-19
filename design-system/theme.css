@@ -1,0 +1,10 @@
+/* Light Canvas theme — remaps semantic tokens when data-theme="light" */
+[data-theme="light"] {
+  --color-bg-canvas: var(--color-bg-canvas-light);
+  --color-bg-sidebar: var(--color-bg-surface-light);
+  --color-bg-surface: #FBF8F3;
+  --color-border: var(--color-border-light);
+  --color-text-primary: var(--color-text-primary-light);
+  --color-text-secondary: #5C6B5A;
+  --color-text-muted: #7C8B79;
+}

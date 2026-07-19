@@ -1,10 +1,13 @@
 import React from "react";
 
-export function IconButton({ children, active = false, size = 32, title }) {
+export function IconButton({ children, active = false, size = 32, title, onClick, disabled = false }) {
   const [hover, setHover] = React.useState(false);
   return (
     <button
+      type="button"
       title={title}
+      disabled={disabled}
+      onClick={onClick}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
@@ -15,9 +18,10 @@ export function IconButton({ children, active = false, size = 32, title }) {
         justifyContent: "center",
         borderRadius: "var(--radius-sm)",
         border: active ? "1px solid var(--color-accent)" : "1px solid transparent",
-        background: active ? "rgba(200,154,90,0.14)" : hover ? "var(--color-bg-surface)" : "transparent",
+        background: active ? "rgba(200,154,90,0.14)" : hover && !disabled ? "var(--color-bg-surface)" : "transparent",
         color: active ? "var(--color-accent)" : "var(--color-text-secondary)",
-        cursor: "pointer",
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled ? 0.45 : 1,
         transitionProperty: "background,color,border-color",
         transitionDuration: "var(--duration-fast)",
       }}
