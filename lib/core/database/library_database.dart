@@ -34,7 +34,7 @@ class LibraryDatabase {
       limit: 1,
     );
     if (rows.isEmpty) return null;
-    return Collection.fromMap(rows.first);
+    return Collection.tryFromMap(rows.first);
   }
 
   Future<List<Collection>> getAllCollections() async {
@@ -42,7 +42,12 @@ class LibraryDatabase {
       DatabaseConfig.tableCollections,
       orderBy: 'name COLLATE NOCASE ASC',
     );
-    return rows.map(Collection.fromMap).toList();
+    final collections = <Collection>[];
+    for (final row in rows) {
+      final collection = Collection.tryFromMap(row);
+      if (collection != null) collections.add(collection);
+    }
+    return collections;
   }
 
   Future<int> updateCollection(Collection collection) async {
@@ -223,7 +228,7 @@ class LibraryDatabase {
       limit: 1,
     );
     if (rows.isEmpty) return null;
-    return Bookmark.fromMap(rows.first);
+    return Bookmark.tryFromMap(rows.first);
   }
 
   Future<List<Bookmark>> getBookmarksForBook(int bookId) async {
@@ -233,7 +238,12 @@ class LibraryDatabase {
       whereArgs: [bookId],
       orderBy: 'page_number ASC',
     );
-    return rows.map(Bookmark.fromMap).toList();
+    final bookmarks = <Bookmark>[];
+    for (final row in rows) {
+      final bookmark = Bookmark.tryFromMap(row);
+      if (bookmark != null) bookmarks.add(bookmark);
+    }
+    return bookmarks;
   }
 
   Future<int> updateBookmark(Bookmark bookmark) async {

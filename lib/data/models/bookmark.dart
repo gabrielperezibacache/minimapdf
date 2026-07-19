@@ -41,30 +41,54 @@ class Bookmark {
     };
   }
 
+  /// Parseo estricto; lanza si faltan campos obligatorios.
   factory Bookmark.fromMap(Map<String, Object?> map) {
-    final bookIdRaw = map['book_id'];
-    final bookId = bookIdRaw is int
-        ? bookIdRaw
-        : int.tryParse('$bookIdRaw') ?? 0;
+    final bookmark = Bookmark.tryFromMap(map);
+    if (bookmark == null) {
+      throw FormatException('Fila de marcador inválida o corrupta');
+    }
+    return bookmark;
+  }
 
-    final pageRaw = map['page_number'];
-    final pageNumber = pageRaw is int
-        ? pageRaw
-        : int.tryParse('$pageRaw') ?? 1;
+  /// Parseo tolerante: filas corruptas → null.
+  static Bookmark? tryFromMap(Map<String, Object?> map) {
+    try {
+      final bookId = _asInt(map['book_id']);
+      if (bookId == null || bookId < 1) return null;
 
-    final createdRaw = map['created_at'];
-    final createdAt = createdRaw is String && createdRaw.isNotEmpty
-        ? (DateTime.tryParse(createdRaw) ??
-            DateTime.fromMillisecondsSinceEpoch(0))
-        : DateTime.fromMillisecondsSinceEpoch(0);
+      final pageNumber = _asInt(map['page_number']) ?? 1;
+      final createdAt = _asDateTime(map['created_at']) ??
+          DateTime.fromMillisecondsSinceEpoch(0);
 
-    return Bookmark(
-      id: map['id'] as int?,
-      bookId: bookId,
-      pageNumber: pageNumber < 1 ? 1 : pageNumber,
-      noteText: map['note_text'] as String?,
-      createdAt: createdAt,
-    );
+      return Bookmark(
+        id: _asInt(map['id']),
+        bookId: bookId,
+        pageNumber: pageNumber < 1 ? 1 : pageNumber,
+        noteText: _asNullableString(map['note_text']),
+        createdAt: createdAt,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static int? _asInt(Object? value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  static String? _asNullableString(Object? value) {
+    if (value == null) return null;
+    if (value is! String) return null;
+    return value;
+  }
+
+  static DateTime? _asDateTime(Object? value) {
+    if (value == null) return null;
+    if (value is! String || value.isEmpty) return null;
+    return DateTime.tryParse(value);
   }
 
   @override

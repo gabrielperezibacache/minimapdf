@@ -49,6 +49,8 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
     mediaPlaybackRequiresUserGesture: true,
     transparentBackground: false,
     useShouldOverrideUrlLoading: true,
+    // Requerido para que onDownloadStarting se dispare (Content-Disposition).
+    useOnDownloadStart: true,
     javaScriptCanOpenWindowsAutomatically: false,
     supportZoom: true,
     userAgent:
@@ -478,7 +480,11 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                             mime.contains('pdf');
                         if (!isPdf) return null;
                         unawaited(_downloadPdfLink(href));
-                        return null;
+                        // Evita el diálogo/descarga nativa del WebView.
+                        return DownloadStartResponse(
+                          handled: true,
+                          action: DownloadStartResponseAction.CANCEL,
+                        );
                       },
                       onReceivedError: (controller, request, error) {
                         _pullToRefreshController?.endRefreshing();

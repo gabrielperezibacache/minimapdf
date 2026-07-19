@@ -213,37 +213,39 @@ class SignedPdfExportService {
     try {
       final frame = await codec.getNextFrame();
       final pageImage = frame.image;
-
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
-      final size = Size(width.toDouble(), height.toDouble());
-      canvas.drawImage(pageImage, Offset.zero, Paint());
-
-      final stamp = SignatureStampGeometry.stampSizeFor(size);
-      final maxLeft = SignatureStampGeometry.maxLeft(size);
-      final maxTop = SignatureStampGeometry.maxTop(size);
-
-      for (final signature in signatures) {
-        final left = signature.offsetX.clamp(0.0, 1.0) * maxLeft;
-        final top = signature.offsetY.clamp(0.0, 1.0) * maxTop;
-        _paintStamp(
-          canvas,
-          Rect.fromLTWH(left, top, stamp.width, stamp.height),
-          signature,
-        );
-      }
-
-      final picture = recorder.endRecording();
-      final stamped = await picture.toImage(width, height);
       try {
-        final byteData =
-            await stamped.toByteData(format: ui.ImageByteFormat.png);
-        if (byteData == null) {
-          throw StateError('No se pudo codificar la página firmada.');
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
+        final size = Size(width.toDouble(), height.toDouble());
+        canvas.drawImage(pageImage, Offset.zero, Paint());
+
+        final stamp = SignatureStampGeometry.stampSizeFor(size);
+        final maxLeft = SignatureStampGeometry.maxLeft(size);
+        final maxTop = SignatureStampGeometry.maxTop(size);
+
+        for (final signature in signatures) {
+          final left = signature.offsetX.clamp(0.0, 1.0) * maxLeft;
+          final top = signature.offsetY.clamp(0.0, 1.0) * maxTop;
+          _paintStamp(
+            canvas,
+            Rect.fromLTWH(left, top, stamp.width, stamp.height),
+            signature,
+          );
         }
-        return byteData.buffer.asUint8List();
+
+        final picture = recorder.endRecording();
+        final stamped = await picture.toImage(width, height);
+        try {
+          final byteData =
+              await stamped.toByteData(format: ui.ImageByteFormat.png);
+          if (byteData == null) {
+            throw StateError('No se pudo codificar la página firmada.');
+          }
+          return byteData.buffer.asUint8List();
+        } finally {
+          stamped.dispose();
+        }
       } finally {
-        stamped.dispose();
         pageImage.dispose();
       }
     } finally {
@@ -279,61 +281,66 @@ class SignedPdfExportService {
         ),
       ),
       textDirection: TextDirection.ltr,
-    )..layout(maxWidth: content.width);
-    header.paint(canvas, content.topLeft);
-
-    var cursorY = content.top + header.height + 4 * scale;
+    );
     TextPainter? rubrica;
-    if (signature.type == SignatureType.typed) {
-      rubrica = TextPainter(
+    TextPainter? meta;
+    try {
+      header.layout(maxWidth: content.width);
+      header.paint(canvas, content.topLeft);
+
+      var cursorY = content.top + header.height + 4 * scale;
+      if (signature.type == SignatureType.typed) {
+        rubrica = TextPainter(
+          text: TextSpan(
+            text: signature.displayText,
+            style: TextStyle(
+              color: const Color(0xFF121D18),
+              fontSize: 20 * scale,
+              fontStyle: FontStyle.italic,
+              fontFamily: 'serif',
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+          maxLines: 2,
+          ellipsis: '…',
+        )..layout(maxWidth: content.width);
+        rubrica.paint(canvas, Offset(content.left, cursorY));
+        cursorY += rubrica.height + 4 * scale;
+      } else {
+        final inkRect = Rect.fromLTWH(
+          content.left,
+          cursorY,
+          content.width,
+          content.height * 0.38,
+        );
+        _paintInk(canvas, inkRect, signature.inkStrokes);
+        cursorY = inkRect.bottom + 4 * scale;
+      }
+
+      meta = TextPainter(
         text: TextSpan(
-          text: signature.displayText,
+          text: [
+            signature.signerName,
+            _formatDate(signature.signedAt),
+            if (signature.reason != null && signature.reason!.isNotEmpty)
+              signature.reason!,
+          ].join('\n'),
           style: TextStyle(
-            color: const Color(0xFF121D18),
-            fontSize: 20 * scale,
-            fontStyle: FontStyle.italic,
-            fontFamily: 'serif',
+            color: const Color(0xFF3D4A44),
+            fontSize: 10 * scale,
+            height: 1.2,
           ),
         ),
         textDirection: TextDirection.ltr,
-        maxLines: 2,
+        maxLines: 3,
         ellipsis: '…',
       )..layout(maxWidth: content.width);
-      rubrica.paint(canvas, Offset(content.left, cursorY));
-      cursorY += rubrica.height + 4 * scale;
-    } else {
-      final inkRect = Rect.fromLTWH(
-        content.left,
-        cursorY,
-        content.width,
-        content.height * 0.38,
-      );
-      _paintInk(canvas, inkRect, signature.inkStrokes);
-      cursorY = inkRect.bottom + 4 * scale;
+      meta.paint(canvas, Offset(content.left, cursorY));
+    } finally {
+      header.dispose();
+      rubrica?.dispose();
+      meta?.dispose();
     }
-
-    final meta = TextPainter(
-      text: TextSpan(
-        text: [
-          signature.signerName,
-          _formatDate(signature.signedAt),
-          if (signature.reason != null && signature.reason!.isNotEmpty)
-            signature.reason!,
-        ].join('\n'),
-        style: TextStyle(
-          color: const Color(0xFF3D4A44),
-          fontSize: 10 * scale,
-          height: 1.2,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      maxLines: 3,
-      ellipsis: '…',
-    )..layout(maxWidth: content.width);
-    meta.paint(canvas, Offset(content.left, cursorY));
-    header.dispose();
-    rubrica?.dispose();
-    meta.dispose();
   }
 
   void _paintInk(

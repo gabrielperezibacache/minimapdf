@@ -90,6 +90,16 @@ void main() {
       expect(collection.createdAt, DateTime.fromMillisecondsSinceEpoch(0));
     });
 
+    test('Collection.tryFromMap tolera id string', () {
+      final collection = Collection.tryFromMap({
+        'id': '9',
+        'name': 'Papers',
+        'created_at': '2026-07-02T00:00:00.000Z',
+      });
+      expect(collection, isNotNull);
+      expect(collection!.id, 9);
+    });
+
     test('Bookmark round-trip', () {
       final bookmark = Bookmark(
         id: 2,
@@ -112,6 +122,17 @@ void main() {
       expect(bookmark.noteText, 'ok');
       expect(bookmark.pageNumber, 2);
       expect(bookmark.createdAt, DateTime.fromMillisecondsSinceEpoch(0));
+    });
+
+    test('Bookmark.tryFromMap ignora book_id inválido', () {
+      expect(
+        Bookmark.tryFromMap({
+          'book_id': 0,
+          'page_number': 1,
+          'created_at': '2026-07-03T00:00:00.000Z',
+        }),
+        isNull,
+      );
     });
 
     test('PageAnnotation round-trip', () {

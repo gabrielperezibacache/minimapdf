@@ -281,6 +281,73 @@ void main() {
       expect(signing.error, contains('No se pudo exportar'));
     });
 
+    test('move/delete se rechazan mientras exporta', () async {
+      signing.dispose();
+      signing = DocumentSigningProvider(
+        datasource,
+        exportService: _SlowFailingExport(),
+      );
+      await signing.loadForBook(book);
+      final saved = await signing.signPage(
+        pageNumber: 1,
+        draft: const SignatureDraft(
+          type: SignatureType.typed,
+          signerName: 'Ana',
+          typedText: 'Ana',
+        ),
+      );
+      expect(saved, isNotNull);
+
+      final export = signing.exportSignedPdf();
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(signing.exporting, isTrue);
+
+      final moved = await signing.moveSignature(
+        signature: saved!,
+        offsetX: 0.2,
+        offsetY: 0.2,
+      );
+      expect(moved, isFalse);
+      expect(signing.error, contains('exportación'));
+
+      final deleted = await signing.deleteSignature(saved);
+      expect(deleted, isFalse);
+
+      await export;
+      expect(signing.exporting, isFalse);
+      expect(signing.signatures, hasLength(1));
+    });
+
+    test('export limpia artefactos si insertBook falla', () async {
+      signing.dispose();
+      var wrotePath = '';
+      final failingDs = _FailingInsertDatasource(LibraryDatabase(appDatabase));
+      signing = DocumentSigningProvider(
+        failingDs,
+        exportService: _WritingThenOkExport(
+          tempDir: tempDir,
+          onWrote: (path) => wrotePath = path,
+        ),
+      );
+      await signing.loadForBook(book);
+      await signing.signPage(
+        pageNumber: 1,
+        draft: const SignatureDraft(
+          type: SignatureType.typed,
+          signerName: 'Eva',
+          typedText: 'Eva',
+        ),
+      );
+
+      final result = await signing.exportSignedPdf();
+      expect(result, isNull);
+      expect(signing.error, contains('No se pudo exportar'));
+      expect(wrotePath, isNotEmpty);
+      expect(File(wrotePath).existsSync(), isFalse);
+      final manifest = '${p.withoutExtension(wrotePath)}.firmas.json';
+      expect(File(manifest).existsSync(), isFalse);
+    });
+
     test('título exportado no acumula (firmado)', () async {
       final base = book.title
           .replaceAll(RegExp(r'\s*\(firmado\)\s*$'), '')
@@ -556,5 +623,52 @@ class _SlowFailingExport extends SignedPdfExportService {
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
     throw StateError('export fail');
+  }
+}
+
+class _WritingThenOkExport extends SignedPdfExportService {
+  _WritingThenOkExport({
+    required this.tempDir,
+    required this.onWrote,
+  }) : super(documentsDirectory: () async => tempDir);
+
+  final Directory tempDir;
+  final void Function(String path) onWrote;
+
+  @override
+  Future<SignedPdfExportResult> exportSignedPdf({
+    required Book book,
+    required List<DocumentSignature> signatures,
+    Set<String> reservedBasenames = const {},
+  }) async {
+    final libraryDir = Directory(p.join(tempDir.path, 'library'));
+    await libraryDir.create(recursive: true);
+    final pdfPath = p.join(libraryDir.path, 'orphan_export.pdf');
+    final manifestPath = '${p.withoutExtension(pdfPath)}.firmas.json';
+    await File(pdfPath).writeAsBytes(const [0x25, 0x50, 0x44, 0x46]);
+    await File(manifestPath).writeAsString('{"version":1}');
+    onWrote(pdfPath);
+    return SignedPdfExportResult(
+      pdfPath: pdfPath,
+      manifestPath: manifestPath,
+      manifest: SignatureManifest(
+        version: 1,
+        exportedAt: DateTime.utc(2026, 7, 19),
+        sourceFileName: p.basename(book.filePath),
+        sourceSha256: 'aa',
+        signedFileName: p.basename(pdfPath),
+        signedSha256: 'bb',
+        signatures: signatures,
+      ),
+    );
+  }
+}
+
+class _FailingInsertDatasource extends LibraryLocalDatasource {
+  _FailingInsertDatasource(super.db);
+
+  @override
+  Future<Book> insertBook(Book book) async {
+    throw StateError('insert failed');
   }
 }

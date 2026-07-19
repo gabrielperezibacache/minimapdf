@@ -57,6 +57,8 @@ class _ReaderScreenState extends State<ReaderScreen>
   int _currentPage = 1;
   String? _error;
   Map<int, Size> _pageSizes = const {};
+  PdfDocument? _openedDocument;
+  int _pageSizeCacheGeneration = 0;
 
   @override
   void initState() {
@@ -128,6 +130,8 @@ class _ReaderScreenState extends State<ReaderScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    // Cancela el barrido de tamaños antes de cerrar el documento nativo.
+    _pageSizeCacheGeneration++;
     _annotations?.removeListener(_onAnnotationsChanged);
     _annotations?.dispose();
     _signing?.removeListener(_onSigningChanged);
@@ -142,6 +146,12 @@ class _ReaderScreenState extends State<ReaderScreen>
       saver.dispose();
     }
     _controller.dispose();
+    // PdfController.dispose() no cierra el PdfDocument nativo (fuga PDFium).
+    final document = _openedDocument;
+    _openedDocument = null;
+    if (document != null && !document.isClosed) {
+      unawaited(document.close());
+    }
     super.dispose();
   }
 
@@ -585,9 +595,17 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
   }
 
-  Future<void> _cachePageSizes(PdfDocument document) async {
+  Future<void> _cachePageSizes(
+    PdfDocument document,
+    int generation,
+  ) async {
     final sizes = <int, Size>{};
     for (var pageNumber = 1; pageNumber <= document.pagesCount; pageNumber++) {
+      if (!mounted ||
+          generation != _pageSizeCacheGeneration ||
+          document.isClosed) {
+        return;
+      }
       final page = await document.getPage(pageNumber);
       try {
         if (page.width > 0 && page.height > 0) {
@@ -597,7 +615,7 @@ class _ReaderScreenState extends State<ReaderScreen>
         await page.close();
       }
     }
-    if (!mounted) return;
+    if (!mounted || generation != _pageSizeCacheGeneration) return;
     setState(() => _pageSizes = sizes);
   }
 
@@ -908,6 +926,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       onPageChanged: _onPageChanged,
       onDocumentLoaded: (document) {
         if (!mounted) return;
+        _openedDocument = document;
         final count = document.pagesCount;
         setState(() {
           _pagesCount = count;
@@ -920,7 +939,8 @@ class _ReaderScreenState extends State<ReaderScreen>
           setState(() => _currentPage = clamped);
           _progressSaver?.onPageChanged(clamped);
         }
-        unawaited(_cachePageSizes(document));
+        final generation = ++_pageSizeCacheGeneration;
+        unawaited(_cachePageSizes(document, generation));
       },
       onDocumentError: (error) {
         if (!mounted) return;

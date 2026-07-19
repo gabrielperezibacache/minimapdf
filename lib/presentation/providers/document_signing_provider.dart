@@ -359,6 +359,11 @@ class DocumentSigningProvider extends ChangeNotifier {
     required double offsetX,
     required double offsetY,
   }) async {
+    if (_exporting) {
+      _error = 'Espera a que termine la exportación.';
+      _notify();
+      return false;
+    }
     final id = signature.id;
     if (id == null) return false;
     if (!offsetX.isFinite || !offsetY.isFinite) return false;
@@ -407,6 +412,11 @@ class DocumentSigningProvider extends ChangeNotifier {
   }
 
   Future<bool> deleteSignature(DocumentSignature signature) async {
+    if (_exporting) {
+      _error = 'Espera a que termine la exportación.';
+      _notify();
+      return false;
+    }
     final bookId = _bookId;
     final id = signature.id;
     if (bookId == null || id == null) return false;
@@ -461,7 +471,11 @@ class DocumentSigningProvider extends ChangeNotifier {
     _error = null;
     _notify();
 
+    // Congela firmas al inicio para que move/delete no alteren el PDF exportado.
+    final signaturesSnapshot = List<DocumentSignature>.from(_signatures);
     SignedPdfExportResult? result;
+    // Se asigna antes de insertBook: si el alta falla, el catch limpia el disco.
+    SignedPdfExportResult? writtenArtifacts;
     try {
       // Serializa con import/descargas y reserva nombres de DB para evitar
       // colisiones y borrados cruzados del PDF exportado.
@@ -469,9 +483,10 @@ class DocumentSigningProvider extends ChangeNotifier {
         final reserved = await _datasource.listReservedLibraryBasenames();
         final exported = await _exportService.exportSignedPdf(
           book: book,
-          signatures: List<DocumentSignature>.from(_signatures),
+          signatures: signaturesSnapshot,
           reservedBasenames: reserved,
         );
+        writtenArtifacts = exported;
         final file = File(exported.pdfPath);
         final baseTitle = book.title
             .replaceAll(RegExp(r'\s*\(firmado\)\s*$'), '')
@@ -481,22 +496,30 @@ class DocumentSigningProvider extends ChangeNotifier {
           'firmado',
         }.toList(growable: false);
 
+        // Evita FK rota si la colección se borró mientras el libro seguía abierto.
+        var collectionId = book.collectionId;
+        if (collectionId != null) {
+          final found = await _datasource.findCollectionById(collectionId);
+          collectionId = found?.id;
+        }
+
         await _datasource.insertBook(
           Book(
             title: '$baseTitle (firmado)',
             filePath: exported.pdfPath,
             fileSize: await file.length(),
             addedAt: DateTime.now(),
-            collectionId: book.collectionId,
+            collectionId: collectionId,
             tags: tags,
           ),
         );
         return exported;
       });
+      writtenArtifacts = null;
       return result;
     } catch (_) {
       // Limpia artefactos huérfanos si el PDF se escribió pero falló el alta.
-      final orphan = result;
+      final orphan = result ?? writtenArtifacts;
       if (orphan != null) {
         try {
           final pdf = File(orphan.pdfPath);
