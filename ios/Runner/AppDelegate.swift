@@ -9,6 +9,8 @@ import flutter_downloader
   private var eventSink: FlutterEventSink?
   private var methodChannel: FlutterMethodChannel?
   private var eventChannel: FlutterEventChannel?
+  private var lastQueuedSource: String?
+  private var lastQueuedAt: TimeInterval = 0
 
   override func application(
     _ application: UIApplication,
@@ -72,6 +74,14 @@ import flutter_downloader
   }
 
   fileprivate func queueOpenedPdf(url: URL) {
+    let sourceKey = url.absoluteString
+    let now = Date().timeIntervalSince1970
+    if sourceKey == lastQueuedSource, now - lastQueuedAt < 2 {
+      return
+    }
+    lastQueuedSource = sourceKey
+    lastQueuedAt = now
+
     guard let path = copyPdfToTemp(url: url) else { return }
     if let sink = eventSink {
       sink(path)
@@ -89,7 +99,7 @@ import flutter_downloader
     }
 
     let name = url.lastPathComponent.isEmpty ? "documento.pdf" : url.lastPathComponent
-    let safeName = name.lowercased().hasSuffix(".pdf") ? name : "\(name).pdf"
+    let safeName = sanitizeFileName(name)
     let dest = FileManager.default.temporaryDirectory
       .appendingPathComponent("external_\(Int(Date().timeIntervalSince1970 * 1000))_\(safeName)")
 
@@ -98,10 +108,39 @@ import flutter_downloader
         try FileManager.default.removeItem(at: dest)
       }
       try FileManager.default.copyItem(at: url, to: dest)
+      guard hasPdfMagic(at: dest) else {
+        try? FileManager.default.removeItem(at: dest)
+        return nil
+      }
       return dest.path
     } catch {
       return nil
     }
+  }
+
+  private func sanitizeFileName(_ name: String) -> String {
+    var cleaned = name
+      .replacingOccurrences(of: "/", with: "_")
+      .replacingOccurrences(of: "\\", with: "_")
+      .replacingOccurrences(of: ":", with: "_")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    if cleaned.isEmpty || cleaned == "." || cleaned == ".." {
+      cleaned = "documento.pdf"
+    }
+    let hasPdf = cleaned.lowercased().hasSuffix(".pdf")
+    var stem = hasPdf ? String(cleaned.dropLast(4)) : cleaned
+    if stem.count > 116 {
+      stem = String(stem.prefix(116))
+    }
+    return stem + ".pdf"
+  }
+
+  private func hasPdfMagic(at url: URL) -> Bool {
+    guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+    defer { try? handle.close() }
+    let data = handle.readData(ofLength: 5)
+    guard data.count >= 5 else { return false }
+    return data[0] == 0x25 && data[1] == 0x50 && data[2] == 0x44 && data[3] == 0x46
   }
 }
 

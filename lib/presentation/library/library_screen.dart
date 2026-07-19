@@ -30,9 +30,9 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen> {
   final _searchController = TextEditingController();
   DownloaderProvider? _downloader;
+  LibraryProvider? _library;
+  ExternalPdfOpenService? _externalOpen;
   int? _lastSeenDownloadId;
-  StreamSubscription<String>? _externalOpenSub;
-  String? _lastExternalPath;
   bool _handlingExternal = false;
 
   @override
@@ -40,44 +40,64 @@ class _LibraryScreenState extends State<LibraryScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<LibraryProvider>().load();
+      _library = context.read<LibraryProvider>();
+      _library!.addListener(_onLibraryChanged);
+      unawaited(_library!.load());
       _downloader = context.read<DownloaderProvider>();
       _downloader!.addListener(_onDownloaderChanged);
-      _listenForExternalPdfs();
+      _externalOpen = context.read<ExternalPdfOpenService>();
+      _externalOpen!.addListener(_onExternalOpenChanged);
+      unawaited(_externalOpen!.start());
+      unawaited(_drainExternalQueue());
     });
   }
 
   @override
   void dispose() {
-    _externalOpenSub?.cancel();
+    _externalOpen?.removeListener(_onExternalOpenChanged);
+    _library?.removeListener(_onLibraryChanged);
     _downloader?.removeListener(_onDownloaderChanged);
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _listenForExternalPdfs() async {
-    final service = context.read<ExternalPdfOpenService>();
-    _externalOpenSub = service.incomingPaths.listen(_onExternalPdf);
-    await service.start();
+  void _onExternalOpenChanged() {
+    unawaited(_drainExternalQueue());
   }
 
-  Future<void> _onExternalPdf(String path) async {
-    final trimmed = path.trim();
-    if (!mounted ||
-        trimmed.isEmpty ||
-        _handlingExternal ||
-        trimmed == _lastExternalPath) {
-      return;
+  void _onLibraryChanged() {
+    // Retoma PDFs externos en cola cuando termina una importación manual.
+    if (_handlingExternal) return;
+    final library = _library;
+    final service = _externalOpen;
+    if (library == null || service == null) return;
+    if (!library.importing && service.hasQueued) {
+      unawaited(_drainExternalQueue());
     }
+  }
+
+  Future<void> _drainExternalQueue() async {
+    if (!mounted || _handlingExternal) return;
+
+    final service = _externalOpen ?? context.read<ExternalPdfOpenService>();
+    final library = _library ?? context.read<LibraryProvider>();
+    if (library.importing) return;
+
+    final path = service.takeNext();
+    if (path == null) return;
 
     _handlingExternal = true;
-    _lastExternalPath = trimmed;
-    final library = context.read<LibraryProvider>();
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
 
     try {
-      final book = await library.importExternalFile(trimmed);
+      // Si otra importación empezó entre takeNext y aquí, no perder el PDF.
+      if (library.importing) {
+        service.requeue(path);
+        return;
+      }
+
+      final book = await library.importExternalFile(path);
       if (!mounted) return;
       if (book != null) {
         messenger.showSnackBar(
@@ -91,6 +111,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
       }
     } finally {
       _handlingExternal = false;
+      if (mounted && service.hasQueued) {
+        unawaited(_drainExternalQueue());
+      }
     }
   }
 

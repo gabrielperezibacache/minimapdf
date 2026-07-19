@@ -184,7 +184,7 @@ class LibraryProvider extends ChangeNotifier {
       final book = await importService.importPickedFile(
         PickedPdfFile(
           sourcePath: trimmed,
-          displayName: p.basename(trimmed),
+          displayName: displayNameForExternalPath(trimmed),
           fileSize: size,
         ),
         collectionId: _selectedCollectionId,
@@ -197,6 +197,7 @@ class LibraryProvider extends ChangeNotifier {
           debugPrint('LibraryProvider.importExternalFile load: $e');
         }
       }
+      await _deleteExternalCacheCopy(source);
       return book;
     } catch (e) {
       if (e is FormatException) {
@@ -213,6 +214,28 @@ class LibraryProvider extends ChangeNotifier {
     } finally {
       _importing = false;
       notifyListeners();
+    }
+  }
+
+  /// Quita el prefijo `external_<epoch>_` que añaden Android/iOS al copiar.
+  @visibleForTesting
+  static String displayNameForExternalPath(String path) {
+    final base = p.basename(path);
+    final match = RegExp(r'^external_\d+_(.+)$').firstMatch(base);
+    return match?.group(1) ?? base;
+  }
+
+  Future<void> _deleteExternalCacheCopy(File source) async {
+    final name = p.basename(source.path);
+    if (!name.startsWith('external_')) return;
+    try {
+      if (await source.exists()) {
+        await source.delete();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('LibraryProvider._deleteExternalCacheCopy: $e');
+      }
     }
   }
 

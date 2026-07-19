@@ -107,9 +107,8 @@ class MinimalPdfApp extends StatelessWidget {
             context.read<PdfDownloadService>(),
           ),
         ),
-        Provider<ExternalPdfOpenService>(
+        ChangeNotifierProvider<ExternalPdfOpenService>(
           create: (_) => ExternalPdfOpenService(),
-          dispose: (_, service) => service.dispose(),
         ),
       ],
       child: _MinimalPdfRoot(showWelcomeInitially: showWelcome),
@@ -129,6 +128,30 @@ class _MinimalPdfRoot extends StatefulWidget {
 class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
   late bool _showWelcome = widget.showWelcomeInitially;
   bool _finishingWelcome = false;
+  bool _externalBootstrapStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _bootstrapExternalPdfOpen();
+    });
+  }
+
+  /// Arranca el puente nativo pronto: si el SO abre un PDF en frío,
+  /// omitimos la bienvenida para no bloquear el documento.
+  Future<void> _bootstrapExternalPdfOpen() async {
+    if (_externalBootstrapStarted || !mounted) return;
+    _externalBootstrapStarted = true;
+
+    final service = context.read<ExternalPdfOpenService>();
+    await service.start();
+    if (!mounted) return;
+
+    if (service.hasQueued && _showWelcome) {
+      await _finishWelcome();
+    }
+  }
 
   Future<void> _finishWelcome() async {
     if (_finishingWelcome || !_showWelcome) return;

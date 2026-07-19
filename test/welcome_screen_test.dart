@@ -107,6 +107,33 @@ void main() {
     expect(find.text('Rápido · Cómodo · Sin distracciones'), findsOneWidget);
   });
 
+  testWidgets('PDF externo pendiente omite la bienvenida',
+      (WidgetTester tester) async {
+    clearExternalPdfOpenChannelMocks();
+    mockExternalPdfOpenChannels(initialPdfPath: '/tmp/external_open.pdf');
+
+    await tester.pumpWidget(
+      MinimalPdfApp(
+        appDatabase: appDatabase,
+        libraryDatabase: LibraryDatabase(appDatabase),
+        preferences: preferences,
+      ),
+    );
+    await tester.pump();
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Omitir'), findsNothing);
+    expect(find.text('Biblioteca'), findsOneWidget);
+    expect(preferences.hasSeenWelcome, isTrue);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
   testWidgets('omitir marca bienvenida y abre biblioteca',
       (WidgetTester tester) async {
     await tester.pumpWidget(
