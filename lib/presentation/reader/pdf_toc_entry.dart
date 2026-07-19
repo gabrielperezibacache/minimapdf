@@ -13,13 +13,16 @@ class PdfTocEntry {
   final int level;
 
   /// Índice por páginas (lazy-friendly; la UI usa ListView.builder).
-  static List<PdfTocEntry> fromPageCount(int pagesCount) {
+  static List<PdfTocEntry> fromPageCount(
+    int pagesCount, {
+    required String Function(int page) pageTitle,
+  }) {
     if (pagesCount < 1) return const [];
     return List<PdfTocEntry>.generate(
       pagesCount,
       (index) {
         final page = index + 1;
-        return PdfTocEntry(title: 'Página $page', pageNumber: page);
+        return PdfTocEntry(title: pageTitle(page), pageNumber: page);
       },
       growable: false,
     );

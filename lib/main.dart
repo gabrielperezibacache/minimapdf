@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -12,9 +13,11 @@ import 'core/theme/app_theme.dart';
 import 'data/datasources/library_local_datasource.dart';
 import 'data/datasources/pdf_download_service.dart';
 import 'data/datasources/pdf_import_service.dart';
+import 'l10n/app_localizations.dart';
 import 'presentation/library/library_screen.dart';
 import 'presentation/providers/downloader_provider.dart';
 import 'presentation/providers/library_provider.dart';
+import 'presentation/providers/locale_provider.dart';
 import 'presentation/providers/theme_provider.dart';
 
 Future<void> main() async {
@@ -31,10 +34,14 @@ Future<void> main() async {
   final appDatabase = AppDatabase();
   await appDatabase.open();
 
+  final localeProvider = LocaleProvider();
+  await localeProvider.load();
+
   runApp(
     MinimalPdfApp(
       appDatabase: appDatabase,
       libraryDatabase: LibraryDatabase(appDatabase),
+      localeProvider: localeProvider,
     ),
   );
 }
@@ -44,15 +51,20 @@ class MinimalPdfApp extends StatelessWidget {
     super.key,
     required this.appDatabase,
     required this.libraryDatabase,
+    this.localeProvider,
   });
 
   final AppDatabase appDatabase;
   final LibraryDatabase libraryDatabase;
+  final LocaleProvider? localeProvider;
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(
+          create: (_) => localeProvider ?? LocaleProvider(),
+        ),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         Provider<AppDatabase>.value(value: appDatabase),
         Provider<LibraryDatabase>.value(value: libraryDatabase),
@@ -95,11 +107,20 @@ class _MinimalPdfRoot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeOption = context.watch<ThemeProvider>().option;
+    final locale = context.watch<LocaleProvider>().locale;
 
     return MaterialApp(
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.of(themeOption),
+      locale: locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: const LibraryScreen(),
     );
   }

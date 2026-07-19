@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/book.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Resultado de la edición local de metadatos.
 class BookMetadataDraft {
@@ -84,6 +85,7 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
+    final l10n = AppLocalizations.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return Padding(
@@ -101,7 +103,7 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Editar metadatos',
+            l10n.editMetadata,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: colors.accent,
                 ),
@@ -110,16 +112,16 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
           TextField(
             controller: _titleController,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Título',
+            decoration: InputDecoration(
+              labelText: l10n.titleLabel,
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _authorController,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Autor',
+            decoration: InputDecoration(
+              labelText: l10n.authorLabel,
             ),
           ),
           const SizedBox(height: 12),
@@ -127,9 +129,9 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
             controller: _tagsController,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _submit(),
-            decoration: const InputDecoration(
-              labelText: 'Tags',
-              hintText: 'separados por coma',
+            decoration: InputDecoration(
+              labelText: l10n.tagsLabel,
+              hintText: l10n.tagsHint,
             ),
           ),
           const SizedBox(height: 20),
@@ -142,7 +144,7 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
                     foregroundColor: colors.text,
                     side: BorderSide(color: colors.border),
                   ),
-                  child: const Text('Cancelar'),
+                  child: Text(l10n.cancel),
                 ),
               ),
               const SizedBox(width: 12),
@@ -153,7 +155,7 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
                     backgroundColor: colors.accent,
                     foregroundColor: colors.background,
                   ),
-                  child: const Text('Guardar'),
+                  child: Text(l10n.save),
                 ),
               ),
             ],

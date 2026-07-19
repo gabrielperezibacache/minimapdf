@@ -9,8 +9,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   cupertino_icons: ^1.0.8
+  intl: any
+  shared_preferences: ^2.5.3
 
   # Estado ligero (ChangeNotifier)
   provider: ^6.1.5

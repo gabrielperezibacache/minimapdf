@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/bookmark.dart';
+import '../../../l10n/app_localizations.dart';
 import '../pdf_toc_entry.dart';
 
 /// Panel lateral deslizable estilo Hermes WebUI (índice + marcadores).
@@ -29,6 +30,7 @@ class ReaderSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
+    final l10n = AppLocalizations.of(context);
     final width = MediaQuery.sizeOf(context).width * 0.82;
 
     return Stack(
@@ -72,9 +74,9 @@ class ReaderSidebar extends StatelessWidget {
                             labelColor: AppColors.obsidianAccent,
                             unselectedLabelColor: colors.textMuted,
                             indicatorColor: AppColors.obsidianAccent,
-                            tabs: const [
-                              Tab(text: 'Índice'),
-                              Tab(text: 'Marcadores'),
+                            tabs: [
+                              Tab(text: l10n.tocTab),
+                              Tab(text: l10n.bookmarksTab),
                             ],
                           ),
                           Expanded(
@@ -116,6 +118,7 @@ class _SidebarHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
@@ -125,14 +128,14 @@ class _SidebarHeader extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            'Navegación',
+            l10n.navigation,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: AppColors.obsidianAccent,
                 ),
           ),
           const Spacer(),
           IconButton(
-            tooltip: 'Cerrar',
+            tooltip: l10n.close,
             onPressed: onClose,
             icon: Icon(Icons.close, color: colors.textMuted),
           ),
@@ -182,7 +185,11 @@ class _TocPaneState extends State<_TocPane> {
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
-    final entries = PdfTocEntry.fromPageCount(widget.pagesCount);
+    final l10n = AppLocalizations.of(context);
+    final entries = PdfTocEntry.fromPageCount(
+      widget.pagesCount,
+      pageTitle: l10n.pageNumber,
+    );
 
     return Column(
       children: [
@@ -194,8 +201,8 @@ class _TocPaneState extends State<_TocPane> {
                 child: TextField(
                   controller: _pageController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Ir a página',
+                  decoration: InputDecoration(
+                    labelText: l10n.goToPage,
                     isDense: true,
                   ),
                   onSubmitted: (_) => _jumpFromField(),
@@ -203,7 +210,7 @@ class _TocPaneState extends State<_TocPane> {
               ),
               const SizedBox(width: 8),
               IconButton(
-                tooltip: 'Ir',
+                tooltip: l10n.go,
                 onPressed: _jumpFromField,
                 icon: Icon(Icons.arrow_forward, color: AppColors.obsidianAccent),
               ),
@@ -215,7 +222,7 @@ class _TocPaneState extends State<_TocPane> {
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Índice de páginas',
+              l10n.pageIndex,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: colors.textMuted,
                   ),
@@ -279,13 +286,14 @@ class _BookmarksPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
+    final l10n = AppLocalizations.of(context);
 
     if (bookmarks.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'Sin marcadores.\nMarca la página actual con el icono bronce.',
+            l10n.noBookmarks,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall,
           ),
@@ -309,7 +317,7 @@ class _BookmarksPane extends StatelessWidget {
             hasNote ? Icons.sticky_note_2 : Icons.bookmark,
             color: AppColors.obsidianAccent,
           ),
-          title: Text('Página ${bookmark.pageNumber}'),
+          title: Text(l10n.pageNumber(bookmark.pageNumber)),
           subtitle: hasNote
               ? Text(
                   bookmark.noteText!,
@@ -319,7 +327,7 @@ class _BookmarksPane extends StatelessWidget {
               : null,
           onTap: () => onOpenPage(bookmark.pageNumber),
           trailing: IconButton(
-            tooltip: 'Eliminar',
+            tooltip: l10n.delete,
             onPressed: () => onDelete(bookmark),
             icon: Icon(Icons.delete_outline, color: colors.textMuted, size: 20),
           ),

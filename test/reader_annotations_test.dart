@@ -70,7 +70,10 @@ void main() {
   });
 
   test('PdfTocEntry.fromPageCount genera índice navegable', () {
-    final toc = PdfTocEntry.fromPageCount(3);
+    final toc = PdfTocEntry.fromPageCount(
+      3,
+      pageTitle: (page) => 'Página $page',
+    );
     expect(toc.map((e) => e.pageNumber), [1, 2, 3]);
     expect(toc.first.title, 'Página 1');
   });

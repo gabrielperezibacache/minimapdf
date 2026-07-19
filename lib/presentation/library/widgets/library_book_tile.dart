@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/book.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Celda técnica de libro con borde 1px (paleta Hermes).
 class LibraryBookTile extends StatelessWidget {
@@ -23,10 +24,11 @@ class LibraryBookTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
+    final l10n = AppLocalizations.of(context);
     final subtitle = [
       if (book.author != null && book.author!.isNotEmpty) book.author!,
       _formatSize(book.fileSize),
-      if (book.lastPageRead > 0) 'p. ${book.lastPageRead}',
+      if (book.lastPageRead > 0) l10n.pageAbbrev(book.lastPageRead),
     ].join(' · ');
 
     return Material(
@@ -39,13 +41,19 @@ class LibraryBookTile extends StatelessWidget {
             border: Border.all(color: colors.border, width: 1),
           ),
           padding: EdgeInsets.all(compact ? 12 : 14),
-          child: compact ? _gridContent(context, colors, subtitle) : _listContent(context, colors, subtitle),
+          child: compact
+              ? _gridContent(context, colors, subtitle)
+              : _listContent(context, colors, subtitle),
         ),
       ),
     );
   }
 
-  Widget _gridContent(BuildContext context, HermesColors colors, String subtitle) {
+  Widget _gridContent(
+    BuildContext context,
+    HermesColors colors,
+    String subtitle,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -77,13 +85,17 @@ class LibraryBookTile extends StatelessWidget {
         ],
         Align(
           alignment: Alignment.centerRight,
-          child: _menuButton(colors),
+          child: _menuButton(context, colors),
         ),
       ],
     );
   }
 
-  Widget _listContent(BuildContext context, HermesColors colors, String subtitle) {
+  Widget _listContent(
+    BuildContext context,
+    HermesColors colors,
+    String subtitle,
+  ) {
     return Row(
       children: [
         Icon(Icons.picture_as_pdf_outlined, color: colors.accent, size: 28),
@@ -108,14 +120,15 @@ class LibraryBookTile extends StatelessWidget {
             ],
           ),
         ),
-        _menuButton(colors),
+        _menuButton(context, colors),
       ],
     );
   }
 
-  Widget _menuButton(HermesColors colors) {
+  Widget _menuButton(BuildContext context, HermesColors colors) {
+    final l10n = AppLocalizations.of(context);
     return PopupMenuButton<_BookAction>(
-      tooltip: 'Opciones',
+      tooltip: l10n.options,
       icon: Icon(Icons.more_vert, color: colors.textMuted, size: 20),
       onSelected: (action) {
         switch (action) {
@@ -125,14 +138,14 @@ class LibraryBookTile extends StatelessWidget {
             onDelete?.call();
         }
       },
-      itemBuilder: (context) => const [
+      itemBuilder: (context) => [
         PopupMenuItem(
           value: _BookAction.edit,
-          child: Text('Editar metadatos'),
+          child: Text(l10n.editMetadata),
         ),
         PopupMenuItem(
           value: _BookAction.delete,
-          child: Text('Eliminar'),
+          child: Text(l10n.delete),
         ),
       ],
     );

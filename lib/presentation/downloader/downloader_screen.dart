@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/pdf_url_utils.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/downloader_provider.dart';
 import '../providers/library_provider.dart';
 import 'pdf_link_detector.dart';
@@ -107,13 +108,16 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
 
   Future<void> _handleResult(dynamic book, DownloaderProvider provider) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
     if (book != null) {
       await context.read<LibraryProvider>().load();
       messenger.showSnackBar(
-        SnackBar(content: Text('Descargado: ${book.title}')),
+        SnackBar(content: Text(l10n.downloaded(book.title as String))),
       );
     } else if (provider.error != null) {
-      messenger.showSnackBar(SnackBar(content: Text(provider.error!)));
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.message(provider.error!))),
+      );
     }
   }
 
@@ -156,11 +160,12 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
+    final l10n = AppLocalizations.of(context);
     final downloader = context.watch<DownloaderProvider>();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Descargas'),
+        title: Text(l10n.downloads),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: downloader.downloading ? null : _capturePdf,
@@ -175,8 +180,8 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
             : const Icon(Icons.download),
         label: Text(
           downloader.hasDetectedPdfs
-              ? 'Capturar PDF (${downloader.detectedPdfUrls.length})'
-              : 'Capturar PDF',
+              ? l10n.capturePdfCount(downloader.detectedPdfUrls.length)
+              : l10n.capturePdf,
         ),
       ),
       body: Column(
@@ -187,13 +192,16 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
             progress: downloader.progress,
             onDownload: _downloadDirect,
           ),
-          if (downloader.statusMessage != null)
+          if (downloader.statusMessageKey != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  downloader.statusMessage!,
+                  l10n.message(
+                    downloader.statusMessageKey!,
+                    arg: downloader.statusMessageArg,
+                  ),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.obsidianAccent,
                       ),
@@ -280,8 +288,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
-                          'El mini-navegador está disponible en Android e iOS.\n'
-                          'En escritorio puedes usar la URL directa de arriba.',
+                          AppLocalizations.of(context).browserUnavailable,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
@@ -311,6 +318,7 @@ class _DirectUrlBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -318,7 +326,7 @@ class _DirectUrlBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'URL directa de PDF',
+            l10n.directPdfUrl,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: AppColors.obsidianAccent,
                 ),
@@ -332,8 +340,8 @@ class _DirectUrlBar extends StatelessWidget {
                   enabled: !downloading,
                   keyboardType: TextInputType.url,
                   textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(
-                    hintText: 'https://ejemplo.com/archivo.pdf',
+                  decoration: InputDecoration(
+                    hintText: l10n.urlHint,
                     isDense: true,
                   ),
                   onSubmitted: (_) => onDownload(),
@@ -346,7 +354,7 @@ class _DirectUrlBar extends StatelessWidget {
                   backgroundColor: AppColors.obsidianAccent,
                   foregroundColor: AppColors.obsidianBackground,
                 ),
-                child: const Text('Descargar'),
+                child: Text(l10n.download),
               ),
             ],
           ),
@@ -386,6 +394,7 @@ class _BrowserChrome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       children: [
@@ -394,17 +403,17 @@ class _BrowserChrome extends StatelessWidget {
           child: Row(
             children: [
               IconButton(
-                tooltip: 'Atrás',
+                tooltip: l10n.browserBack,
                 onPressed: onBack,
                 icon: Icon(Icons.arrow_back, color: colors.textMuted),
               ),
               IconButton(
-                tooltip: 'Adelante',
+                tooltip: l10n.browserForward,
                 onPressed: onForward,
                 icon: Icon(Icons.arrow_forward, color: colors.textMuted),
               ),
               IconButton(
-                tooltip: 'Recargar',
+                tooltip: l10n.browserReload,
                 onPressed: onReload,
                 icon: Icon(Icons.refresh, color: colors.textMuted),
               ),
@@ -413,9 +422,9 @@ class _BrowserChrome extends StatelessWidget {
                   controller: controller,
                   keyboardType: TextInputType.url,
                   textInputAction: TextInputAction.go,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     isDense: true,
-                    hintText: 'Buscar o abrir URL',
+                    hintText: l10n.browserUrlHint,
                   ),
                   onSubmitted: onSubmit,
                 ),
@@ -436,8 +445,8 @@ class _BrowserChrome extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               detectedCount > 0
-                  ? '$detectedCount enlace(s) PDF detectado(s)'
-                  : 'Mini-navegador privado · sin telemetría',
+                  ? l10n.pdfLinksDetected(detectedCount)
+                  : l10n.privateBrowser,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: detectedCount > 0
                         ? AppColors.obsidianAccent

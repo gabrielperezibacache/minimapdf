@@ -11,6 +11,7 @@ import '../../core/theme/hermes_pdf_filter.dart';
 import '../../data/datasources/library_local_datasource.dart';
 import '../../data/models/book.dart';
 import '../../data/models/bookmark.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/reader_annotations_provider.dart';
 import 'reader_scroll_mode.dart';
 import 'reading_progress_saver.dart';
@@ -224,7 +225,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     top: 8,
                     right: 8,
                     child: IconButton(
-                      tooltip: 'Mostrar controles',
+                      tooltip: AppLocalizations.of(context).showControls,
                       onPressed: _toggleControls,
                       style: IconButton.styleFrom(
                         backgroundColor: colors.panel.withValues(alpha: 0.85),
@@ -284,7 +285,8 @@ class _ReaderScreenState extends State<ReaderScreen>
         });
       },
       onDocumentError: (error) {
-        setState(() => _error = 'No se pudo abrir el PDF.\n$error');
+        final l10n = AppLocalizations.of(context);
+        setState(() => _error = l10n.openPdfError('$error'));
       },
       builders: PdfViewBuilders<DefaultBuilderOptions>(
         options: const DefaultBuilderOptions(),
@@ -303,7 +305,7 @@ class _ReaderScreenState extends State<ReaderScreen>
         ),
         errorBuilder: (_, error) => Center(
           child: Text(
-            'Error al cargar la página',
+            AppLocalizations.of(context).pageLoadError,
             style: TextStyle(color: colors.text),
           ),
         ),
@@ -312,6 +314,9 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Widget _buildTopBar(HermesColors colors, bool isBookmarked) {
+    final l10n = AppLocalizations.of(context);
+    final modeLabel = _scrollMode.localizedLabel(l10n);
+
     return Positioned(
       top: 0,
       left: 0,
@@ -322,12 +327,12 @@ class _ReaderScreenState extends State<ReaderScreen>
         child: Row(
           children: [
             IconButton(
-              tooltip: 'Menú / índice',
+              tooltip: l10n.menuToc,
               onPressed: _toggleSidebar,
               icon: const Icon(Icons.menu, color: AppColors.obsidianAccent),
             ),
             IconButton(
-              tooltip: 'Volver',
+              tooltip: l10n.back,
               onPressed: _onExit,
               icon: Icon(Icons.arrow_back, color: colors.text),
             ),
@@ -348,7 +353,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                   children: [
                     IconButton(
                       tooltip:
-                          isBookmarked ? 'Quitar marcador' : 'Marcar página',
+                          isBookmarked ? l10n.removeBookmark : l10n.addBookmark,
                       onPressed: _toggleBookmark,
                       icon: Icon(
                         isBookmarked ? Icons.bookmark : Icons.bookmark_border,
@@ -356,7 +361,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Añadir nota',
+                      tooltip: l10n.addNote,
                       onPressed: _editNote,
                       icon: const Icon(
                         Icons.sticky_note_2_outlined,
@@ -365,8 +370,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                     ),
                     IconButton(
                       tooltip: _obsidianFilter
-                          ? 'Desactivar filtro Obsidian'
-                          : 'Filtro Hermes Obsidian',
+                          ? l10n.filterObsidianOff
+                          : l10n.filterObsidianOn,
                       onPressed: _toggleFilter,
                       icon: Icon(
                         _obsidianFilter
@@ -377,7 +382,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Modo: ${_scrollMode.label}',
+                      tooltip: l10n.scrollModeTooltip(modeLabel),
                       onPressed: _toggleScrollMode,
                       icon: Icon(
                         _scrollMode.isVertical
@@ -387,7 +392,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Ocultar controles',
+                      tooltip: l10n.hideControls,
                       onPressed: _toggleControls,
                       icon: Icon(Icons.fullscreen, color: colors.textMuted),
                     ),
@@ -402,6 +407,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Widget _buildBottomBar(HermesColors colors, bool isBookmarked) {
+    final l10n = AppLocalizations.of(context);
     final label =
         _pagesCount > 0 ? '$_currentPage / $_pagesCount' : '$_currentPage';
 
@@ -426,7 +432,7 @@ class _ReaderScreenState extends State<ReaderScreen>
             ),
             const Spacer(),
             Text(
-              _scrollMode.label,
+              _scrollMode.localizedLabel(l10n),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             if (_obsidianFilter) ...[

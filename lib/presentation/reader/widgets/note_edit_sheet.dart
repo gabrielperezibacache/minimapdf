@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Formulario sencillo para nota de texto en la página actual.
 Future<String?> showNoteEditSheet(
@@ -54,6 +55,7 @@ class _NoteEditFormState extends State<_NoteEditForm> {
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
+    final l10n = AppLocalizations.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return Padding(
@@ -67,7 +69,7 @@ class _NoteEditFormState extends State<_NoteEditForm> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Nota · página ${widget.pageNumber}',
+            l10n.notePage(widget.pageNumber),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: AppColors.obsidianAccent,
                 ),
@@ -78,8 +80,8 @@ class _NoteEditFormState extends State<_NoteEditForm> {
             autofocus: true,
             maxLines: 5,
             minLines: 3,
-            decoration: const InputDecoration(
-              hintText: 'Escribe una nota…',
+            decoration: InputDecoration(
+              hintText: l10n.noteHint,
             ),
           ),
           const SizedBox(height: 16),
@@ -92,7 +94,7 @@ class _NoteEditFormState extends State<_NoteEditForm> {
                     foregroundColor: colors.text,
                     side: BorderSide(color: colors.border),
                   ),
-                  child: const Text('Cancelar'),
+                  child: Text(l10n.cancel),
                 ),
               ),
               const SizedBox(width: 12),
@@ -104,7 +106,7 @@ class _NoteEditFormState extends State<_NoteEditForm> {
                     backgroundColor: AppColors.obsidianAccent,
                     foregroundColor: AppColors.obsidianBackground,
                   ),
-                  child: const Text('Guardar'),
+                  child: Text(l10n.save),
                 ),
               ),
             ],

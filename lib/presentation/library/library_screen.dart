@@ -3,12 +3,12 @@ import 'package:provider/provider.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/app_theme_option.dart';
 import '../../data/models/book.dart';
+import '../../l10n/app_localizations.dart';
 import '../downloader/downloader_screen.dart';
 import '../providers/library_provider.dart';
-import '../providers/theme_provider.dart';
 import '../reader/reader_screen.dart';
+import '../settings/settings_screen.dart';
 import 'widgets/library_book_tile.dart';
 import 'widgets/metadata_edit_sheet.dart';
 
@@ -32,16 +32,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Future<void> _importPdf() async {
     final provider = context.read<LibraryProvider>();
+    final l10n = AppLocalizations.of(context);
     final book = await provider.importPdf();
     if (!mounted) return;
 
     final messenger = ScaffoldMessenger.of(context);
     if (book != null) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Importado: ${book.title}')),
+        SnackBar(content: Text(l10n.imported(book.title))),
       );
     } else if (provider.error != null) {
-      messenger.showSnackBar(SnackBar(content: Text(provider.error!)));
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.message(provider.error!))),
+      );
     }
   }
 
@@ -59,20 +62,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Future<void> _confirmDelete(Book book) async {
     final colors = HermesColors.of(context);
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.panel,
-        title: const Text('Eliminar PDF'),
-        content: Text('¿Eliminar “${book.title}” de la biblioteca?'),
+        title: Text(l10n.deletePdf),
+        content: Text(l10n.deletePdfConfirm(book.title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Eliminar', style: TextStyle(color: colors.accent)),
+            child: Text(l10n.delete, style: TextStyle(color: colors.accent)),
           ),
         ],
       ),
@@ -95,27 +99,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Future<void> _createCollection() async {
     final colors = HermesColors.of(context);
+    final l10n = AppLocalizations.of(context);
     final controller = TextEditingController();
 
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.panel,
-        title: const Text('Nueva colección'),
+        title: Text(l10n.newCollection),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Nombre'),
+          decoration: InputDecoration(labelText: l10n.collectionName),
           onSubmitted: (value) => Navigator.pop(context, value),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, controller.text),
-            child: Text('Crear', style: TextStyle(color: colors.accent)),
+            child: Text(l10n.create, style: TextStyle(color: colors.accent)),
           ),
         ],
       ),
@@ -130,7 +135,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
-    final themeProvider = context.watch<ThemeProvider>();
+    final l10n = AppLocalizations.of(context);
     final library = context.watch<LibraryProvider>();
 
     return Scaffold(
@@ -138,7 +143,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         title: const Text(AppConstants.appName),
         actions: [
           IconButton(
-            tooltip: 'Descargas / navegador',
+            tooltip: l10n.downloadsBrowser,
             onPressed: () async {
               await Navigator.of(context).push(
                 MaterialPageRoute<void>(
@@ -151,7 +156,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             icon: Icon(Icons.download_outlined, color: colors.accent),
           ),
           IconButton(
-            tooltip: library.gridMode ? 'Vista lista' : 'Vista cuadrícula',
+            tooltip: library.gridMode ? l10n.viewList : l10n.viewGrid,
             onPressed: () => library.setGridMode(!library.gridMode),
             icon: Icon(
               library.gridMode
@@ -160,25 +165,22 @@ class _LibraryScreenState extends State<LibraryScreen> {
               color: colors.accent,
             ),
           ),
-          PopupMenuButton<AppThemeOption>(
-            tooltip: 'Tema',
-            icon: Icon(Icons.palette_outlined, color: colors.accent),
-            onSelected: themeProvider.setTheme,
-            itemBuilder: (context) => AppThemeOption.values
-                .map(
-                  (option) => CheckedPopupMenuItem<AppThemeOption>(
-                    value: option,
-                    checked: option == themeProvider.option,
-                    child: Text(option.label),
-                  ),
-                )
-                .toList(),
+          IconButton(
+            tooltip: l10n.settings,
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const SettingsScreen(),
+                ),
+              );
+            },
+            icon: Icon(Icons.settings_outlined, color: colors.accent),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: library.importing ? null : _importPdf,
-        tooltip: 'Importar PDF',
+        tooltip: l10n.importPdf,
         child: library.importing
             ? const SizedBox(
                 width: 22,
@@ -200,14 +202,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Biblioteca',
+                      l10n.library,
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                             color: colors.accent,
                           ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'PDFs recientes y colecciones · 100% offline',
+                      l10n.librarySubtitle,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -295,6 +297,7 @@ class _CollectionsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return SizedBox(
       height: 48,
@@ -303,7 +306,7 @@ class _CollectionsRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           _CollectionChip(
-            label: 'Todos',
+            label: l10n.allCollections,
             selected: library.selectedCollectionId == null,
             onTap: () => library.selectCollection(null),
           ),
@@ -332,7 +335,7 @@ class _CollectionsRow extends StatelessWidget {
                       size: 18, color: colors.accent),
                   const SizedBox(width: 6),
                   Text(
-                    'Nueva',
+                    l10n.newCollectionShort,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: colors.accent,
                         ),
@@ -397,6 +400,7 @@ class _EmptyLibrary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = HermesColors.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Center(
       child: Padding(
@@ -407,17 +411,13 @@ class _EmptyLibrary extends StatelessWidget {
             Icon(Icons.menu_book_outlined, size: 42, color: colors.accent),
             const SizedBox(height: 16),
             Text(
-              filtered
-                  ? 'No hay PDFs en esta colección'
-                  : 'Tu biblioteca está vacía',
+              filtered ? l10n.emptyCollection : l10n.emptyLibrary,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              filtered
-                  ? 'Importa un PDF o elige otra carpeta.'
-                  : 'Pulsa + para importar un PDF del dispositivo.',
+              filtered ? l10n.emptyCollectionHint : l10n.emptyLibraryHint,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -429,7 +429,7 @@ class _EmptyLibrary extends StatelessWidget {
                   foregroundColor: colors.accent,
                   side: BorderSide(color: colors.border),
                 ),
-                child: const Text('Importar PDF'),
+                child: Text(l10n.importPdf),
               ),
             ],
           ],

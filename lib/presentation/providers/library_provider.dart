@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../data/datasources/library_local_datasource.dart';
 import '../../data/datasources/pdf_import_service.dart';
 import '../../data/models/models.dart';
+import '../../l10n/app_message_keys.dart';
 
 /// Estado de la biblioteca: libros, colecciones e importación local.
 class LibraryProvider extends ChangeNotifier {
@@ -50,7 +51,7 @@ class LibraryProvider extends ChangeNotifier {
       _books = results[0] as List<Book>;
       _collections = results[1] as List<Collection>;
     } catch (e) {
-      _error = 'No se pudo cargar la biblioteca.';
+      _error = AppMessageKeys.libraryLoadFailed;
       if (kDebugMode) {
         debugPrint('LibraryProvider.load: $e');
       }
@@ -86,7 +87,7 @@ class LibraryProvider extends ChangeNotifier {
       }
       return book;
     } catch (e) {
-      _error = 'No se pudo importar el PDF.';
+      _error = AppMessageKeys.importPdfFailed;
       if (kDebugMode) {
         debugPrint('LibraryProvider.importPdf: $e');
       }

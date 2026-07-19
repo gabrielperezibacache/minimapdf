@@ -7,6 +7,7 @@ import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
 import 'package:minimal_pdf/main.dart';
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -21,6 +22,7 @@ void main() {
   });
 
   setUp(() async {
+    SharedPreferences.setMockInitialValues({});
     tempDir = await Directory.systemTemp.createTemp('minimal_pdf_widget_');
     appDatabase = AppDatabase(
       customFactory: databaseFactoryFfi,
@@ -56,6 +58,7 @@ void main() {
     expect(find.text('Biblioteca'), findsOneWidget);
     expect(find.byTooltip('Importar PDF'), findsOneWidget);
     expect(find.byTooltip('Descargas / navegador'), findsOneWidget);
+    expect(find.byTooltip('Configuración'), findsOneWidget);
     expect(find.text('Tu biblioteca está vacía'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());

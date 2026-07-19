@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/utils/pdf_url_utils.dart';
 import '../../data/datasources/pdf_download_service.dart';
 import '../../data/models/book.dart';
+import '../../l10n/app_message_keys.dart';
 
 /// Estado del gestor de descargas y captura desde el mini-navegador.
 class DownloaderProvider extends ChangeNotifier {
@@ -16,7 +17,8 @@ class DownloaderProvider extends ChangeNotifier {
   bool _downloading = false;
   double _progress = 0;
   String? _error;
-  String? _statusMessage;
+  String? _statusMessageKey;
+  String? _statusMessageArg;
   Book? _lastDownloaded;
 
   String get urlInput => _urlInput;
@@ -25,7 +27,8 @@ class DownloaderProvider extends ChangeNotifier {
   bool get downloading => _downloading;
   double get progress => _progress;
   String? get error => _error;
-  String? get statusMessage => _statusMessage;
+  String? get statusMessageKey => _statusMessageKey;
+  String? get statusMessageArg => _statusMessageArg;
   Book? get lastDownloaded => _lastDownloaded;
   bool get hasDetectedPdfs => _detectedPdfUrls.isNotEmpty;
 
@@ -54,7 +57,7 @@ class DownloaderProvider extends ChangeNotifier {
   Future<Book?> downloadUrl(String rawUrl) async {
     final url = PdfUrlUtils.normalizeUrl(rawUrl);
     if (!PdfUrlUtils.isValidHttpUrl(url)) {
-      _error = 'Introduce una URL http(s) válida.';
+      _error = AppMessageKeys.invalidUrl;
       notifyListeners();
       return null;
     }
@@ -62,7 +65,8 @@ class DownloaderProvider extends ChangeNotifier {
     _downloading = true;
     _progress = 0;
     _error = null;
-    _statusMessage = 'Descargando…';
+    _statusMessageKey = AppMessageKeys.downloading;
+    _statusMessageArg = null;
     _lastDownloaded = null;
     notifyListeners();
 
@@ -75,11 +79,13 @@ class DownloaderProvider extends ChangeNotifier {
         },
       );
       _lastDownloaded = book;
-      _statusMessage = 'Guardado en biblioteca: ${book.title}';
+      _statusMessageKey = AppMessageKeys.savedToLibrary;
+      _statusMessageArg = book.title;
       return book;
     } catch (e) {
-      _error = 'No se pudo descargar el PDF.';
-      _statusMessage = null;
+      _error = AppMessageKeys.downloadFailed;
+      _statusMessageKey = null;
+      _statusMessageArg = null;
       if (kDebugMode) {
         debugPrint('DownloaderProvider.downloadUrl: $e');
       }
@@ -103,7 +109,7 @@ class DownloaderProvider extends ChangeNotifier {
     ];
 
     if (candidates.isEmpty) {
-      _error = 'No se encontró un enlace PDF en esta página.';
+      _error = AppMessageKeys.noPdfLink;
       notifyListeners();
       return null;
     }
