@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/utils/app_paths.dart';
 import '../../core/utils/file_name_sanitizer.dart';
+import '../../core/utils/library_file_coordinator.dart';
 import '../../core/utils/pdf_header.dart';
 import '../../core/utils/pdf_url_utils.dart';
 import '../models/book.dart';
@@ -155,16 +156,14 @@ class PdfDownloadService {
     _throwIfCancelled();
     onProgress?.call(0);
 
-    final libraryDir = await _ensureLibraryDir();
+    final stagingDir = await _ensureLibraryDir();
     final fileName = FileNameSanitizer.sanitize(
       PdfUrlUtils.fileNameFromUrl(url),
     );
-    final existing = await _existingFileNames(libraryDir);
-    final unique = FileNameSanitizer.uniqueName(fileName, existing);
-    final destination = p.join(libraryDir.path, unique);
-    final tempPath = '$destination.part';
-    final tempFile = File(tempPath);
-    final destinationFile = File(destination);
+    // Descarga a un temporal único; el nombre final se reserva al persistir.
+    final stagingName =
+        '${DateTime.now().microsecondsSinceEpoch}_$fileName.part';
+    final tempFile = File(p.join(stagingDir.path, stagingName));
 
     var received = 0;
     IOSink? sink;
@@ -217,29 +216,20 @@ class PdfDownloadService {
         contentType: contentType,
         invalidMessage: 'La URL no devolvió un PDF válido',
       );
-      await tempFile.rename(destination);
       onProgress?.call(1);
-
-      final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
-      final size = await destinationFile.length();
-      return await _datasource.insertBook(
-        Book(
-          title: title,
-          filePath: destination,
-          fileSize: size,
-          addedAt: DateTime.now(),
-          collectionId: collectionId,
-        ),
+      return await _persistFile(
+        source: tempFile,
+        fileName: fileName,
+        collectionId: collectionId,
+        deleteSource: true,
       );
     } on DownloadCancelledException {
       await sink?.close();
       await _deleteQuietly(tempFile);
-      await _deleteQuietly(destinationFile);
       rethrow;
     } catch (e) {
       await sink?.close();
       await _deleteQuietly(tempFile);
-      await _deleteQuietly(destinationFile);
       if (_cancelRequested) {
         throw const DownloadCancelledException();
       }
@@ -278,12 +268,13 @@ class PdfDownloadService {
       throw StateError('No se pudo encolar la descarga nativa');
     }
 
+    final expectedPath = p.join(tempDir.path, fileName);
     _activeNativeTaskId = taskId;
     try {
       _throwIfCancelled();
       final path = await _waitForNativeTask(
         taskId,
-        expectedPath: p.join(tempDir.path, fileName),
+        expectedPath: expectedPath,
         onProgress: onProgress,
       );
 
@@ -293,9 +284,11 @@ class PdfDownloadService {
         source: source,
         fileName: fileName,
         collectionId: collectionId,
+        deleteSource: true,
       );
     } catch (e) {
       await _cancelNativeTask(taskId);
+      await _deleteQuietly(File(expectedPath));
       if (_cancelRequested) {
         throw const DownloadCancelledException();
       }
@@ -369,36 +362,44 @@ class PdfDownloadService {
     required File source,
     required String fileName,
     int? collectionId,
+    bool deleteSource = true,
   }) async {
-    final libraryDir = await _ensureLibraryDir();
-    final existing = await _existingFileNames(libraryDir);
-    final unique = FileNameSanitizer.uniqueName(fileName, existing);
-    final destination = p.join(libraryDir.path, unique);
-    final destinationFile = File(destination);
+    return LibraryFileCoordinator.runExclusive(() async {
+      final libraryDir = await _ensureLibraryDir();
+      final existing = await _existingFileNames(libraryDir);
+      final unique = FileNameSanitizer.uniqueName(fileName, existing);
+      final destination = p.join(libraryDir.path, unique);
+      final destinationFile = File(destination);
 
-    await source.copy(destination);
-    try {
-      await source.delete();
-    } catch (_) {
-      // El temporal nativo puede quedar; no es crítico.
-    }
+      try {
+        if (p.equals(source.path, destination)) {
+          // Ya está en destino (raro); no copiar.
+        } else if (source.path.endsWith('.part') &&
+            p.dirname(source.path) == libraryDir.path) {
+          await source.rename(destination);
+        } else {
+          await source.copy(destination);
+          if (deleteSource) {
+            await _deleteQuietly(source);
+          }
+        }
 
-    try {
-      final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
-      final size = await destinationFile.length();
-      return await _datasource.insertBook(
-        Book(
-          title: title,
-          filePath: destination,
-          fileSize: size,
-          addedAt: DateTime.now(),
-          collectionId: collectionId,
-        ),
-      );
-    } catch (e) {
-      await _deleteQuietly(destinationFile);
-      rethrow;
-    }
+        final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
+        final size = await destinationFile.length();
+        return await _datasource.insertBook(
+          Book(
+            title: title,
+            filePath: destination,
+            fileSize: size,
+            addedAt: DateTime.now(),
+            collectionId: collectionId,
+          ),
+        );
+      } catch (e) {
+        await _deleteQuietly(destinationFile);
+        rethrow;
+      }
+    });
   }
 
   Future<Directory> _ensureLibraryDir() async {

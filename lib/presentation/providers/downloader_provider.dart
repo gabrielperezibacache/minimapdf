@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 
 import '../../core/utils/pdf_url_utils.dart';
@@ -83,6 +86,35 @@ class DownloaderProvider extends ChangeNotifier {
     }
   }
 
+  String _mapDownloadError(Object e) {
+    if (e is DownloadCancelledException) {
+      return '';
+    }
+    if (e is FormatException) {
+      return e.message;
+    }
+    if (e is TimeoutException) {
+      return 'Tiempo de espera agotado. Inténtalo de nuevo.';
+    }
+    if (e is SocketException) {
+      return 'Sin conexión de red.';
+    }
+    if (e is HttpException) {
+      return e.message;
+    }
+    if (e is ArgumentError) {
+      return 'URL inválida.';
+    }
+    if (e is StateError) {
+      final msg = e.message;
+      if (msg.contains('en curso')) {
+        return 'Ya hay una descarga en curso.';
+      }
+      return msg;
+    }
+    return 'No se pudo descargar el PDF.';
+  }
+
   Future<Book?> downloadUrl(String rawUrl) async {
     final url = PdfUrlUtils.normalizeUrl(rawUrl);
     if (!PdfUrlUtils.isValidHttpUrl(url)) {
@@ -119,11 +151,7 @@ class DownloaderProvider extends ChangeNotifier {
       _statusMessage = 'Descarga cancelada.';
       return null;
     } catch (e) {
-      if (e is FormatException) {
-        _error = e.message;
-      } else {
-        _error = 'No se pudo descargar el PDF.';
-      }
+      _error = _mapDownloadError(e);
       _statusMessage = null;
       if (kDebugMode) {
         debugPrint('DownloaderProvider.downloadUrl: $e');
@@ -143,6 +171,8 @@ class DownloaderProvider extends ChangeNotifier {
   Future<Book?> downloadFromInput() => downloadUrl(_urlInput);
 
   /// Captura solo URLs que parezcan PDF (nunca HTML genérico).
+  ///
+  /// Si hay varios candidatos, no elige al azar: pide elegir de la lista.
   Future<Book?> capturePdf({String? currentUrl}) async {
     final candidates = <String>[
       if (currentUrl != null && PdfUrlUtils.looksLikePdfUrl(currentUrl))
@@ -160,6 +190,15 @@ class DownloaderProvider extends ChangeNotifier {
 
     if (unique.isEmpty) {
       _error = 'No se encontró un enlace PDF en esta página.';
+      notifyListeners();
+      return null;
+    }
+
+    if (unique.length > 1) {
+      _detectedPdfUrls = unique.toList(growable: false);
+      _error =
+          'Hay ${unique.length} PDFs detectados. Elige uno de la lista.';
+      _statusMessage = null;
       notifyListeners();
       return null;
     }

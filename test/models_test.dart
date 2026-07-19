@@ -19,6 +19,25 @@ void main() {
       expect(restored.author, isNull);
       expect(restored.collectionId, isNull);
     });
+
+    test('fromMap tolera tags JSON corruptos y fechas inválidas', () {
+      final book = Book.fromMap({
+        'id': 1,
+        'title': 'Roto',
+        'file_path': '/x.pdf',
+        'file_size': 10,
+        'added_at': 'no-es-fecha',
+        'last_read_at': 'tampoco',
+        'last_page_read': 2,
+        'tags': '{not-json',
+      });
+
+      expect(book.title, 'Roto');
+      expect(book.tags, isEmpty);
+      expect(book.lastReadAt, isNull);
+      expect(book.addedAt, DateTime.fromMillisecondsSinceEpoch(0));
+      expect(book.lastPageRead, 2);
+    });
   });
 
   group('Collection / Bookmark serialization', () {

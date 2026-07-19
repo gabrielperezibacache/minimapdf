@@ -126,20 +126,14 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (state == AppLifecycleState.paused) {
       final saver = _progressSaver;
       if (saver == null) return;
-      if (saver.currentPage != _currentPage) {
-        saver.onPageChanged(_currentPage);
-      }
-      unawaited(saver.saveIfNeeded());
+      unawaited(saver.saveNow(page: _currentPage, forceTouch: true));
     }
   }
 
   Future<void> _onExit() async {
     final saver = _progressSaver;
     if (saver != null) {
-      if (saver.currentPage != _currentPage) {
-        saver.onPageChanged(_currentPage);
-      }
-      await saver.saveIfNeeded();
+      await saver.saveNow(page: _currentPage, forceTouch: true);
     }
     if (!mounted) return;
     Navigator.of(context).pop(_currentPage);

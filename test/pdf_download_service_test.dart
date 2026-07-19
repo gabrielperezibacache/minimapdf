@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -107,6 +108,44 @@ void main() {
     );
     expect(book, isNull);
     expect(provider.error, contains('No se encontró'));
+    service.dispose();
+  });
+
+  test('capturePdf con varios PDFs no elige uno al azar', () async {
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: MockClient((request) async {
+        fail('No debería descargar: ${request.url}');
+      }),
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+    final provider = DownloaderProvider(service);
+    provider.setDetectedPdfUrls([
+      'https://cdn.example.com/a.pdf',
+      'https://cdn.example.com/b.pdf',
+    ]);
+
+    final book = await provider.capturePdf();
+    expect(book, isNull);
+    expect(provider.error, contains('2 PDFs'));
+    expect(provider.detectedPdfUrls.length, 2);
+    service.dispose();
+  });
+
+  test('DownloaderProvider mapea timeout a mensaje claro', () async {
+    final service = PdfDownloadService(
+      datasource,
+      httpClient: MockClient((request) async {
+        throw TimeoutException('slow');
+      }),
+      documentsDirectory: () async => tempDir,
+      useFlutterDownloader: false,
+    );
+    final provider = DownloaderProvider(service);
+    final book = await provider.downloadUrl('https://example.com/slow.pdf');
+    expect(book, isNull);
+    expect(provider.error, contains('Tiempo de espera'));
     service.dispose();
   });
 

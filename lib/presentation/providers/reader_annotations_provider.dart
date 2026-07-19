@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../data/datasources/library_local_datasource.dart';
@@ -15,6 +17,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   String? _error;
   bool _disposed = false;
   int _loadGeneration = 0;
+  Future<void>? _mutation;
 
   List<Bookmark> get bookmarks => _bookmarks;
   bool get loading => _loading;
@@ -32,6 +35,31 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   void _safeNotify() {
     if (_disposed) return;
     notifyListeners();
+  }
+
+  Future<T> _runExclusive<T>(Future<T> Function() action) async {
+    while (_mutation != null) {
+      try {
+        await _mutation;
+      } catch (_) {
+        // Continúa con la siguiente operación en cola.
+      }
+      if (_disposed) {
+        return action();
+      }
+    }
+    final completer = Completer<void>();
+    _mutation = completer.future;
+    try {
+      return await action();
+    } finally {
+      if (identical(_mutation, completer.future)) {
+        _mutation = null;
+      }
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
+    }
   }
 
   Future<void> loadForBook(int bookId) async {
@@ -63,6 +91,10 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   /// Si hay nota y [force] es false, no borra (el caller debe confirmar).
   /// Devuelve `false` cuando se requiere confirmación.
   Future<bool> toggleBookmark(int pageNumber, {bool force = false}) async {
+    return _runExclusive(() => _toggleBookmarkBody(pageNumber, force: force));
+  }
+
+  Future<bool> _toggleBookmarkBody(int pageNumber, {bool force = false}) async {
     final bookId = _bookId;
     if (_disposed || bookId == null || pageNumber < 1) return true;
 
@@ -123,6 +155,15 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     required int pageNumber,
     required String noteText,
   }) async {
+    await _runExclusive(
+      () => _saveNoteBody(pageNumber: pageNumber, noteText: noteText),
+    );
+  }
+
+  Future<void> _saveNoteBody({
+    required int pageNumber,
+    required String noteText,
+  }) async {
     final bookId = _bookId;
     if (_disposed || bookId == null || pageNumber < 1) return;
 
@@ -168,6 +209,10 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   }
 
   Future<void> deleteBookmark(Bookmark bookmark) async {
+    await _runExclusive(() => _deleteBookmarkBody(bookmark));
+  }
+
+  Future<void> _deleteBookmarkBody(Bookmark bookmark) async {
     final bookId = _bookId;
     final id = bookmark.id;
     if (_disposed || bookId == null || id == null) return;

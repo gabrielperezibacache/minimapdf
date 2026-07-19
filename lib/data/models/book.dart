@@ -75,22 +75,46 @@ class Book {
     final rawTags = map['tags'];
     List<String> tags = const [];
     if (rawTags is String && rawTags.isNotEmpty) {
-      final decoded = jsonDecode(rawTags);
-      if (decoded is List) {
-        tags = decoded.map((e) => e.toString()).toList();
+      try {
+        final decoded = jsonDecode(rawTags);
+        if (decoded is List) {
+          tags = decoded.map((e) => e.toString()).toList();
+        }
+      } catch (_) {
+        // Tags corruptos no deben tumbar toda la biblioteca.
+        tags = const [];
       }
     }
 
+    final addedRaw = map['added_at'];
+    final addedAt = addedRaw is String && addedRaw.isNotEmpty
+        ? (DateTime.tryParse(addedRaw) ?? DateTime.fromMillisecondsSinceEpoch(0))
+        : DateTime.fromMillisecondsSinceEpoch(0);
+
+    DateTime? lastReadAt;
+    final lastReadRaw = map['last_read_at'];
+    if (lastReadRaw is String && lastReadRaw.isNotEmpty) {
+      lastReadAt = DateTime.tryParse(lastReadRaw);
+    }
+
+    final fileSizeRaw = map['file_size'];
+    final fileSize = fileSizeRaw is int
+        ? fileSizeRaw
+        : int.tryParse('$fileSizeRaw') ?? 0;
+
+    final pageRaw = map['last_page_read'];
+    final lastPageRead = pageRaw is int
+        ? pageRaw
+        : int.tryParse('$pageRaw') ?? 0;
+
     return Book(
       id: map['id'] as int?,
-      title: map['title'] as String,
-      filePath: map['file_path'] as String,
-      fileSize: map['file_size'] as int,
-      addedAt: DateTime.parse(map['added_at'] as String),
-      lastReadAt: map['last_read_at'] != null
-          ? DateTime.parse(map['last_read_at'] as String)
-          : null,
-      lastPageRead: (map['last_page_read'] as int?) ?? 0,
+      title: (map['title'] as String?) ?? 'Sin título',
+      filePath: (map['file_path'] as String?) ?? '',
+      fileSize: fileSize,
+      addedAt: addedAt,
+      lastReadAt: lastReadAt,
+      lastPageRead: lastPageRead < 0 ? 0 : lastPageRead,
       author: map['author'] as String?,
       tags: tags,
       collectionId: map['collection_id'] as int?,
