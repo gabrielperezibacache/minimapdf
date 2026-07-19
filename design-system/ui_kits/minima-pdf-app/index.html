@@ -1,0 +1,42 @@
+<!-- @dsCard group="Minima PDF App" viewport="1400x860" name="App" subtitle="Library, reader, tool drawer, settings" -->
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>html,body{margin:0;height:100%;background:var(--color-bg-canvas)}#root{height:100%}</style>
+</head><body><div id="root"></div>
+<script type="text/babel" src="data.js"></script>
+<script type="text/babel" src="Sidebar.jsx"></script>
+<script type="text/babel" src="LibraryGrid.jsx"></script>
+<script type="text/babel" src="ReaderView.jsx"></script>
+<script type="text/babel" src="ToolDrawer.jsx"></script>
+<script type="text/babel" src="SettingsPanel.jsx"></script>
+<script type="text/babel">
+function App(){
+const docs = LibraryData();
+const [screen,setScreen]=React.useState('library');
+const [activeDoc,setActiveDoc]=React.useState(null);
+const [activeTag,setActiveTag]=React.useState('All');
+const [drawerOpen,setDrawerOpen]=React.useState(true);
+const [drawerTab,setDrawerTab]=React.useState('outline');
+const [settingsOpen,setSettingsOpen]=React.useState(false);
+const [theme,setTheme]=React.useState('dark');
+const [lowGlare,setLowGlare]=React.useState(true);
+const [bookmarked,setBookmarked]=React.useState(false);
+const tags=['All','Research','Contracts','Reference','Admin'];
+const filtered = activeTag==='All' ? docs : docs.filter(d=>d.tag===activeTag);
+return <div style={{display:'flex',height:'100%',position:'relative'}}>
+<Sidebar tags={tags} activeTag={activeTag} onTag={setActiveTag} onOpenSettings={()=>setSettingsOpen(true)} />
+{screen==='library' && <LibraryGrid docs={filtered} onOpen={(d)=>{setActiveDoc(d);setScreen('reader');}} />}
+{screen==='reader' && <>
+<ReaderView doc={activeDoc} onBack={()=>setScreen('library')} onToggleDrawer={()=>setDrawerOpen(!drawerOpen)} bookmarked={bookmarked} onBookmark={()=>setBookmarked(!bookmarked)} />
+{drawerOpen && <ToolDrawer tab={drawerTab} onTab={setDrawerTab} />}
+</>}
+<SettingsPanel open={settingsOpen} onClose={()=>setSettingsOpen(false)} theme={theme} onTheme={setTheme} lowGlare={lowGlare} onLowGlare={()=>setLowGlare(!lowGlare)} />
+</div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body></html>

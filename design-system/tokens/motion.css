@@ -1,0 +1,6 @@
+:root{
+--duration-instant:80ms; /* @kind other */
+--duration-fast:100ms; /* @kind other */
+--ease-standard:linear; /* @kind other */
+}
+*{transition-duration:var(--duration-fast);transition-timing-function:linear}
