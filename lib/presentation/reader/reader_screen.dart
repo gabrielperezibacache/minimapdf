@@ -211,7 +211,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   void _onPageChanged(int page) {
-    if (_disposed) return;
+    if (_disposed || _exiting) return;
     _currentPage = page;
     _progressSaver?.onPageChanged(page);
     _noteDismissed = false;
@@ -648,7 +648,10 @@ class _ReaderScreenState extends State<ReaderScreen>
         ),
         action: SnackBarAction(
           label: 'Exportar',
-          onPressed: _exportSignedPdf,
+          onPressed: () {
+            if (!mounted) return;
+            unawaited(_exportSignedPdf());
+          },
         ),
       ),
     );

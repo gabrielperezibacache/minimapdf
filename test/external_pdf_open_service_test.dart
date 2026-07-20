@@ -100,6 +100,20 @@ void main() {
     service.dispose();
   });
 
+  test('queueLast encola al final sin duplicar', () async {
+    mockChannels();
+
+    final service = ExternalPdfOpenService();
+    await service.start();
+    service.requeue('/primero.pdf');
+    service.queueLast('/reintento.pdf');
+    service.queueLast('/reintento.pdf');
+    expect(service.takeNext(), '/primero.pdf');
+    expect(service.takeNext(), '/reintento.pdf');
+    expect(service.hasQueued, isFalse);
+    service.dispose();
+  });
+
   test('openDefaultAppsSettings invoca el canal nativo', () async {
     mockChannels();
 

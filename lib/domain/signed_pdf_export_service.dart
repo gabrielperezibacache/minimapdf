@@ -106,7 +106,8 @@ class SignedPdfExportService {
       for (var pageNumber = 1; pageNumber <= document.pagesCount; pageNumber++) {
         final page = await document.getPage(pageNumber);
         try {
-          if (page.width <= 0 || page.height <= 0) {
+          final pageSize = Size(page.width, page.height);
+          if (!SignatureStampGeometry.isUsablePageSize(pageSize)) {
             throw StateError('Página $pageNumber con tamaño inválido.');
           }
 
