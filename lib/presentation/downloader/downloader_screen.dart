@@ -11,6 +11,7 @@ import '../../core/utils/pdf_url_utils.dart';
 import '../../l10n/app_localizations.dart';
 import '../providers/downloader_provider.dart';
 import '../providers/library_provider.dart';
+import '../widgets/sheet_safe_body.dart';
 import 'pdf_link_detector.dart';
 
 /// Gestor de descargas por URL + mini-navegador con captura de PDF.
@@ -160,7 +161,8 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
       context: context,
       backgroundColor: colors.panel,
       builder: (context) {
-        return SafeArea(
+        return SheetSafeBody(
+          padding: EdgeInsets.zero,
           child: ListView(
             shrinkWrap: true,
             children: [

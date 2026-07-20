@@ -8,6 +8,7 @@ import '../../data/models/signature_template.dart';
 import '../../data/models/signature_type.dart';
 import '../../domain/electronic_signature_service.dart';
 import '../../l10n/app_localizations.dart';
+import '../widgets/sheet_safe_body.dart';
 import 'signature_pad.dart';
 
 /// Abre el formulario para firmar la página actual.
@@ -183,11 +184,9 @@ class _SignatureFormState extends State<_SignatureForm> {
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
     final l10n = AppLocalizations.of(context);
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final narrow = MediaQuery.sizeOf(context).width < 380;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomInset),
+    return SheetSafeBody(
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
