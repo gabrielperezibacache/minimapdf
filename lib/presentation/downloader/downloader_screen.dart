@@ -167,7 +167,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: Text(
-                  'Elige un PDF',
+                  AppLocalizations.of(context).choosePdf,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
@@ -197,8 +197,9 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
   Future<void> _downloadPdfLink(String href) async {
     final provider = context.read<DownloaderProvider>();
     if (provider.downloading) {
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ya hay una descarga en curso.')),
+        SnackBar(content: Text(l10n.errorDownloadInProgress)),
       );
       return;
     }
@@ -283,23 +284,21 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
         if (didPop) return;
         if (downloader.downloading) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Hay una descarga en curso. Cancélala o espera a que termine.',
-              ),
+            SnackBar(
+              content: Text(l10n.downloadInProgressWait),
             ),
           );
         }
       },
       child: Scaffold(
       appBar: AppBar(
-        title: const Text('Descargas'),
+        title: Text(l10n.downloads),
         actions: [
           if (downloader.downloading)
             TextButton(
               onPressed: _cancelDownload,
               child: Text(
-                'Cancelar',
+                l10n.cancel,
                 style: TextStyle(color: colors.accent),
               ),
             ),
@@ -320,8 +319,8 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                   : const Icon(Icons.download),
               label: Text(
                 downloader.hasDetectedPdfs
-                    ? 'Capturar PDF (${downloader.detectedPdfUrls.length})'
-                    : 'Capturar PDF',
+                    ? l10n.capturePdfCount(downloader.detectedPdfUrls.length)
+                    : l10n.capturePdf,
               ),
             )
           : null,
@@ -377,7 +376,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                       onPressed: downloader.downloading
                           ? null
                           : () => _downloadPdfLink(url),
-                      child: const Text('Descargar'),
+                      child: Text(l10n.download),
                     ),
                   );
                 },
@@ -405,8 +404,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
-                          'El mini-navegador está disponible en Android e iOS.\n'
-                          'En escritorio puedes usar la URL directa de arriba.',
+                          l10n.browserUnavailable,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
@@ -468,9 +466,10 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                             // No capturamos: deja navegar para no atrapar al usuario.
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
+                                SnackBar(
                                   content: Text(
-                                    'Ya hay una descarga en curso.',
+                                    AppLocalizations.of(context)
+                                        .errorDownloadInProgress,
                                   ),
                                 ),
                               );
@@ -504,7 +503,8 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                'No se pudo cargar la página.',
+                                AppLocalizations.of(context)
+                                    .pageLoadFailedBrowser,
                               ),
                             ),
                           );
@@ -536,6 +536,7 @@ class _DirectUrlBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -543,7 +544,7 @@ class _DirectUrlBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'URL directa de PDF',
+            l10n.directPdfUrl,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: colors.accent,
                 ),
@@ -557,8 +558,8 @@ class _DirectUrlBar extends StatelessWidget {
                   enabled: !downloading,
                   keyboardType: TextInputType.url,
                   textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(
-                    hintText: 'https://ejemplo.com/archivo.pdf',
+                  decoration: InputDecoration(
+                    hintText: l10n.urlHint,
                     isDense: true,
                   ),
                   onSubmitted: (_) => onDownload(),
@@ -567,7 +568,7 @@ class _DirectUrlBar extends StatelessWidget {
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: downloading ? null : onDownload,
-                child: const Text('Descargar'),
+                child: Text(l10n.download),
               ),
             ],
           ),
@@ -607,6 +608,7 @@ class _BrowserChrome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       children: [
@@ -615,17 +617,17 @@ class _BrowserChrome extends StatelessWidget {
           child: Row(
             children: [
               IconButton(
-                tooltip: 'Atrás',
+                tooltip: l10n.browserBack,
                 onPressed: onBack,
                 icon: Icon(Icons.arrow_back, color: colors.textMuted),
               ),
               IconButton(
-                tooltip: 'Adelante',
+                tooltip: l10n.browserForward,
                 onPressed: onForward,
                 icon: Icon(Icons.arrow_forward, color: colors.textMuted),
               ),
               IconButton(
-                tooltip: 'Recargar',
+                tooltip: l10n.browserReload,
                 onPressed: onReload,
                 icon: Icon(Icons.refresh, color: colors.textMuted),
               ),
@@ -634,9 +636,9 @@ class _BrowserChrome extends StatelessWidget {
                   controller: controller,
                   keyboardType: TextInputType.url,
                   textInputAction: TextInputAction.go,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     isDense: true,
-                    hintText: 'Buscar o abrir URL',
+                    hintText: l10n.browserUrlHint,
                   ),
                   onSubmitted: onSubmit,
                 ),
@@ -657,8 +659,8 @@ class _BrowserChrome extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               detectedCount > 0
-                  ? '$detectedCount enlace(s) PDF detectado(s)'
-                  : 'Mini-navegador privado · sin telemetría',
+                  ? l10n.pdfLinksDetected(detectedCount)
+                  : l10n.privateBrowser,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: detectedCount > 0 ? colors.accent : colors.textMuted,
                   ),

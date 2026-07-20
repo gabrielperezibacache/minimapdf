@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import 'ink_stroke_painter.dart';
 
 /// Lienzo para capturar una firma electrónica simple (trazo manuscrito).
@@ -164,13 +165,14 @@ class SignaturePadState extends State<SignaturePad> {
         )
         .toList();
 
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
             Text(
-              'Dibuja tu firma',
+              l10n.drawYourSignature,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
                     color: colors.textMuted,
                   ),
@@ -179,7 +181,7 @@ class SignaturePadState extends State<SignaturePad> {
             TextButton(
               onPressed: hasInk ? clear : null,
               child: Text(
-                'Limpiar',
+                l10n.clearInk,
                 style: TextStyle(
                   color: hasInk ? AppColors.ebonyAccent : colors.textMuted,
                 ),
@@ -224,7 +226,7 @@ class SignaturePadState extends State<SignaturePad> {
                       if (!hasInk)
                         Center(
                           child: Text(
-                            'Firma aquí',
+                            l10n.signHere,
                             style: Theme.of(context)
                                 .textTheme
                                 .bodyMedium

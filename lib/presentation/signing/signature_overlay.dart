@@ -8,6 +8,7 @@ import '../../data/models/document_signature.dart';
 import '../../data/models/signature_role.dart';
 import '../../data/models/signature_type.dart';
 import '../../domain/signature_stamp_geometry.dart';
+import '../../l10n/app_localizations.dart';
 import 'ink_stroke_painter.dart';
 
 /// Capa de firmas posicionadas de forma relativa sobre el área del PDF.
@@ -276,7 +277,7 @@ class SignatureOverlay extends StatelessWidget {
                   SizedBox(width: 6 * scale),
                   Expanded(
                     child: Text(
-                      '${signature.role.labelEs} · #${signature.signingOrder}',
+                      '${signature.role.label(AppLocalizations.of(context))} · #${signature.signingOrder}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -288,7 +289,7 @@ class SignatureOverlay extends StatelessWidget {
                   if (onDelete != null)
                     Semantics(
                       button: true,
-                      label: 'Eliminar firma',
+                      label: AppLocalizations.of(context).deleteSignatureSemantics,
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: onDelete,

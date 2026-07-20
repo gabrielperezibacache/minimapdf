@@ -16,6 +16,7 @@ import '../../data/models/bookmark.dart';
 import '../../data/models/document_signature.dart';
 import '../../data/models/page_annotation.dart';
 import '../../data/models/signature_role.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/document_signing_provider.dart';
 import '../providers/library_provider.dart';
 import '../providers/reader_annotations_provider.dart';
@@ -184,14 +185,16 @@ class _ReaderScreenState extends State<ReaderScreen>
     }
   }
 
+  String _msg(String key, {String? arg}) =>
+      AppLocalizations.of(context).message(key, arg: arg);
+
   Future<void> _onExit() async {
     if (_exiting) return;
     if (_signing?.exporting == true) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Espera a que termine la exportación.'),
-          ),
+          SnackBar(content: Text(l10n.waitForExport)),
         );
       }
       return;
@@ -274,29 +277,28 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (completed || !mounted) {
       if (annotations.error != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(annotations.error!)),
+          SnackBar(content: Text(_msg(annotations.error!))),
         );
       }
       return;
     }
 
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.panel,
-        title: const Text('Quitar marcador'),
-        content: Text(
-          'La página $page tiene una nota. ¿Eliminar marcador y nota?',
-        ),
+        title: Text(l10n.removeBookmark),
+        content: Text(l10n.removeBookmarkWithNoteConfirm(page)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Eliminar', style: TextStyle(color: colors.accent)),
+            child: Text(l10n.delete, style: TextStyle(color: colors.accent)),
           ),
         ],
       ),
@@ -306,7 +308,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       await annotations.toggleBookmark(page, force: true);
       if (annotations.error != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(annotations.error!)),
+          SnackBar(content: Text(_msg(annotations.error!))),
         );
       }
     }
@@ -316,18 +318,19 @@ class _ReaderScreenState extends State<ReaderScreen>
     final annotations = _annotations;
     final page = _currentPage;
     final existing = annotations?.bookmarkForPage(page);
+    final l10n = AppLocalizations.of(context);
     final result = await showNoteEditSheet(
       context,
       pageNumber: page,
       initialText: existing?.noteText,
-      title: 'Nota de página',
+      title: l10n.pageNoteTitle,
     );
     if (result == null || !mounted || annotations == null) return;
     await annotations.saveNote(pageNumber: page, noteText: result);
     if (!mounted) return;
     if (annotations.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(annotations.error!)),
+        SnackBar(content: Text(_msg(annotations.error!))),
       );
       return;
     }
@@ -356,13 +359,15 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (provider == null || tool == null || type == null) return;
     if (pageNumber < 1) return;
 
+    final l10n = AppLocalizations.of(context);
+    final typeLabel = type.label(l10n);
     String? text;
     if (tool.needsText) {
       text = await showNoteEditSheet(
         context,
         pageNumber: pageNumber,
-        title: type.label,
-        hintText: 'Escribe ${type.label.toLowerCase()}…',
+        title: typeLabel,
+        hintText: l10n.writeTypeHint(typeLabel.toLowerCase()),
       );
       if (text == null || !mounted) return;
       if (text.trim().isEmpty) return;
@@ -380,7 +385,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (!mounted) return;
     if (provider.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(provider.error!)),
+        SnackBar(content: Text(_msg(provider.error!))),
       );
       return;
     }
@@ -393,7 +398,7 @@ class _ReaderScreenState extends State<ReaderScreen>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${type.label} guardado en página $pageNumber'),
+        content: Text(l10n.annotationSaved(typeLabel, pageNumber)),
         duration: const Duration(milliseconds: 1400),
         behavior: SnackBarBehavior.floating,
       ),
@@ -402,6 +407,8 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Future<void> _openAnnotation(PageAnnotation annotation) async {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
+    final typeLabel = annotation.type.label(l10n);
 
     if (annotation.type.needsText || annotation.hasText) {
       final action = await showModalBottomSheet<_AnnotationAction>(
@@ -421,32 +428,32 @@ class _ReaderScreenState extends State<ReaderScreen>
                     color: AppColors.ebonyAccent,
                   ),
                   title: Text(
-                    annotation.type.label,
+                    typeLabel,
                     style: const TextStyle(color: AppColors.ebonyAccent),
                   ),
                   subtitle: Text(
                     annotation.hasText
                         ? annotation.text!
-                        : 'Página ${annotation.pageNumber}',
+                        : l10n.pageNumber(annotation.pageNumber),
                   ),
                 ),
                 const Divider(height: 1),
                 if (annotation.type.needsText)
                   ListTile(
                     leading: const Icon(Icons.edit_outlined),
-                    title: const Text('Editar texto'),
+                    title: Text(l10n.editText),
                     onTap: () =>
                         Navigator.of(context).pop(_AnnotationAction.edit),
                   ),
                 ListTile(
                   leading: const Icon(Icons.delete_outline),
-                  title: const Text('Eliminar'),
+                  title: Text(l10n.delete),
                   onTap: () =>
                       Navigator.of(context).pop(_AnnotationAction.delete),
                 ),
                 ListTile(
                   leading: Icon(Icons.close, color: colors.textMuted),
-                  title: const Text('Cancelar'),
+                  title: Text(l10n.cancel),
                   onTap: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -465,8 +472,8 @@ class _ReaderScreenState extends State<ReaderScreen>
           context,
           pageNumber: annotation.pageNumber,
           initialText: annotation.text,
-          title: annotation.type.label,
-          hintText: 'Editar ${annotation.type.label.toLowerCase()}…',
+          title: typeLabel,
+          hintText: l10n.editTypeHint(typeLabel.toLowerCase()),
         );
         if (result == null || !mounted) return;
         await _annotations?.updateAnnotationText(
@@ -475,7 +482,7 @@ class _ReaderScreenState extends State<ReaderScreen>
         );
         if (_annotations?.error != null && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_annotations!.error!)),
+            SnackBar(content: Text(_msg(_annotations!.error!))),
           );
         }
       }
@@ -500,20 +507,20 @@ class _ReaderScreenState extends State<ReaderScreen>
                   color: AppColors.ebonyAccent,
                 ),
                 title: Text(
-                  '${annotation.type.label} · página ${annotation.pageNumber}',
+                  '$typeLabel · ${l10n.pageNumber(annotation.pageNumber)}',
                   style: const TextStyle(color: AppColors.ebonyAccent),
                 ),
               ),
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.delete_outline),
-                title: const Text('Eliminar'),
+                title: Text(l10n.delete),
                 onTap: () =>
                     Navigator.of(context).pop(_AnnotationAction.delete),
               ),
               ListTile(
                 leading: Icon(Icons.close, color: colors.textMuted),
-                title: const Text('Cancelar'),
+                title: Text(l10n.cancel),
                 onTap: () => Navigator.of(context).pop(),
               ),
             ],
@@ -529,28 +536,30 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Future<void> _confirmDeleteAnnotation(PageAnnotation annotation) async {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
+    final typeLabel = annotation.type.label(l10n);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.panel,
         title: Text(
-          'Eliminar ${annotation.type.label.toLowerCase()}',
+          l10n.deleteAnnotationTitle(typeLabel.toLowerCase()),
           style: const TextStyle(color: AppColors.ebonyAccent),
         ),
         content: Text(
-          '¿Quieres eliminar esta anotación de la página ${annotation.pageNumber}?',
+          l10n.deleteAnnotationConfirm(annotation.pageNumber),
           style: TextStyle(color: colors.text),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Cancelar', style: TextStyle(color: colors.textMuted)),
+            child: Text(l10n.cancel, style: TextStyle(color: colors.textMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(
-              'Eliminar',
-              style: TextStyle(color: AppColors.ebonyAccent),
+            child: Text(
+              l10n.delete,
+              style: const TextStyle(color: AppColors.ebonyAccent),
             ),
           ),
         ],
@@ -561,13 +570,13 @@ class _ReaderScreenState extends State<ReaderScreen>
       if (!mounted) return;
       if (_annotations?.error != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_annotations!.error!)),
+          SnackBar(content: Text(_msg(_annotations!.error!))),
         );
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${annotation.type.label} eliminado'),
+          content: Text(l10n.annotationDeleted(typeLabel)),
           duration: const Duration(milliseconds: 1200),
           behavior: SnackBarBehavior.floating,
         ),
@@ -628,10 +637,15 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
     if (!mounted) return;
 
+    final l10n = AppLocalizations.of(context);
     final error = _signing?.error;
     if (saved == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error ?? 'No se pudo firmar el documento.')),
+        SnackBar(
+          content: Text(
+            error != null ? _msg(error) : l10n.signDocumentFailed,
+          ),
+        ),
       );
       _signing?.clearError();
       return;
@@ -642,12 +656,15 @@ class _ReaderScreenState extends State<ReaderScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          warning ??
-              'Firmado como ${saved.role.labelEs.toLowerCase()} '
-                  '(#${saved.signingOrder}). Puedes arrastrar el sello.',
+          warning != null
+              ? _msg(warning)
+              : l10n.signedAsRole(
+                  saved.role.label(l10n).toLowerCase(),
+                  saved.signingOrder,
+                ),
         ),
         action: SnackBarAction(
-          label: 'Exportar',
+          label: l10n.exportAction,
           onPressed: () {
             if (!mounted) return;
             unawaited(_exportSignedPdf());
@@ -693,11 +710,13 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (_signing?.exporting == true) return;
     final result = await _signing?.exportSignedPdf();
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
     if (result == null) {
+      final error = _signing?.error;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _signing?.error ?? 'No se pudo exportar el PDF firmado.',
+            error != null ? _msg(error) : l10n.exportSignedFailed,
           ),
         ),
       );
@@ -713,35 +732,37 @@ class _ReaderScreenState extends State<ReaderScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'PDF firmado exportado con manifiesto SHA-256.\n'
-          '${result.manifest.signedFileName}',
+          l10n.exportSignedSuccess(result.manifest.signedFileName),
         ),
       ),
     );
   }
 
   Future<void> _confirmDeleteSignature(DocumentSignature signature) async {
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         final colors = AppPalette.of(context);
         return AlertDialog(
           backgroundColor: colors.panel,
-          title: const Text('Eliminar firma'),
+          title: Text(l10n.deleteSignatureTitle),
           content: Text(
-            '¿Eliminar la firma de ${signature.signerName} '
-            'en la página ${signature.pageNumber}?',
+            l10n.deleteSignatureConfirm(
+              signature.signerName,
+              signature.pageNumber,
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text('Cancelar', style: TextStyle(color: colors.text)),
+              child: Text(l10n.cancel, style: TextStyle(color: colors.text)),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text(
-                'Eliminar',
-                style: TextStyle(color: AppColors.ebonyAccent),
+              child: Text(
+                l10n.delete,
+                style: const TextStyle(color: AppColors.ebonyAccent),
               ),
             ),
           ],
@@ -752,10 +773,11 @@ class _ReaderScreenState extends State<ReaderScreen>
     final deleted = await _signing?.deleteSignature(signature) ?? false;
     if (!mounted) return;
     if (!deleted) {
+      final error = _signing?.error;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _signing?.error ?? 'No se pudo eliminar la firma.',
+            error != null ? _msg(error) : l10n.deleteSignatureFailed,
           ),
         ),
       );
@@ -771,23 +793,23 @@ class _ReaderScreenState extends State<ReaderScreen>
         bookmark.noteText != null && bookmark.noteText!.trim().isNotEmpty;
     if (hasNote) {
       final colors = AppPalette.of(context);
+      final l10n = AppLocalizations.of(context);
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: colors.panel,
-          title: const Text('Eliminar marcador'),
+          title: Text(l10n.deleteBookmarkTitle),
           content: Text(
-            '¿Eliminar el marcador de la página ${bookmark.pageNumber} '
-            'y su nota?',
+            l10n.deleteBookmarkWithNoteConfirm(bookmark.pageNumber),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar'),
+              child: Text(l10n.cancel),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text('Eliminar', style: TextStyle(color: colors.accent)),
+              child: Text(l10n.delete, style: TextStyle(color: colors.accent)),
             ),
           ],
         ),
@@ -798,7 +820,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     await annotations.deleteBookmark(bookmark);
     if (annotations.error != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(annotations.error!)),
+        SnackBar(content: Text(_msg(annotations.error!))),
       );
     }
   }
@@ -826,8 +848,8 @@ class _ReaderScreenState extends State<ReaderScreen>
         if (didPop) return;
         if (_signing?.exporting == true) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Espera a que termine la exportación.'),
+            SnackBar(
+              content: Text(AppLocalizations.of(context).waitForExport),
             ),
           );
           return;
@@ -916,7 +938,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     top: 8,
                     right: 8,
                     child: IconButton(
-                      tooltip: 'Mostrar controles',
+                      tooltip: AppLocalizations.of(context).showControls,
                       onPressed: _toggleControls,
                       style: IconButton.styleFrom(
                         backgroundColor: colors.panel.withValues(alpha: 0.85),
@@ -930,7 +952,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     top: 8,
                     right: 56,
                     child: IconButton(
-                      tooltip: 'Herramientas de anotación',
+                      tooltip: AppLocalizations.of(context).annotationTools,
                       onPressed: () {
                         setState(() => _controlsVisible = true);
                         _toggleAnnotationToolbox();
@@ -968,6 +990,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Widget _buildPdfView(AppPalette colors) {
+    final l10n = AppLocalizations.of(context);
     if (_error != null) {
       return Center(
         child: Padding(
@@ -1022,7 +1045,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       },
       onDocumentError: (error) {
         if (!mounted) return;
-        setState(() => _error = 'No se pudo abrir el PDF.\n$error');
+        setState(() => _error = l10n.openPdfError('$error'));
       },
       builders: PdfViewBuilders<DefaultBuilderOptions>(
         options: const DefaultBuilderOptions(),
@@ -1041,7 +1064,7 @@ class _ReaderScreenState extends State<ReaderScreen>
         ),
         errorBuilder: (_, error) => Center(
           child: Text(
-            'Error al cargar la página',
+            l10n.pageLoadError,
             style: TextStyle(color: colors.text),
           ),
         ),
@@ -1103,6 +1126,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     DocumentSigningProvider? signing, {
     required bool toolboxVisible,
   }) {
+    final l10n = AppLocalizations.of(context);
     final placement = signing?.placementMode == true;
     final canExport = signing != null && signing.hasSignatures;
 
@@ -1116,12 +1140,12 @@ class _ReaderScreenState extends State<ReaderScreen>
         child: Row(
           children: [
             IconButton(
-              tooltip: 'Menú / índice',
+              tooltip: l10n.menuToc,
               onPressed: _toggleSidebar,
               icon: Icon(Icons.menu, color: colors.accent),
             ),
             IconButton(
-              tooltip: placement ? 'Cancelar colocación' : 'Volver',
+              tooltip: placement ? l10n.cancelPlacement : l10n.back,
               onPressed: () {
                 if (placement) {
                   signing?.cancelPlacementMode();
@@ -1143,8 +1167,8 @@ class _ReaderScreenState extends State<ReaderScreen>
             // Icono bronce de anotación siempre visible.
             IconButton(
               tooltip: toolboxVisible
-                  ? 'Cerrar herramientas'
-                  : 'Herramientas de anotación',
+                  ? l10n.closeAnnotationTools
+                  : l10n.annotationTools,
               onPressed: _toggleAnnotationToolbox,
               style: IconButton.styleFrom(
                 backgroundColor: toolboxVisible
@@ -1165,8 +1189,9 @@ class _ReaderScreenState extends State<ReaderScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      tooltip:
-                          isBookmarked ? 'Quitar marcador' : 'Marcar página',
+                      tooltip: isBookmarked
+                          ? l10n.removeBookmark
+                          : l10n.addBookmark,
                       onPressed: _toggleBookmark,
                       icon: Icon(
                         isBookmarked ? Icons.bookmark : Icons.bookmark_border,
@@ -1174,7 +1199,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Añadir nota',
+                      tooltip: l10n.addNote,
                       onPressed: _editNote,
                       icon: Icon(
                         Icons.sticky_note_2_outlined,
@@ -1183,8 +1208,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                     ),
                     IconButton(
                       tooltip: _ebonyFilter
-                          ? 'Desactivar filtro Ébano'
-                          : 'Filtro Ébano',
+                          ? l10n.filterEbonyOff
+                          : l10n.filterEbonyOn,
                       onPressed: _toggleFilter,
                       icon: Icon(
                         _ebonyFilter
@@ -1195,7 +1220,9 @@ class _ReaderScreenState extends State<ReaderScreen>
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Modo: ${_scrollMode.label}',
+                      tooltip: l10n.scrollModeTooltip(
+                        _scrollMode.localizedLabel(l10n),
+                      ),
                       onPressed: _toggleScrollMode,
                       icon: Icon(
                         _scrollMode.isVertical
@@ -1205,7 +1232,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Ocultar controles',
+                      tooltip: l10n.hideControls,
                       onPressed: _toggleControls,
                       icon: Icon(Icons.fullscreen, color: colors.textMuted),
                     ),
@@ -1215,7 +1242,7 @@ class _ReaderScreenState extends State<ReaderScreen>
             ),
             // Acciones primarias de firma siempre visibles (no se ocultan al scroll).
             IconButton(
-              tooltip: placement ? 'Cancelar colocación' : 'Firmar documento',
+              tooltip: placement ? l10n.cancelPlacement : l10n.signDocument,
               onPressed: signing?.saving == true ||
                       signing?.loading == true ||
                       signing?.exporting == true
@@ -1234,7 +1261,7 @@ class _ReaderScreenState extends State<ReaderScreen>
               ),
             ),
             IconButton(
-              tooltip: 'Exportar PDF firmado',
+              tooltip: l10n.exportSignedPdf,
               onPressed: signing == null ||
                       !signing.hasSignatures ||
                       signing.exporting ||
@@ -1259,6 +1286,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     required int signatureCount,
     required int annotationCount,
   }) {
+    final l10n = AppLocalizations.of(context);
     final label =
         _pagesCount > 0 ? '$_currentPage / $_pagesCount' : '$_currentPage';
 
@@ -1309,13 +1337,13 @@ class _ReaderScreenState extends State<ReaderScreen>
             ],
             const Spacer(),
             Text(
-              _scrollMode.label,
+              _scrollMode.localizedLabel(l10n),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             if (_ebonyFilter) ...[
               const SizedBox(width: 12),
               Text(
-                'Ébano',
+                l10n.themeEbony,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colors.accent,
                     ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'support/l10n_test_app.dart';
 import 'package:minimal_pdf/core/theme/app_theme.dart';
 import 'package:minimal_pdf/core/theme/app_theme_option.dart';
 import 'package:minimal_pdf/presentation/signing/signature_pad.dart';
@@ -9,7 +10,7 @@ void main() {
     List<List<List<double>>>? strokes;
 
     await tester.pumpWidget(
-      MaterialApp(
+      l10nTestApp(
         theme: AppTheme.of(AppThemeOption.ebony),
         home: Scaffold(
           body: SignaturePad(
@@ -41,7 +42,7 @@ void main() {
     var strokes = <List<List<double>>>[];
 
     await tester.pumpWidget(
-      MaterialApp(
+      l10nTestApp(
         theme: AppTheme.of(AppThemeOption.ebony),
         home: Scaffold(
           body: SignaturePad(

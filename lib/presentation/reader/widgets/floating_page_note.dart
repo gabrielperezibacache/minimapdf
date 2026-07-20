@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Nota flotante sobre la página actual (acento del tema activo).
 class FloatingPageNote extends StatelessWidget {
@@ -20,6 +21,7 @@ class FloatingPageNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Material(
       color: colors.panel.withValues(alpha: 0.96),
@@ -46,7 +48,7 @@ class FloatingPageNote extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Nota · p. $pageNumber',
+                      l10n.notePageAbbrev(pageNumber),
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: colors.accent,
                           ),
@@ -63,7 +65,7 @@ class FloatingPageNote extends StatelessWidget {
               ),
               if (onDismiss != null)
                 IconButton(
-                  tooltip: 'Cerrar',
+                  tooltip: l10n.close,
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 28, minHeight: 28),

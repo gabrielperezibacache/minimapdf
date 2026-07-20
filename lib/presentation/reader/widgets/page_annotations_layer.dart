@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/safe_clamp.dart';
 import '../../../data/models/page_annotation.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../providers/reader_annotations_provider.dart';
 
 /// Capa de dibujo/visualización de anotaciones sobre la página actual.
@@ -319,7 +320,7 @@ class _AnnotationMark extends StatelessWidget {
       height: height,
       child: Semantics(
         button: interactive,
-        label: '${annotation.type.label}'
+        label: '${annotation.type.label(AppLocalizations.of(context))}'
             '${annotation.hasText ? ': ${annotation.text}' : ''}',
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,

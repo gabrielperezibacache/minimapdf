@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:minimal_pdf/core/theme/app_theme.dart';
+import 'package:minimal_pdf/l10n/app_localizations.dart';
 import 'package:minimal_pdf/presentation/providers/reader_annotations_provider.dart';
 import 'package:minimal_pdf/presentation/reader/widgets/annotation_toolbox.dart';
 
@@ -8,6 +10,14 @@ void main() {
   Widget wrap(Widget child) {
     return MaterialApp(
       theme: AppTheme.ebony,
+      locale: const Locale('es'),
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: Scaffold(
         body: Align(
           alignment: Alignment.bottomCenter,

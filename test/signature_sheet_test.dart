@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:minimal_pdf/core/theme/app_theme.dart';
 import 'package:minimal_pdf/core/theme/app_theme_option.dart';
+import 'package:minimal_pdf/l10n/app_localizations.dart';
 import 'package:minimal_pdf/data/models/signature_type.dart';
 import 'package:minimal_pdf/domain/electronic_signature_service.dart';
 import 'package:minimal_pdf/presentation/signing/signature_sheet.dart';
@@ -28,6 +30,14 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.of(AppThemeOption.ebony),
+        locale: const Locale('es'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         home: Builder(
           builder: (context) {
             return Scaffold(
@@ -66,6 +76,14 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.of(AppThemeOption.ebony),
+        locale: const Locale('es'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         home: Builder(
           builder: (context) {
             return Scaffold(

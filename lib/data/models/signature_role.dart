@@ -1,3 +1,5 @@
+import '../../l10n/app_localizations.dart';
+
 /// Rol del participante en una firma electrónica local.
 enum SignatureRole {
   signer,
@@ -8,16 +10,19 @@ enum SignatureRole {
 extension SignatureRoleX on SignatureRole {
   String get storageValue => name;
 
-  String get labelEs {
-    switch (this) {
-      case SignatureRole.signer:
-        return 'Firmante';
-      case SignatureRole.reviewer:
-        return 'Revisor';
-      case SignatureRole.witness:
-        return 'Testigo';
-    }
-  }
+  /// Etiqueta localizada para UI.
+  String label(AppLocalizations l10n) => switch (this) {
+        SignatureRole.signer => l10n.signatureRoleSigner,
+        SignatureRole.reviewer => l10n.signatureRoleReviewer,
+        SignatureRole.witness => l10n.signatureRoleWitness,
+      };
+
+  /// Compatibilidad: español por defecto (manifiestos / overlays sin contexto).
+  String get labelEs => switch (this) {
+        SignatureRole.signer => 'Firmante',
+        SignatureRole.reviewer => 'Revisor',
+        SignatureRole.witness => 'Testigo',
+      };
 
   static SignatureRole fromStorage(String? value) {
     return SignatureRole.values.firstWhere(

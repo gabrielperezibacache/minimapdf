@@ -20,4 +20,33 @@ abstract final class AppMessageKeys {
   static const nativeDownloadFailed = 'nativeDownloadFailed';
   static const downloadCancelled = 'downloadCancelled';
   static const multiplePdfsDetected = 'multiplePdfsDetected';
+
+  // Firmas / anotaciones (errores de providers).
+  static const waitForExport = 'waitForExport';
+  static const waitForSignaturesLoad = 'waitForSignaturesLoad';
+  static const waitForSigning = 'waitForSigning';
+  static const signDocumentFailed = 'signDocumentFailed';
+  static const exportSignedFailed = 'exportSignedFailed';
+  static const deleteSignatureFailed = 'deleteSignatureFailed';
+  static const signaturesLoadFailed = 'errorSignaturesLoad';
+  static const signatureSaveFailed = 'errorSignatureSave';
+  static const templateDeleteFailed = 'errorTemplateDelete';
+  static const signatureMoveFailed = 'errorSignatureMove';
+  static const needSignature = 'errorNeedSignature';
+  static const cancelPlacement = 'errorCancelPlacement';
+  static const exportInProgress = 'errorExportInProgress';
+  static const documentUnavailable = 'errorDocumentUnavailable';
+  static const documentUnavailableSign = 'errorDocumentUnavailableSign';
+  static const signatureBusy = 'errorSignatureBusy';
+  static const templatePartial = 'errorTemplatePartial';
+  static const templatesLoadFailed = 'errorTemplatesLoad';
+  static const annotationsLoadFailed = 'errorAnnotationsLoad';
+  static const bookmarkRemoveFailed = 'errorBookmarkRemove';
+  static const bookmarkCreateFailed = 'errorBookmarkCreate';
+  static const noteSaveFailed = 'errorNoteSave';
+  static const bookmarkDeleteFailed = 'errorBookmarkDelete';
+  static const annotationSaveFailed = 'errorAnnotationSave';
+  static const annotationUpdateFailed = 'errorAnnotationUpdate';
+  static const annotationDeleteFailed = 'errorAnnotationDelete';
+  static const annotationGeometryInvalid = 'errorAnnotationGeometry';
 }

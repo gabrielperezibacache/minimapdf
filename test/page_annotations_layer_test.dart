@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'support/l10n_test_app.dart';
 import 'package:minimal_pdf/core/theme/app_colors.dart';
 import 'package:minimal_pdf/core/theme/app_theme.dart';
 import 'package:minimal_pdf/data/models/page_annotation.dart';
@@ -13,7 +14,7 @@ void main() {
     var gotY = -1.0;
 
     await tester.pumpWidget(
-      MaterialApp(
+      l10nTestApp(
         theme: AppTheme.ebony,
         home: Scaffold(
           body: Center(
@@ -56,7 +57,7 @@ void main() {
     var gotWidth = 0.0;
 
     await tester.pumpWidget(
-      MaterialApp(
+      l10nTestApp(
         theme: AppTheme.ebony,
         home: Scaffold(
           body: Center(
@@ -114,7 +115,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      l10nTestApp(
         theme: AppTheme.ebony,
         home: Scaffold(
           body: Center(

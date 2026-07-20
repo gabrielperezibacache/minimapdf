@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'support/l10n_test_app.dart';
 import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/database_config.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
@@ -262,7 +263,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
+        l10nTestApp(
           theme: AppTheme.of(AppThemeOption.ebony),
           home: Scaffold(
             body: SizedBox(

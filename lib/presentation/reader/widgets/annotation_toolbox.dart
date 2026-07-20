@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../providers/reader_annotations_provider.dart';
 
 /// Caja de herramientas de anotación (acento bronce Ébano).
@@ -41,6 +42,7 @@ class AnnotationToolbox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return IgnorePointer(
@@ -77,8 +79,8 @@ class AnnotationToolbox extends StatelessWidget {
                       Expanded(
                         child: Text(
                           pageNumber == null
-                              ? 'Herramientas'
-                              : 'Herramientas · p. $pageNumber',
+                              ? l10n.annotationTools
+                              : l10n.toolsPage(pageNumber!),
                           style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                 color: AppColors.ebonyAccent,
                               ),
@@ -88,7 +90,7 @@ class AnnotationToolbox extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(right: 4),
                           child: Text(
-                            '$annotationCount en página',
+                            l10n.annotationsOnPage(annotationCount),
                             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                   color: colors.textMuted,
                                 ),
@@ -104,10 +106,10 @@ class AnnotationToolbox extends StatelessWidget {
                             foregroundColor: colors.textMuted,
                             visualDensity: VisualDensity.compact,
                           ),
-                          child: const Text('Soltar'),
+                          child: Text(l10n.releaseTool),
                         ),
                       IconButton(
-                        tooltip: 'Cerrar caja',
+                        tooltip: l10n.closeToolbox,
                         onPressed: onClose,
                         visualDensity: VisualDensity.compact,
                         icon: Icon(Icons.close, color: colors.textMuted, size: 20),
@@ -122,7 +124,7 @@ class AnnotationToolbox extends StatelessWidget {
                         if (onToggleBookmark != null) ...[
                           _ToolChip(
                             selected: isBookmarked,
-                            label: 'Marcador',
+                            label: l10n.bookmarkTool,
                             icon: isBookmarked
                                 ? Icons.bookmark
                                 : Icons.bookmark_border,
@@ -136,7 +138,7 @@ class AnnotationToolbox extends StatelessWidget {
                         for (final tool in tools) ...[
                           _ToolChip(
                             selected: activeTool == tool,
-                            label: tool.label,
+                            label: tool.label(l10n),
                             icon: tool.annotationType!.icon,
                             onTap: () {
                               HapticFeedback.selectionClick();

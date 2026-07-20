@@ -6,6 +6,7 @@ import 'package:pdfx/pdfx.dart';
 import '../../../core/theme/ebony_pdf_filter.dart';
 import '../../../data/models/document_signature.dart';
 import '../../../data/models/page_annotation.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../providers/reader_annotations_provider.dart';
 import '../../signing/signature_overlay.dart';
 import 'page_annotations_layer.dart';
@@ -124,7 +125,9 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
     if (_loadError != null && _cachedBytes == null) {
       return SizedBox.fromSize(
         size: widget.fallbackSize,
-        child: const Center(child: Text('Error al cargar la página')),
+        child: Center(
+          child: Text(AppLocalizations.of(context).pageLoadError),
+        ),
       );
     }
 
