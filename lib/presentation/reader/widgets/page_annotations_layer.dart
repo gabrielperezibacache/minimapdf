@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/safe_clamp.dart';
 import '../../../data/models/page_annotation.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../providers/reader_annotations_provider.dart';
 
 /// Capa de dibujo/visualización de anotaciones sobre la página actual.
@@ -40,19 +41,25 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
   Offset? _dragCurrent;
   bool _creating = false;
   bool _panMoved = false;
+  /// Herramienta fijada al iniciar el gesto (sobrevive al cambio de página).
+  AnnotationTool? _gestureTool;
 
   bool get _captureGestures =>
       widget.enabled &&
       !_creating &&
-      widget.activeTool != AnnotationTool.none;
+      (widget.activeTool != AnnotationTool.none || _dragStart != null);
+
+  AnnotationTool get _effectiveTool =>
+      _gestureTool ?? widget.activeTool;
 
   @override
   void didUpdateWidget(covariant PageAnnotationsLayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.activeTool != widget.activeTool) {
-      _dragStart = null;
-      _dragCurrent = null;
-      _panMoved = false;
+    // No aborta un arrastre en curso si el tool de la página pasa a none.
+    if (oldWidget.activeTool != widget.activeTool &&
+        _dragStart == null &&
+        !_creating) {
+      _gestureTool = null;
     }
   }
 
@@ -89,6 +96,7 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
                   },
                   onPanStart: (details) {
                     setState(() {
+                      _gestureTool = widget.activeTool;
                       _dragStart = details.localPosition;
                       _dragCurrent = details.localPosition;
                       _panMoved = false;
@@ -107,14 +115,21 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
                     final start = _dragStart;
                     final end = _dragCurrent ?? start;
                     final moved = _panMoved;
+                    final tool = _effectiveTool;
                     setState(() {
                       _dragStart = null;
                       _dragCurrent = null;
                       _panMoved = false;
+                      _gestureTool = null;
                     });
                     // Solo arrastres reales: los toques los resuelve onTapUp.
                     if (!moved || start == null || end == null) return;
-                    await _finishGesture(size: size, start: start, end: end);
+                    await _finishGesture(
+                      size: size,
+                      start: start,
+                      end: end,
+                      toolOverride: tool,
+                    );
                   },
 
                   onPanCancel: () {
@@ -122,6 +137,7 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
                       _dragStart = null;
                       _dragCurrent = null;
                       _panMoved = false;
+                      _gestureTool = null;
                     });
                   },
                 ),
@@ -131,7 +147,7 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
                 start: _dragStart!,
                 current: _dragCurrent!,
                 size: size,
-                tool: widget.activeTool,
+                tool: _effectiveTool,
               ),
           ],
         );
@@ -143,14 +159,15 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
     required Size size,
     required Offset start,
     required Offset end,
+    AnnotationTool? toolOverride,
   }) async {
     if (_creating || size.width <= 0 || size.height <= 0) return;
-    if (widget.activeTool == AnnotationTool.none) return;
+    final tool = toolOverride ?? widget.activeTool;
+    if (tool == AnnotationTool.none) return;
 
     final dx = (end.dx - start.dx).abs();
     final dy = (end.dy - start.dy).abs();
     final isTap = dx < 12 && dy < 12;
-    final tool = widget.activeTool;
 
     late double left;
     late double top;
@@ -303,7 +320,7 @@ class _AnnotationMark extends StatelessWidget {
       height: height,
       child: Semantics(
         button: interactive,
-        label: '${annotation.type.label}'
+        label: '${annotation.type.label(AppLocalizations.of(context))}'
             '${annotation.hasText ? ': ${annotation.text}' : ''}',
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,

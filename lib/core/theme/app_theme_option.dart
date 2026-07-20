@@ -8,12 +8,6 @@ enum AppThemeOption {
 }
 
 extension AppThemeOptionX on AppThemeOption {
-  String get label => switch (this) {
-        AppThemeOption.light => 'Claro',
-        AppThemeOption.sepia => 'Sepia',
-        AppThemeOption.ebony => 'Ébano',
-      };
-
   String localizedLabel(AppLocalizations l10n) => switch (this) {
         AppThemeOption.light => l10n.themeLight,
         AppThemeOption.sepia => l10n.themeSepia,

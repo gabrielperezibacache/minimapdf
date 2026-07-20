@@ -18,15 +18,27 @@ abstract final class FileNameSanitizer {
 
     name = name.replaceAll(_invalid, '_').replaceAll(RegExp(r'\s+'), '_');
     name = name.replaceAll(RegExp(r'_+'), '_');
-    name = name.replaceAll(RegExp(r'^_|_$'), '');
+    name = _stripEdgeJunk(name);
 
-    if (name.isEmpty) name = fallback;
+    if (name.isEmpty || RegExp(r'^\.+$').hasMatch(name)) {
+      name = fallback;
+    }
     if (_windowsReserved.contains(name.toLowerCase())) {
       name = '${fallback}_$name';
     }
-    if (name.length > 80) name = name.substring(0, 80);
+    if (name.length > 80) {
+      name = _stripEdgeJunk(name.substring(0, 80));
+      if (name.isEmpty) name = fallback;
+      if (_windowsReserved.contains(name.toLowerCase())) {
+        name = '${fallback}_$name';
+      }
+    }
 
     return '$name.pdf';
+  }
+
+  static String _stripEdgeJunk(String value) {
+    return value.replaceAll(RegExp(r'^[._]+|[._]+$'), '');
   }
 
   /// Genera un nombre único añadiendo un sufijo si ya existe en [existingNames].

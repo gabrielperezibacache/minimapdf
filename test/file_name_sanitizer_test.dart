@@ -23,5 +23,11 @@ void main() {
         'informe_3.pdf',
       );
     });
+
+    test('elimina puntos/guiones bajos finales y nombres solo-puntos', () {
+      expect(FileNameSanitizer.sanitize('informe.'), 'informe.pdf');
+      expect(FileNameSanitizer.sanitize('...'), 'documento.pdf');
+      expect(FileNameSanitizer.sanitize('test._'), 'test.pdf');
+    });
   });
 }

@@ -170,7 +170,7 @@ void main() {
         createdAt: DateTime.utc(2026, 7, 4),
       );
       expect(PageAnnotation.fromMap(annotation.toMap()), annotation);
-      expect(annotation.type.label, 'Marcado');
+      expect(annotation.type.labelEs, 'Marcado');
     });
 
     test('PageAnnotation.tryFromMap ignora filas corruptas', () {

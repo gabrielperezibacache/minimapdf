@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../l10n/app_localizations.dart';
 
 /// Tipo de anotación sobre una página del PDF.
 enum AnnotationType {
@@ -10,7 +11,16 @@ enum AnnotationType {
   comment,
   annotation;
 
-  String get label => switch (this) {
+  String label(AppLocalizations l10n) => switch (this) {
+        AnnotationType.highlight => l10n.annotationHighlight,
+        AnnotationType.underline => l10n.annotationUnderline,
+        AnnotationType.note => l10n.annotationNote,
+        AnnotationType.comment => l10n.annotationComment,
+        AnnotationType.annotation => l10n.annotationGeneric,
+      };
+
+  /// Español por defecto (semántica / capas sin BuildContext).
+  String get labelEs => switch (this) {
         AnnotationType.highlight => 'Marcado',
         AnnotationType.underline => 'Subrayado',
         AnnotationType.note => 'Nota',

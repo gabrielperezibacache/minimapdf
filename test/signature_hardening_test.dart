@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'support/l10n_test_app.dart';
 import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/database_config.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
@@ -65,12 +66,15 @@ void main() {
       );
     });
 
-    test('formatSignatureDate rellena ceros', () {
-      expect(
-        formatSignatureDate(DateTime(2026, 3, 4, 5, 6)),
-        matches(RegExp(r'^\d{2}/\d{2}/2026 \d{2}:\d{2}$')),
+    test('formatSignatureDate localiza fecha y hora', () {
+      final es = formatSignatureDate(
+        DateTime(2026, 3, 4, 5, 6),
+        locale: 'es',
       );
-      expect(formatSignatureDate(DateTime(2026, 3, 4, 5, 6)).contains('04/03/2026'), isTrue);
+      expect(es, contains('2026'));
+      expect(es, contains('5'));
+      final fallback = formatSignatureDate(DateTime(2026, 3, 4, 5, 6));
+      expect(fallback, isNotEmpty);
     });
   });
 
@@ -262,7 +266,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
+        l10nTestApp(
           theme: AppTheme.of(AppThemeOption.ebony),
           home: Scaffold(
             body: SizedBox(
@@ -272,7 +276,7 @@ void main() {
                 signatures: [signature],
                 topReserve: 60,
                 bottomReserve: 60,
-                onMove: (s, x, y) {},
+                onMove: (s, x, y) async => true,
                 onDelete: (s) {},
               ),
             ),

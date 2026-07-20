@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'support/l10n_test_app.dart';
 import 'package:minimal_pdf/core/theme/app_theme.dart';
 import 'package:minimal_pdf/core/theme/app_theme_option.dart';
 import 'package:minimal_pdf/presentation/signing/signature_overlay.dart';
@@ -11,7 +12,7 @@ void main() {
     double? tappedY;
 
     await tester.pumpWidget(
-      MaterialApp(
+      l10nTestApp(
         theme: AppTheme.of(AppThemeOption.ebony),
         home: Scaffold(
           body: SizedBox(
@@ -26,7 +27,7 @@ void main() {
                 tappedX = x;
                 tappedY = y;
               },
-              onMove: (_, _, _) {},
+              onMove: (_, _, _) async => true,
               onDelete: (_) {},
             ),
           ),

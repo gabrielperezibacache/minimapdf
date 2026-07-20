@@ -12,6 +12,8 @@ import '../../data/models/signature_template.dart';
 import '../../data/models/signature_type.dart';
 import '../../domain/electronic_signature_service.dart';
 import '../../domain/signed_pdf_export_service.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/app_message_keys.dart';
 
 /// Firmas electrónicas del documento abierto en el lector.
 class DocumentSigningProvider extends ChangeNotifier {
@@ -131,7 +133,7 @@ class DocumentSigningProvider extends ChangeNotifier {
       if (_disposed || generation != _loadGeneration || _bookId != bookId) {
         return;
       }
-      _error = 'No se pudieron cargar las firmas.';
+      _error = AppMessageKeys.signaturesLoadFailed;
       // Conserva la lista previa si ya había firmas en memoria.
     } finally {
       if (!_disposed && generation == _loadGeneration) {
@@ -179,7 +181,7 @@ class DocumentSigningProvider extends ChangeNotifier {
       if (_disposed || generation != _loadGeneration || _bookId != bookId) {
         return;
       }
-      _error = 'No se pudieron cargar las firmas.';
+      _error = AppMessageKeys.signaturesLoadFailed;
     } finally {
       if (!_disposed && generation == _loadGeneration) {
         _loading = false;
@@ -189,6 +191,7 @@ class DocumentSigningProvider extends ChangeNotifier {
   }
 
   void beginPlacementMode() {
+    if (_disposed || _loading || _saving || _exporting) return;
     _placementMode = true;
     _pendingOffsetX = null;
     _pendingOffsetY = null;
@@ -226,22 +229,22 @@ class DocumentSigningProvider extends ChangeNotifier {
     if (_disposed) return null;
     final bookId = _bookId;
     if (bookId == null) {
-      _error = 'Documento no disponible para firmar.';
+      _error = AppMessageKeys.documentUnavailableSign;
       _notify();
       return null;
     }
     if (_loading) {
-      _error = 'Espera a que terminen de cargar las firmas.';
+      _error = AppMessageKeys.waitForSignaturesLoad;
       _notify();
       return null;
     }
     if (_saving) {
-      _error = 'Ya hay una firma en curso.';
+      _error = AppMessageKeys.signatureBusy;
       _notify();
       return null;
     }
     if (_exporting) {
-      _error = 'Espera a que termine la exportación.';
+      _error = AppMessageKeys.waitForExport;
       _notify();
       return null;
     }
@@ -306,17 +309,18 @@ class DocumentSigningProvider extends ChangeNotifier {
           await _saveTemplateFromDraft(draft);
         } catch (_) {
           if (!_disposed) {
-            _error = 'Firma guardada, pero no se pudo crear la plantilla.';
+            _error = AppMessageKeys.templatePartial;
           }
         }
       }
 
       return saved;
     } on SignatureValidationException catch (error) {
+      // Clave de l10n; la UI resuelve con AppLocalizations.message.
       if (!_disposed) _error = error.message;
       return null;
     } catch (_) {
-      if (!_disposed) _error = 'No se pudo guardar la firma.';
+      if (!_disposed) _error = AppMessageKeys.signatureSaveFailed;
       return null;
     } finally {
       _saving = false;
@@ -331,7 +335,7 @@ class DocumentSigningProvider extends ChangeNotifier {
       requestedName.isNotEmpty ? requestedName : draft.signerName,
     );
     if (name.isEmpty) {
-      throw StateError('Nombre de plantilla vacío.');
+      throw StateError(AppMessageKeys.indicateTemplateName);
     }
 
     final template = SignatureTemplate(
@@ -366,7 +370,7 @@ class DocumentSigningProvider extends ChangeNotifier {
       _notify();
     } catch (_) {
       if (_disposed) return;
-      _error = 'No se pudieron cargar las plantillas.';
+      _error = AppMessageKeys.templatesLoadFailed;
       _notify();
     }
   }
@@ -388,7 +392,7 @@ class DocumentSigningProvider extends ChangeNotifier {
       return true;
     } catch (_) {
       if (_disposed) return false;
-      _error = 'No se pudo eliminar la plantilla.';
+      _error = AppMessageKeys.templateDeleteFailed;
       _notify();
       return false;
     }
@@ -404,7 +408,7 @@ class DocumentSigningProvider extends ChangeNotifier {
   }) async {
     if (_disposed) return false;
     if (_exporting) {
-      _error = 'Espera a que termine la exportación.';
+      _error = AppMessageKeys.waitForExport;
       _notify();
       return false;
     }
@@ -460,7 +464,7 @@ class DocumentSigningProvider extends ChangeNotifier {
       }
     } catch (_) {
       if (_disposed || generation != _moveGeneration) return true;
-      _error = 'No se pudo mover la firma.';
+      _error = AppMessageKeys.signatureMoveFailed;
       final book = _book;
       if (book != null) await loadForBook(book);
     }
@@ -470,7 +474,7 @@ class DocumentSigningProvider extends ChangeNotifier {
   Future<bool> deleteSignature(DocumentSignature signature) async {
     if (_disposed) return false;
     if (_exporting) {
-      _error = 'Espera a que termine la exportación.';
+      _error = AppMessageKeys.waitForExport;
       _notify();
       return false;
     }
@@ -490,7 +494,7 @@ class DocumentSigningProvider extends ChangeNotifier {
       return true;
     } catch (_) {
       if (_disposed) return false;
-      _error = 'No se pudo eliminar la firma.';
+      _error = AppMessageKeys.deleteSignatureFailed;
       _notify();
       return false;
     }
@@ -498,31 +502,37 @@ class DocumentSigningProvider extends ChangeNotifier {
 
   /// Exporta PDF firmado (sellos aplanados) + manifiesto SHA-256 e importa
   /// la copia a la biblioteca.
-  Future<SignedPdfExportResult?> exportSignedPdf() async {
+  ///
+  /// [signedMarker] y [roleLabelOf] localizan el sufijo del título/archivo y
+  /// las etiquetas de rol pintadas en el PDF.
+  Future<SignedPdfExportResult?> exportSignedPdf({
+    String signedMarker = 'firmado',
+    String Function(SignatureRole role)? roleLabelOf,
+  }) async {
     if (_disposed) return null;
     final book = _book;
     if (book == null) {
-      _error = 'Documento no disponible.';
+      _error = AppMessageKeys.documentUnavailable;
       _notify();
       return null;
     }
     if (_signatures.isEmpty) {
-      _error = 'Añade al menos una firma antes de exportar.';
+      _error = AppMessageKeys.needSignature;
       _notify();
       return null;
     }
     if (_placementMode) {
-      _error = 'Cancela la colocación antes de exportar.';
+      _error = AppMessageKeys.cancelPlacement;
       _notify();
       return null;
     }
     if (_saving) {
-      _error = 'Espera a que termine la firma actual.';
+      _error = AppMessageKeys.waitForSigning;
       _notify();
       return null;
     }
     if (_exporting) {
-      _error = 'Ya hay una exportación en curso.';
+      _error = AppMessageKeys.exportInProgress;
       _notify();
       return null;
     }
@@ -543,19 +553,21 @@ class DocumentSigningProvider extends ChangeNotifier {
         SignedPdfExportResult? exported;
         try {
           final reserved = await _datasource.listReservedLibraryBasenames();
+          final marker =
+              signedMarker.trim().isEmpty ? 'firmado' : signedMarker.trim();
           exported = await _exportService.exportSignedPdf(
             book: book,
             signatures: signaturesSnapshot,
             reservedBasenames: reserved,
+            signedMarker: marker,
+            roleLabelOf: roleLabelOf,
           );
           writtenArtifacts = exported;
           final file = File(exported.pdfPath);
-          final baseTitle = book.title
-              .replaceAll(RegExp(r'\s*\(firmado\)\s*$'), '')
-              .trim();
+          final baseTitle = AppLocalizations.stripSignedMarker(book.title);
           final tags = {
             for (final tag in book.tags) tag,
-            'firmado',
+            marker,
           }.toList(growable: false);
 
           // Evita FK rota si la colección se borró mientras el libro seguía abierto.
@@ -567,7 +579,7 @@ class DocumentSigningProvider extends ChangeNotifier {
 
           await _datasource.insertBook(
             Book(
-              title: '$baseTitle (firmado)',
+              title: '$baseTitle ($marker)',
               filePath: exported.pdfPath,
               fileSize: await file.length(),
               addedAt: DateTime.now(),
@@ -594,7 +606,7 @@ class DocumentSigningProvider extends ChangeNotifier {
       writtenArtifacts = null;
       return result;
     } catch (_) {
-      _error = 'No se pudo exportar el PDF firmado.';
+      _error = AppMessageKeys.exportSignedFailed;
       return null;
     } finally {
       _exporting = false;

@@ -6,6 +6,7 @@ import 'package:pdfx/pdfx.dart';
 import '../../../core/theme/ebony_pdf_filter.dart';
 import '../../../data/models/document_signature.dart';
 import '../../../data/models/page_annotation.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../providers/reader_annotations_provider.dart';
 import '../../signing/signature_overlay.dart';
 import 'page_annotations_layer.dart';
@@ -29,6 +30,7 @@ class SignedPdfPage extends StatefulWidget {
     required this.onPlaceTap,
     required this.onMove,
     required this.onDelete,
+    this.signaturesInteractive = true,
     this.annotations = const [],
     this.activeTool = AnnotationTool.none,
     this.annotationsEnabled = true,
@@ -44,8 +46,14 @@ class SignedPdfPage extends StatefulWidget {
   final bool ebonyFilter;
   final bool placementMode;
   final void Function(int pageNumber, double x, double y) onPlaceTap;
-  final void Function(DocumentSignature signature, double x, double y) onMove;
+  final Future<bool> Function(
+    DocumentSignature signature,
+    double x,
+    double y,
+  ) onMove;
   final ValueChanged<DocumentSignature> onDelete;
+  /// Si false, no se pueden arrastrar/borrar firmas (export/carga).
+  final bool signaturesInteractive;
   final List<PageAnnotation> annotations;
   final AnnotationTool activeTool;
   final bool annotationsEnabled;
@@ -117,7 +125,9 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
     if (_loadError != null && _cachedBytes == null) {
       return SizedBox.fromSize(
         size: widget.fallbackSize,
-        child: const Center(child: Text('Error al cargar la página')),
+        child: Center(
+          child: Text(AppLocalizations.of(context).pageLoadError),
+        ),
       );
     }
 
@@ -179,6 +189,7 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
             topReserve: 0,
             bottomReserve: 0,
             placementMode: widget.placementMode,
+            signaturesInteractive: widget.signaturesInteractive,
             onPlaceTap: (x, y) => widget.onPlaceTap(widget.pageNumber, x, y),
             onMove: widget.onMove,
             onDelete: widget.onDelete,

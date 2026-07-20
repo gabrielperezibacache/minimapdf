@@ -108,7 +108,9 @@ class DownloaderProvider extends ChangeNotifier {
       return '';
     }
     if (e is FormatException) {
-      return e.message;
+      return AppMessageKeys.isKnown(e.message)
+          ? e.message
+          : AppMessageKeys.invalidPdf;
     }
     if (e is TimeoutException) {
       return AppMessageKeys.timeout;
@@ -120,20 +122,19 @@ class DownloaderProvider extends ChangeNotifier {
       return AppMessageKeys.connectionFailed;
     }
     if (e is HttpException) {
-      return e.message;
+      return AppMessageKeys.isKnown(e.message)
+          ? e.message
+          : AppMessageKeys.downloadFailed;
     }
     if (e is ArgumentError) {
+      final msg = e.message;
+      if (msg is String && AppMessageKeys.isKnown(msg)) return msg;
       return AppMessageKeys.invalidUrl;
     }
     if (e is StateError) {
-      final msg = e.message;
-      if (msg.contains('en curso') || msg.contains('Ya hay una descarga')) {
-        return AppMessageKeys.downloadInProgress;
-      }
-      if (msg.contains('nativa fallida') || msg.contains('archivo no existe')) {
-        return AppMessageKeys.nativeDownloadFailed;
-      }
-      return msg;
+      return AppMessageKeys.isKnown(e.message)
+          ? e.message
+          : AppMessageKeys.downloadFailed;
     }
     return AppMessageKeys.downloadFailed;
   }

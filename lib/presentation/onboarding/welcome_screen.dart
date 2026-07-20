@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 
 /// Pantalla de bienvenida: solo la primera apertura tras instalar.
 ///
@@ -25,50 +26,44 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final PageController _pageController = PageController();
   int _pageIndex = 0;
   bool _finished = false;
+  bool _disposed = false;
 
-  static const List<_WelcomePageData> _pages = [
-    _WelcomePageData(
-      icon: Icons.shield_outlined,
-      title: 'Privacidad de verdad',
-      body:
-          'Minimal PDF procesa todo en tu dispositivo. Sin cuentas, sin nube, '
-          'sin telemetría ni anuncios: un pago único para leer con calma.',
-      highlight: '100% offline · Cero analíticas',
-    ),
-    _WelcomePageData(
-      icon: Icons.menu_book_outlined,
-      title: 'Biblioteca local',
-      body:
-          'Importa PDFs del dispositivo, organízalos en colecciones y edita '
-          'título, autor y etiquetas. También puedes descargar por URL o '
-          'capturar un PDF desde el mini-navegador.',
-      highlight: 'Importar · Colecciones · Descargas',
-    ),
-    _WelcomePageData(
-      icon: Icons.chrome_reader_mode_outlined,
-      title: 'Lector Ébano',
-      body:
-          'Scroll continuo o página a página, filtro de bajo cansancio visual, '
-          'progreso automático, marcadores en bronce y notas flotantes. '
-          'Listo para abrir tu primer PDF.',
-      highlight: 'Rápido · Cómodo · Sin distracciones',
-    ),
-  ];
+  List<_WelcomePageData> _pagesFor(AppLocalizations l10n) => [
+        _WelcomePageData(
+          icon: Icons.shield_outlined,
+          title: l10n.welcomePage1Title,
+          body: l10n.welcomePage1Body,
+          highlight: l10n.welcomePage1Highlight,
+        ),
+        _WelcomePageData(
+          icon: Icons.menu_book_outlined,
+          title: l10n.welcomePage2Title,
+          body: l10n.welcomePage2Body,
+          highlight: l10n.welcomePage2Highlight,
+        ),
+        _WelcomePageData(
+          icon: Icons.chrome_reader_mode_outlined,
+          title: l10n.welcomePage3Title,
+          body: l10n.welcomePage3Body,
+          highlight: l10n.welcomePage3Highlight,
+        ),
+      ];
 
   @override
   void dispose() {
+    _disposed = true;
     _pageController.dispose();
     super.dispose();
   }
 
   void _finish() {
-    if (_finished) return;
+    if (_finished || _disposed) return;
     _finished = true;
     widget.onFinished();
   }
 
-  void _next() {
-    if (_pageIndex >= _pages.length - 1) {
+  void _next(int pageCount) {
+    if (_pageIndex >= pageCount - 1) {
       _finish();
       return;
     }
@@ -89,9 +84,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
     final textTheme = Theme.of(context).textTheme;
+    final pages = _pagesFor(l10n);
     final isFirst = _pageIndex == 0;
-    final isLast = _pageIndex >= _pages.length - 1;
+    final isLast = _pageIndex >= pages.length - 1;
     final brightness = Theme.of(context).brightness;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -120,7 +117,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            AppConstants.appTagline,
+                            l10n.appTagline,
                             style: textTheme.bodySmall,
                           ),
                         ],
@@ -130,7 +127,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       TextButton(
                         onPressed: _finished ? null : _finish,
                         child: Text(
-                          'Omitir',
+                          l10n.skip,
                           style: TextStyle(color: colors.textMuted),
                         ),
                       ),
@@ -145,9 +142,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   switchOutCurve: Curves.easeIn,
                   child: Text(
                     key: ValueKey<bool>(isFirst),
-                    isFirst
-                        ? 'Bienvenido a una lectura offline, privada y sin ruido.'
-                        : 'Así funciona Minimal PDF',
+                    isFirst ? l10n.welcomeLead : l10n.welcomeHowItWorks,
                     style: textTheme.titleLarge?.copyWith(
                       height: 1.35,
                       fontWeight: FontWeight.w600,
@@ -158,15 +153,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               Expanded(
                 child: PageView.builder(
                   controller: _pageController,
-                  itemCount: _pages.length,
+                  itemCount: pages.length,
                   physics: const BouncingScrollPhysics(),
                   onPageChanged: (index) {
-                    if (_finished) return;
+                    if (_disposed || _finished) return;
                     setState(() => _pageIndex = index);
                   },
                   itemBuilder: (context, index) {
                     return _WelcomePage(
-                      page: _pages[index],
+                      page: pages[index],
                       accent: colors.accent,
                     );
                   },
@@ -177,10 +172,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 child: Column(
                   children: [
                     Semantics(
-                      label: 'Paso ${_pageIndex + 1} de ${_pages.length}',
+                      label: l10n.welcomeStep(_pageIndex + 1, pages.length),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(_pages.length, (index) {
+                        children: List.generate(pages.length, (index) {
                           final active = index == _pageIndex;
                           return AnimatedContainer(
                             duration: const Duration(milliseconds: 220),
@@ -211,7 +206,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                               ),
-                              child: const Text('Atrás'),
+                              child: Text(l10n.back),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -220,7 +215,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                           child: SizedBox(
                             height: 48,
                             child: FilledButton(
-                              onPressed: _finished ? null : _next,
+                              onPressed:
+                                  _finished ? null : () => _next(pages.length),
                               style: FilledButton.styleFrom(
                                 backgroundColor: colors.accent,
                                 foregroundColor: colors.background,
@@ -231,7 +227,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                                 ),
                               ),
                               child: Text(
-                                isLast ? 'Empezar a leer' : 'Continuar',
+                                isLast ? l10n.welcomeStart : l10n.welcomeContinue,
                               ),
                             ),
                           ),

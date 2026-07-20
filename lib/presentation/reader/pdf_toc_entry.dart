@@ -13,16 +13,31 @@ class PdfTocEntry {
   final int level;
 
   /// Entrada puntual para [ListView.builder] (O(1), sin preasignar N).
-  static PdfTocEntry forPage(int pageNumber) {
-    return PdfTocEntry(title: 'Página $pageNumber', pageNumber: pageNumber);
+  ///
+  /// [title] debe venir localizado (p. ej. [AppLocalizations.pageNumber]).
+  /// Si se omite, se usa el fallback neutro en inglés.
+  static PdfTocEntry forPage(int pageNumber, {String? title}) {
+    return PdfTocEntry(
+      title: title ?? 'Page $pageNumber',
+      pageNumber: pageNumber,
+    );
   }
 
   /// Índice por páginas (útil en tests; la UI preferirá [forPage]).
-  static List<PdfTocEntry> fromPageCount(int pagesCount) {
+  static List<PdfTocEntry> fromPageCount(
+    int pagesCount, {
+    String Function(int pageNumber)? titleForPage,
+  }) {
     if (pagesCount < 1) return const [];
     return List<PdfTocEntry>.generate(
       pagesCount,
-      (index) => forPage(index + 1),
+      (index) {
+        final page = index + 1;
+        return forPage(
+          page,
+          title: titleForPage?.call(page),
+        );
+      },
       growable: false,
     );
   }

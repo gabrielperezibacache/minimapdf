@@ -7,6 +7,7 @@ import '../../core/utils/app_paths.dart';
 import '../../core/utils/file_name_sanitizer.dart';
 import '../../core/utils/library_file_coordinator.dart';
 import '../../core/utils/pdf_header.dart';
+import '../../l10n/app_message_keys.dart';
 import '../models/book.dart';
 import 'library_local_datasource.dart';
 
@@ -53,9 +54,7 @@ class PdfImportService {
     final path = file.path;
     if (path == null || path.isEmpty) {
       // En algunos dispositivos file_picker no expone path con withData:false.
-      throw StateError(
-        'No se pudo acceder al archivo seleccionado. Prueba de nuevo.',
-      );
+      throw StateError(AppMessageKeys.fileAccessFailed);
     }
 
     return PickedPdfFile(
@@ -78,27 +77,19 @@ class PdfImportService {
   }) async {
     final source = File(picked.sourcePath);
     if (!await source.exists()) {
-      throw StateError('El archivo seleccionado no existe: ${picked.sourcePath}');
+      throw StateError(AppMessageKeys.fileMissing);
     }
 
-    await PdfHeader.assertFile(
-      source,
-      invalidMessage: 'El archivo seleccionado no es un PDF válido',
-    );
+    await PdfHeader.assertFile(source);
 
     final sanitized = FileNameSanitizer.sanitize(picked.displayName);
 
     return LibraryFileCoordinator.runExclusive(() async {
       // Revalida bajo el lock: el origen pudo cambiar mientras se esperaba.
       if (!await source.exists()) {
-        throw StateError(
-          'El archivo seleccionado no existe: ${picked.sourcePath}',
-        );
+        throw StateError(AppMessageKeys.fileMissing);
       }
-      await PdfHeader.assertFile(
-        source,
-        invalidMessage: 'El archivo seleccionado no es un PDF válido',
-      );
+      await PdfHeader.assertFile(source);
       final sourceSize = await source.length();
 
       final docs = await _documentsDirectory();
@@ -120,17 +111,24 @@ class PdfImportService {
       final unique = FileNameSanitizer.uniqueName(sanitized, existing);
       final destination = p.join(libraryDir.path, unique);
       final destinationFile = File(destination);
+      final partFile = File('$destination.part');
 
       try {
-        await source.copy(destination);
-        final size = await destinationFile.length();
-        if (size != sourceSize) {
-          throw StateError('Copia incompleta del PDF');
+        // Copia atómica vía .part + rename (como las descargas).
+        if (await partFile.exists()) {
+          await partFile.delete();
         }
-        await PdfHeader.assertFile(
-          destinationFile,
-          invalidMessage: 'El archivo seleccionado no es un PDF válido',
-        );
+        await source.copy(partFile.path);
+        final size = await partFile.length();
+        if (size != sourceSize) {
+          throw StateError(AppMessageKeys.incompleteCopy);
+        }
+        await PdfHeader.assertFile(partFile);
+        if (await destinationFile.exists()) {
+          await destinationFile.delete();
+        }
+        await partFile.rename(destination);
+
         final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
 
         int? resolvedCollectionId = collectionId;
@@ -151,12 +149,11 @@ class PdfImportService {
         );
       } catch (e) {
         try {
-          if (await destinationFile.exists()) {
-            await destinationFile.delete();
-          }
-        } catch (_) {
-          // Limpieza best-effort.
-        }
+          if (await partFile.exists()) await partFile.delete();
+        } catch (_) {}
+        try {
+          if (await destinationFile.exists()) await destinationFile.delete();
+        } catch (_) {}
         rethrow;
       }
     });

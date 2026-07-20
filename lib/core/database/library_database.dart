@@ -284,6 +284,11 @@ class LibraryDatabase {
       );
 
       if (rows.isEmpty) {
+        // No resucitar un marcador solo para borrar su nota.
+        if (clearNoteText &&
+            (bookmark.noteText == null || bookmark.noteText!.trim().isEmpty)) {
+          return bookmark;
+        }
         final id = await txn.insert(
           DatabaseConfig.tableBookmarks,
           bookmark.toMap()..remove('id'),
@@ -300,12 +305,16 @@ class LibraryDatabase {
           where: 'book_id = ? AND page_number = ?',
           whereArgs: [bookmark.bookId, bookmark.pageNumber],
         );
+        final replacement = bookmark.copyWith(
+          noteText: clearNoteText ? null : bookmark.noteText,
+          clearNoteText: clearNoteText,
+        );
         final id = await txn.insert(
           DatabaseConfig.tableBookmarks,
-          bookmark.toMap()..remove('id'),
+          replacement.toMap()..remove('id'),
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
-        return bookmark.copyWith(id: id);
+        return replacement.copyWith(id: id);
       }
 
       final merged = existing.copyWith(
@@ -323,10 +332,10 @@ class LibraryDatabase {
       if (updated == 0) {
         final id = await txn.insert(
           DatabaseConfig.tableBookmarks,
-          bookmark.toMap()..remove('id'),
+          merged.toMap()..remove('id'),
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
-        return bookmark.copyWith(id: id);
+        return merged.copyWith(id: id);
       }
       return merged;
     });

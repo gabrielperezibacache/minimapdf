@@ -7,6 +7,7 @@ import '../../data/models/signature_role.dart';
 import '../../data/models/signature_template.dart';
 import '../../data/models/signature_type.dart';
 import '../../domain/electronic_signature_service.dart';
+import '../../l10n/app_localizations.dart';
 import 'signature_pad.dart';
 
 /// Abre el formulario para firmar la página actual.
@@ -158,7 +159,8 @@ class _SignatureFormState extends State<_SignatureForm> {
           _service.normalizePersonText(_templateNameController.text);
       if (templateName.isEmpty) {
         setState(() {
-          _validationError = 'Indica un nombre para la plantilla.';
+          _validationError =
+              AppLocalizations.of(context).indicateTemplateName;
           _submitting = false;
         });
         return;
@@ -170,7 +172,8 @@ class _SignatureFormState extends State<_SignatureForm> {
       Navigator.of(context).pop(draft);
     } on SignatureValidationException catch (error) {
       setState(() {
-        _validationError = error.message;
+        _validationError =
+            AppLocalizations.of(context).message(error.message);
         _submitting = false;
       });
     }
@@ -179,6 +182,7 @@ class _SignatureFormState extends State<_SignatureForm> {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final narrow = MediaQuery.sizeOf(context).width < 380;
 
@@ -194,7 +198,7 @@ class _SignatureFormState extends State<_SignatureForm> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Firmar documento · página ${widget.pageNumber}',
+              l10n.signDocumentPage(widget.pageNumber),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: AppColors.ebonyAccent,
                   ),
@@ -202,7 +206,7 @@ class _SignatureFormState extends State<_SignatureForm> {
             if (widget.initialOffsetX != null) ...[
               const SizedBox(height: 4),
               Text(
-                'Zona seleccionada en la página.',
+                l10n.placementSelected,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colors.textMuted,
                     ),
@@ -211,7 +215,7 @@ class _SignatureFormState extends State<_SignatureForm> {
             if (widget.templates.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(
-                'Plantillas',
+                l10n.templates,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: colors.textMuted,
                     ),
@@ -241,12 +245,12 @@ class _SignatureFormState extends State<_SignatureForm> {
               segments: [
                 ButtonSegment(
                   value: SignatureType.typed,
-                  label: Text(narrow ? 'Texto' : 'Mecanografiada'),
+                  label: Text(narrow ? l10n.typeTypedShort : l10n.typeTypedSegment),
                   icon: const Icon(Icons.text_fields, size: 18),
                 ),
                 ButtonSegment(
                   value: SignatureType.drawn,
-                  label: Text(narrow ? 'Trazo' : 'Dibujada'),
+                  label: Text(narrow ? l10n.typeDrawnShort : l10n.typeDrawnSegment),
                   icon: const Icon(Icons.gesture, size: 18),
                 ),
               ],
@@ -276,12 +280,12 @@ class _SignatureFormState extends State<_SignatureForm> {
             DropdownButtonFormField<SignatureRole>(
               key: ValueKey(_role),
               initialValue: _role,
-              decoration: const InputDecoration(labelText: 'Rol'),
+              decoration: InputDecoration(labelText: l10n.signatureRoleLabel),
               items: [
                 for (final role in SignatureRole.values)
                   DropdownMenuItem(
                     value: role,
-                    child: Text(role.labelEs),
+                    child: Text(role.label(l10n)),
                   ),
               ],
               onChanged: (value) {
@@ -300,9 +304,9 @@ class _SignatureFormState extends State<_SignatureForm> {
                   ElectronicSignatureService.maxSignerNameLength,
                 ),
               ],
-              decoration: const InputDecoration(
-                labelText: 'Nombre del firmante',
-                hintText: 'Nombre y apellidos',
+              decoration: InputDecoration(
+                labelText: l10n.signerNameHint,
+                hintText: l10n.signerNameHint,
                 counterText: '',
               ),
             ),
@@ -318,9 +322,9 @@ class _SignatureFormState extends State<_SignatureForm> {
                     ElectronicSignatureService.maxTypedTextLength,
                   ),
                 ],
-                decoration: const InputDecoration(
-                  labelText: 'Texto de la firma',
-                  hintText: 'Cómo se verá la rúbrica',
+                decoration: InputDecoration(
+                  labelText: l10n.typedTextHint,
+                  hintText: l10n.typedTextHint,
                   counterText: '',
                 ),
               ),
@@ -339,7 +343,7 @@ class _SignatureFormState extends State<_SignatureForm> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Vista previa',
+                      l10n.preview,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: colors.textMuted,
                           ),
@@ -347,7 +351,7 @@ class _SignatureFormState extends State<_SignatureForm> {
                     const SizedBox(height: 8),
                     Text(
                       _typedController.text.trim().isEmpty
-                          ? 'Tu firma aparecerá aquí'
+                          ? l10n.typedSignaturePreview
                           : _typedController.text.trim(),
                       style: TextStyle(
                         fontFamily: 'serif',
@@ -386,9 +390,9 @@ class _SignatureFormState extends State<_SignatureForm> {
                   ElectronicSignatureService.maxReasonLength,
                 ),
               ],
-              decoration: const InputDecoration(
-                labelText: 'Motivo (opcional)',
-                hintText: 'p. ej. Conformidad, autorización…',
+              decoration: InputDecoration(
+                labelText: l10n.reasonHint,
+                hintText: l10n.reasonHint,
                 counterText: '',
               ),
             ),
@@ -398,7 +402,7 @@ class _SignatureFormState extends State<_SignatureForm> {
               value: _saveAsTemplate,
               activeColor: AppColors.ebonyAccent,
               title: Text(
-                'Guardar como plantilla',
+                l10n.saveAsTemplate,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               onChanged: (value) {
@@ -408,9 +412,9 @@ class _SignatureFormState extends State<_SignatureForm> {
             if (_saveAsTemplate) ...[
               TextField(
                 controller: _templateNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre de la plantilla',
-                  hintText: 'p. ej. Mi rúbrica',
+                decoration: InputDecoration(
+                  labelText: l10n.templateNameHint,
+                  hintText: l10n.templateNameHint,
                 ),
               ),
               const SizedBox(height: 8),
@@ -434,7 +438,7 @@ class _SignatureFormState extends State<_SignatureForm> {
                       foregroundColor: colors.text,
                       side: BorderSide(color: colors.border),
                     ),
-                    child: const Text('Cancelar'),
+                    child: Text(l10n.cancel),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -447,7 +451,7 @@ class _SignatureFormState extends State<_SignatureForm> {
                       disabledBackgroundColor:
                           AppColors.ebonyAccent.withValues(alpha: 0.5),
                     ),
-                    child: Text(_submitting ? 'Firmando…' : 'Firmar'),
+                    child: Text(_submitting ? l10n.signingInProgress : l10n.signAction),
                   ),
                 ),
               ],

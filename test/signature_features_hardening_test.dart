@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'support/l10n_test_app.dart';
 import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/database_config.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
@@ -17,6 +18,8 @@ import 'package:minimal_pdf/domain/electronic_signature_service.dart';
 import 'package:minimal_pdf/domain/signature_manifest.dart';
 import 'package:minimal_pdf/domain/signature_stamp_geometry.dart';
 import 'package:minimal_pdf/domain/signed_pdf_export_service.dart';
+import 'package:minimal_pdf/l10n/app_localizations.dart';
+import 'package:minimal_pdf/l10n/app_message_keys.dart';
 import 'package:minimal_pdf/presentation/providers/document_signing_provider.dart';
 import 'package:minimal_pdf/presentation/signing/signature_overlay.dart';
 import 'package:minimal_pdf/presentation/signing/signature_pad.dart';
@@ -198,13 +201,13 @@ void main() {
         ),
       );
       expect(saved, isNull);
-      expect(signing.error, contains('no disponible'));
+      expect(signing.error, AppMessageKeys.documentUnavailableSign);
     });
 
     test('export sin firmas deja error claro', () async {
       final empty = await signing.exportSignedPdf();
       expect(empty, isNull);
-      expect(signing.error, contains('al menos una firma'));
+      expect(signing.error, AppMessageKeys.needSignature);
     });
 
     test('export durante colocación se rechaza', () async {
@@ -219,7 +222,7 @@ void main() {
       signing.beginPlacementMode();
       final result = await signing.exportSignedPdf();
       expect(result, isNull);
-      expect(signing.error, contains('colocación'));
+      expect(signing.error, AppMessageKeys.cancelPlacement);
     });
 
     test('moveSignature obsoleto no pisa offsets nuevos', () async {
@@ -275,10 +278,10 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 40));
       final second = await signing.exportSignedPdf();
       expect(second, isNull);
-      expect(signing.error, contains('en curso'));
+      expect(signing.error, AppMessageKeys.exportInProgress);
       await first;
       expect(signing.exporting, isFalse);
-      expect(signing.error, contains('No se pudo exportar'));
+      expect(signing.error, AppMessageKeys.exportSignedFailed);
     });
 
     test('move/delete se rechazan mientras exporta', () async {
@@ -308,7 +311,7 @@ void main() {
         offsetY: 0.2,
       );
       expect(moved, isFalse);
-      expect(signing.error, contains('exportación'));
+      expect(signing.error, AppMessageKeys.waitForExport);
 
       final deleted = await signing.deleteSignature(saved);
       expect(deleted, isFalse);
@@ -341,7 +344,7 @@ void main() {
 
       final result = await signing.exportSignedPdf();
       expect(result, isNull);
-      expect(signing.error, contains('No se pudo exportar'));
+      expect(signing.error, AppMessageKeys.exportSignedFailed);
       expect(wrotePath, isNotEmpty);
       expect(File(wrotePath).existsSync(), isFalse);
       final manifest = '${p.withoutExtension(wrotePath)}.firmas.json';
@@ -349,11 +352,13 @@ void main() {
     });
 
     test('título exportado no acumula (firmado)', () async {
-      final base = book.title
-          .replaceAll(RegExp(r'\s*\(firmado\)\s*$'), '')
-          .trim();
+      final base = AppLocalizations.stripSignedMarker(book.title);
       expect(base, 'Contrato');
       expect('$base (firmado)', 'Contrato (firmado)');
+      expect(
+        AppLocalizations.stripSignedMarker('Contract (signed)'),
+        'Contract',
+      );
     });
 
     test('firma se conserva si falla la plantilla', () async {
@@ -375,7 +380,7 @@ void main() {
       expect(saved, isNotNull);
       expect(signing.signatures, hasLength(1));
       expect(signing.signatures.first.role, SignatureRole.witness);
-      expect(signing.error, contains('plantilla'));
+      expect(signing.error, AppMessageKeys.templatePartial);
     });
 
     test('dispose no rompe por notifyListeners tardío', () async {
@@ -496,7 +501,7 @@ void main() {
     testWidgets('SignaturePad precarga trazos de plantilla', (tester) async {
       List<List<List<double>>>? emitted;
       await tester.pumpWidget(
-        MaterialApp(
+        l10nTestApp(
           theme: AppTheme.of(AppThemeOption.ebony),
           home: Scaffold(
             body: SignaturePad(
@@ -536,7 +541,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
+        l10nTestApp(
           theme: AppTheme.of(AppThemeOption.ebony),
           home: Scaffold(
             body: SizedBox(
@@ -549,7 +554,7 @@ void main() {
                   x = px;
                   y = py;
                 },
-                onMove: (_, _, _) {},
+                onMove: (_, _, _) async => true,
                 onDelete: (_) {},
               ),
             ),
@@ -572,7 +577,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        MaterialApp(
+        l10nTestApp(
           theme: AppTheme.of(AppThemeOption.ebony),
           home: Builder(
             builder: (context) {
@@ -620,6 +625,8 @@ class _SlowFailingExport extends SignedPdfExportService {
     required Book book,
     required List<DocumentSignature> signatures,
     Set<String> reservedBasenames = const {},
+    String signedMarker = 'firmado',
+    String Function(SignatureRole role)? roleLabelOf,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
     throw StateError('export fail');
@@ -640,6 +647,8 @@ class _WritingThenOkExport extends SignedPdfExportService {
     required Book book,
     required List<DocumentSignature> signatures,
     Set<String> reservedBasenames = const {},
+    String signedMarker = 'firmado',
+    String Function(SignatureRole role)? roleLabelOf,
   }) async {
     final libraryDir = Directory(p.join(tempDir.path, 'library'));
     await libraryDir.create(recursive: true);

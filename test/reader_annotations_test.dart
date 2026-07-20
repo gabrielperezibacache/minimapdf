@@ -177,14 +177,22 @@ void main() {
   });
 
   test('PdfTocEntry.fromPageCount genera índice navegable', () {
-    final toc = PdfTocEntry.fromPageCount(3);
+    final toc = PdfTocEntry.fromPageCount(
+      3,
+      titleForPage: (page) => 'Página $page',
+    );
     expect(toc.map((e) => e.pageNumber), [1, 2, 3]);
     expect(toc.first.title, 'Página 1');
   });
 
   test('PdfTocEntry.forPage es O(1) sin lista completa', () {
-    final entry = PdfTocEntry.forPage(42);
+    final entry = PdfTocEntry.forPage(42, title: 'Página 42');
     expect(entry.pageNumber, 42);
     expect(entry.title, 'Página 42');
+  });
+
+  test('PdfTocEntry.forPage usa fallback neutro sin título', () {
+    final entry = PdfTocEntry.forPage(7);
+    expect(entry.title, 'Page 7');
   });
 }

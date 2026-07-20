@@ -49,6 +49,18 @@ class ExternalPdfOpenService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Encola al final (reintento tras fallo transitorio sin bloquear la cola).
+  void queueLast(String path) {
+    final trimmed = path.trim();
+    if (trimmed.isEmpty || _disposed) return;
+    if (_queue.contains(trimmed)) {
+      notifyListeners();
+      return;
+    }
+    _queue.addLast(trimmed);
+    notifyListeners();
+  }
+
   Future<void> start() async {
     if (_started || _disposed) return;
     _started = true;

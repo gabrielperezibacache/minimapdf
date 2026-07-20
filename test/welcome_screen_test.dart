@@ -1,8 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'support/l10n_test_app.dart';
 import 'package:minimal_pdf/core/constants/app_constants.dart';
+import 'package:minimal_pdf/l10n/app_localizations.dart';
 import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
 import 'package:minimal_pdf/core/preferences/app_preferences.dart';
@@ -137,6 +140,14 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.ebony,
+        locale: const Locale('es'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         home: WelcomeScreen(onFinished: () {}),
       ),
     );
@@ -146,10 +157,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Biblioteca local'), findsOneWidget);
     expect(find.text('Así funciona Minimal PDF'), findsOneWidget);
-    expect(find.text('Atrás'), findsOneWidget);
+    expect(find.text('Volver'), findsOneWidget);
     expect(find.text('Importar · Colecciones · Descargas'), findsOneWidget);
 
-    await tester.tap(find.text('Atrás'));
+    await tester.tap(find.text('Volver'));
     await tester.pumpAndSettle();
     expect(find.text('Privacidad de verdad'), findsOneWidget);
 
@@ -159,7 +170,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Lector Ébano'), findsOneWidget);
-    expect(find.text('Empezar a leer'), findsOneWidget);
+    expect(find.text('Empezar'), findsOneWidget);
     expect(find.text('Omitir'), findsNothing);
     expect(find.text('Rápido · Cómodo · Sin distracciones'), findsOneWidget);
   });
@@ -258,7 +269,7 @@ void main() {
   testWidgets('Empezar a leer completa el onboarding', (WidgetTester tester) async {
     var finished = false;
     await tester.pumpWidget(
-      MaterialApp(
+      l10nTestApp(
         theme: AppTheme.ebony,
         home: WelcomeScreen(onFinished: () => finished = true),
       ),
@@ -269,7 +280,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continuar'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Empezar a leer'));
+    await tester.tap(find.text('Empezar'));
     await tester.pump();
 
     expect(finished, isTrue);

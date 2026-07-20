@@ -7,6 +7,7 @@ import '../../../data/models/document_signature.dart';
 import '../../../data/models/page_annotation.dart';
 import '../../../data/models/signature_role.dart';
 import '../../../data/models/signature_type.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../signing/signature_overlay.dart';
 import '../pdf_toc_entry.dart';
 
@@ -89,11 +90,11 @@ class ReaderSidebar extends StatelessWidget {
                             indicatorColor: colors.accent,
                             isScrollable: true,
                             tabAlignment: TabAlignment.start,
-                            tabs: const [
-                              Tab(text: 'Índice'),
-                              Tab(text: 'Marcadores'),
-                              Tab(text: 'Anotaciones'),
-                              Tab(text: 'Firmas'),
+                            tabs: [
+                              Tab(text: AppLocalizations.of(context).tocTab),
+                              Tab(text: AppLocalizations.of(context).bookmarksTab),
+                              Tab(text: AppLocalizations.of(context).annotationsTab),
+                              Tab(text: AppLocalizations.of(context).signaturesTab),
                             ],
                           ),
                           Expanded(
@@ -148,6 +149,7 @@ class _SidebarHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
@@ -157,14 +159,14 @@ class _SidebarHeader extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            'Navegación',
+            l10n.navigation,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: colors.accent,
                 ),
           ),
           const Spacer(),
           IconButton(
-            tooltip: 'Cerrar',
+            tooltip: l10n.close,
             onPressed: onClose,
             icon: Icon(Icons.close, color: colors.textMuted),
           ),
@@ -226,8 +228,8 @@ class _TocPaneState extends State<_TocPane> {
                 child: TextField(
                   controller: _pageController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Ir a página',
+                  decoration: InputDecoration(
+                    labelText: AppLocalizations.of(context).goToPage,
                     isDense: true,
                   ),
                   onSubmitted: (_) => _jumpFromField(),
@@ -235,7 +237,7 @@ class _TocPaneState extends State<_TocPane> {
               ),
               const SizedBox(width: 8),
               IconButton(
-                tooltip: 'Ir',
+                tooltip: AppLocalizations.of(context).go,
                 onPressed: _jumpFromField,
                 icon: Icon(Icons.arrow_forward, color: colors.accent),
               ),
@@ -247,7 +249,7 @@ class _TocPaneState extends State<_TocPane> {
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Índice de páginas',
+              AppLocalizations.of(context).pageIndex,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: colors.textMuted,
                   ),
@@ -259,7 +261,11 @@ class _TocPaneState extends State<_TocPane> {
           child: ListView.builder(
             itemCount: pagesCount,
             itemBuilder: (context, index) {
-              final entry = PdfTocEntry.forPage(index + 1);
+              final l10n = AppLocalizations.of(context);
+              final entry = PdfTocEntry.forPage(
+                index + 1,
+                title: l10n.pageNumber(index + 1),
+              );
               final selected = entry.pageNumber == widget.currentPage;
               return InkWell(
                 onTap: () => widget.onOpenPage(entry.pageNumber),
@@ -307,13 +313,14 @@ class _BookmarksPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
 
     if (bookmarks.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'Sin marcadores.\nMarca la página actual con el icono de acento.',
+            l10n.noBookmarks,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall,
           ),
@@ -337,7 +344,7 @@ class _BookmarksPane extends StatelessWidget {
             hasNote ? Icons.sticky_note_2 : Icons.bookmark,
             color: colors.accent,
           ),
-          title: Text('Página ${bookmark.pageNumber}'),
+          title: Text(l10n.pageNumber(bookmark.pageNumber)),
           subtitle: hasNote
               ? Text(
                   bookmark.noteText!,
@@ -347,7 +354,7 @@ class _BookmarksPane extends StatelessWidget {
               : null,
           onTap: () => onOpenPage(bookmark.pageNumber),
           trailing: IconButton(
-            tooltip: 'Eliminar',
+            tooltip: l10n.delete,
             onPressed: () => onDelete(bookmark),
             icon: Icon(Icons.delete_outline, color: colors.textMuted, size: 20),
           ),
@@ -375,14 +382,14 @@ class _AnnotationsPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
 
     if (annotations.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'Sin anotaciones.\nUsa la caja de herramientas (icono bronce) '
-            'para marcar, subrayar, notar o comentar.',
+            l10n.noAnnotations,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall,
           ),
@@ -402,7 +409,7 @@ class _AnnotationsPane extends StatelessWidget {
           selectedColor: AppColors.ebonyAccent,
           leading: Icon(annotation.type.icon, color: AppColors.ebonyAccent),
           title: Text(
-            '${annotation.type.label} · p. ${annotation.pageNumber}',
+            '${annotation.type.label(l10n)} · ${l10n.pageAbbrev(annotation.pageNumber)}',
           ),
           subtitle: annotation.hasText
               ? Text(
@@ -418,7 +425,7 @@ class _AnnotationsPane extends StatelessWidget {
           trailing: onDelete == null
               ? null
               : IconButton(
-                  tooltip: 'Eliminar',
+                  tooltip: l10n.delete,
                   onPressed: () => onDelete!(annotation),
                   icon: Icon(
                     Icons.delete_outline,
@@ -448,13 +455,14 @@ class _SignaturesPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+    final l10n = AppLocalizations.of(context);
 
     if (signatures.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'Sin firmas.\nUsa el icono de firma en la barra del lector.',
+            l10n.noSignatures,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall,
           ),
@@ -480,16 +488,16 @@ class _SignaturesPane extends StatelessWidget {
           ),
           title: Text(signature.signerName),
           subtitle: Text(
-            'Pág. ${signature.pageNumber} · ${signature.role.labelEs} '
+            '${l10n.pageAbbrev(signature.pageNumber)} · ${signature.role.label(l10n)} '
             '#${signature.signingOrder}\n'
-            '${signature.type.labelEs} · ${formatSignatureDate(signature.signedAt)}',
+            '${signature.type.label(l10n)} · ${formatSignatureDate(signature.signedAt, locale: Localizations.localeOf(context).toString())}',
           ),
           isThreeLine: true,
           onTap: () => onOpenPage(signature.pageNumber),
           trailing: onDelete == null
               ? null
               : IconButton(
-                  tooltip: 'Eliminar',
+                  tooltip: l10n.delete,
                   onPressed: () => onDelete!(signature),
                   icon: Icon(
                     Icons.delete_outline,

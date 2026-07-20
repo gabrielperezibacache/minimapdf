@@ -10,6 +10,7 @@ import '../../core/theme/app_theme_option.dart';
 import '../../data/models/book.dart';
 import '../../data/models/collection.dart';
 import '../../l10n/app_localizations.dart';
+import '../../l10n/app_message_keys.dart';
 import '../../services/external_pdf_open_service.dart';
 import '../downloader/downloader_screen.dart';
 import '../providers/downloader_provider.dart';
@@ -38,6 +39,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
   bool _openingReader = false;
   /// PDF externo importado mientras el lector ya está abierto / abriéndose.
   Book? _pendingExternalReader;
+  /// Reintentos de import externa por path (fallos transitorios).
+  final Map<String, int> _externalRetryCounts = {};
 
   @override
   void initState() {
@@ -102,6 +105,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         final book = await library.importExternalFile(path);
         if (!mounted) return;
         if (book != null) {
+          _externalRetryCounts.remove(path);
           messenger.showSnackBar(
             SnackBar(content: Text(l10n.imported(book.title))),
           );
@@ -111,9 +115,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
           break;
         } else {
           // Solo borra cache si el PDF es inválido de forma permanente.
-          // Fallos transitorios (disco/DB) conservan la copia del SO.
+          // Fallos transitorios: reencola al final (máx. 2 reintentos).
           if (_isPermanentExternalImportFailure(library.error)) {
+            _externalRetryCounts.remove(path);
             _deleteExternalCacheQuietly(path);
+          } else {
+            final attempts = (_externalRetryCounts[path] ?? 0) + 1;
+            _externalRetryCounts[path] = attempts;
+            if (attempts <= 2) {
+              service.queueLast(path);
+            } else {
+              _externalRetryCounts.remove(path);
+            }
           }
           if (library.error != null) {
             messenger.showSnackBar(
@@ -136,14 +149,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   bool _isPermanentExternalImportFailure(String? error) {
-    if (error == null) return false;
-    final lower = error.toLowerCase();
-    return lower.contains('no es un pdf') ||
-        lower.contains('pdf vacío') ||
-        lower.contains('pdf incompleto') ||
-        lower.contains('truncado') ||
-        lower.contains('not a valid pdf') ||
-        lower.contains('empty pdf');
+    return AppMessageKeys.isPermanentImportFailure(error);
   }
 
   void _deleteExternalCacheQuietly(String path) {
@@ -164,7 +170,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final id = book?.id;
     if (id == null || id == _lastSeenDownloadId) return;
     _lastSeenDownloadId = id;
-    context.read<LibraryProvider>().load();
+    final library = _library ?? context.read<LibraryProvider>();
+    unawaited(library.load());
   }
 
   String _msg(String key, {String? arg}) =>

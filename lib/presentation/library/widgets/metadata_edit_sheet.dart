@@ -60,27 +60,38 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
   late final TextEditingController _authorController;
   late final TextEditingController _tagsController;
   int? _collectionId;
+  bool _submitting = false;
+
+  bool get _canSave => !_submitting && _titleController.text.trim().isNotEmpty;
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.book.title);
+    _titleController = TextEditingController(text: widget.book.title)
+      ..addListener(_onTitleChanged);
     _authorController = TextEditingController(text: widget.book.author ?? '');
     _tagsController = TextEditingController(text: widget.book.tags.join(', '));
     _collectionId = widget.book.collectionId;
   }
 
+  void _onTitleChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
-    _titleController.dispose();
+    _titleController
+      ..removeListener(_onTitleChanged)
+      ..dispose();
     _authorController.dispose();
     _tagsController.dispose();
     super.dispose();
   }
 
   void _submit() {
+    if (!_canSave) return;
     final title = _titleController.text.trim();
-    if (title.isEmpty) return;
+    _submitting = true;
 
     final tags = _tagsController.text
         .split(',')
@@ -195,7 +206,7 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: FilledButton(
-                  onPressed: _submit,
+                  onPressed: _canSave ? _submit : null,
                   child: Text(l10n.save),
                 ),
               ),

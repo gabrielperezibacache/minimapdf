@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'support/l10n_test_app.dart';
 import 'package:minimal_pdf/core/theme/app_theme.dart';
 import 'package:minimal_pdf/core/theme/app_theme_option.dart';
 import 'package:minimal_pdf/data/models/document_signature.dart';
@@ -21,7 +22,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      l10nTestApp(
         theme: AppTheme.of(AppThemeOption.ebony),
         home: Scaffold(
           body: SizedBox(
@@ -31,7 +32,7 @@ void main() {
               signatures: [signature],
               topReserve: 0,
               bottomReserve: 0,
-              onMove: (signature, x, y) {},
+              onMove: (signature, x, y) async => true,
               onDelete: (signature) {},
             ),
           ),
@@ -67,7 +68,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      l10nTestApp(
         theme: AppTheme.of(AppThemeOption.ebony),
         home: Scaffold(
           body: SizedBox(
@@ -75,10 +76,11 @@ void main() {
             height: 700,
             child: SignatureLayer(
               signatures: [signature],
-              onMove: (sig, x, y) {
+              onMove: (sig, x, y) async {
                 moved = sig;
                 nextX = x;
                 nextY = y;
+                return true;
               },
               onDelete: (_) {},
             ),

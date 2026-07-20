@@ -6,6 +6,8 @@ import 'package:flutter/material.dart' show Color;
 import '../../data/datasources/library_local_datasource.dart';
 import '../../data/models/bookmark.dart';
 import '../../data/models/page_annotation.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/app_message_keys.dart';
 
 /// Herramienta activa en la caja de anotaciones del lector.
 enum AnnotationTool {
@@ -25,7 +27,16 @@ enum AnnotationTool {
         AnnotationTool.annotation => AnnotationType.annotation,
       };
 
-  String get label => switch (this) {
+  String label(AppLocalizations l10n) => switch (this) {
+        AnnotationTool.none => l10n.annotationToolNone,
+        AnnotationTool.highlight => l10n.annotationHighlight,
+        AnnotationTool.underline => l10n.annotationUnderline,
+        AnnotationTool.note => l10n.annotationNote,
+        AnnotationTool.comment => l10n.annotationComment,
+        AnnotationTool.annotation => l10n.annotationGeneric,
+      };
+
+  String get labelEs => switch (this) {
         AnnotationTool.none => 'Ninguna',
         AnnotationTool.highlight => 'Marcado',
         AnnotationTool.underline => 'Subrayado',
@@ -130,7 +141,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
       _annotations = annotations;
     } catch (e) {
       if (_disposed || generation != _loadGeneration) return;
-      _error = 'No se pudieron cargar los marcadores.';
+      _error = AppMessageKeys.annotationsLoadFailed;
       if (kDebugMode) {
         debugPrint('ReaderAnnotationsProvider.loadForBook: $e');
       }
@@ -238,7 +249,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
         await _refreshAfterMutation(bookId);
       } catch (e) {
         if (_disposed) return true;
-        _error = 'No se pudo quitar el marcador.';
+        _error = AppMessageKeys.bookmarkRemoveFailed;
         if (kDebugMode) {
           debugPrint('ReaderAnnotationsProvider.toggleBookmark: $e');
         }
@@ -261,7 +272,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
       await _refreshAfterMutation(bookId);
     } catch (e) {
       if (_disposed) return true;
-      _error = 'No se pudo crear el marcador.';
+      _error = AppMessageKeys.bookmarkCreateFailed;
       if (kDebugMode) {
         debugPrint('ReaderAnnotationsProvider.toggleBookmark: $e');
       }
@@ -320,7 +331,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
       await _refreshAfterMutation(bookId);
     } catch (e) {
       if (_disposed) return;
-      _error = 'No se pudo guardar la nota.';
+      _error = AppMessageKeys.noteSaveFailed;
       if (kDebugMode) {
         debugPrint('ReaderAnnotationsProvider.saveNote: $e');
       }
@@ -343,7 +354,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
       await _refreshAfterMutation(bookId);
     } catch (e) {
       if (_disposed) return;
-      _error = 'No se pudo eliminar el marcador.';
+      _error = AppMessageKeys.bookmarkDeleteFailed;
       if (kDebugMode) {
         debugPrint('ReaderAnnotationsProvider.deleteBookmark: $e');
       }
@@ -389,7 +400,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
 
     final clamped = _clampRect(x: x, y: y, width: width, height: height);
     if (clamped == null) {
-      _error = 'Geometría de anotación inválida.';
+      _error = AppMessageKeys.annotationGeometryInvalid;
       _safeNotify();
       return null;
     }
@@ -421,7 +432,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
       return created;
     } catch (e) {
       if (_disposed) return null;
-      _error = 'No se pudo guardar la anotación.';
+      _error = AppMessageKeys.annotationSaveFailed;
       if (kDebugMode) {
         debugPrint('ReaderAnnotationsProvider.addAnnotation: $e');
       }
@@ -464,7 +475,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
       await _refreshAfterMutation(bookId);
     } catch (e) {
       if (_disposed) return;
-      _error = 'No se pudo actualizar la anotación.';
+      _error = AppMessageKeys.annotationUpdateFailed;
       if (kDebugMode) {
         debugPrint('ReaderAnnotationsProvider.updateAnnotationText: $e');
       }
@@ -492,7 +503,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
       await _refreshAfterMutation(bookId);
     } catch (e) {
       if (_disposed) return;
-      _error = 'No se pudo eliminar la anotación.';
+      _error = AppMessageKeys.annotationDeleteFailed;
       if (kDebugMode) {
         debugPrint('ReaderAnnotationsProvider.deleteAnnotation: $e');
       }

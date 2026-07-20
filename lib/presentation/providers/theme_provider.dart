@@ -11,8 +11,19 @@ class ThemeProvider extends ChangeNotifier {
 
   AppPreferences? _preferences;
   AppThemeOption _option;
+  bool _disposed = false;
 
   AppThemeOption get option => _option;
+
+  void _safeNotify() {
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   /// Enlaza preferencias ya cargadas (p. ej. tras `AppPreferences.open()`).
   void attachPreferences(AppPreferences preferences) {
@@ -20,21 +31,21 @@ class ThemeProvider extends ChangeNotifier {
     final stored = preferences.themeOption;
     if (_option != stored) {
       _option = stored;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
   Future<void> setTheme(AppThemeOption option) async {
-    if (_option == option) return;
+    if (_option == option || _disposed) return;
     _option = option;
-    notifyListeners();
+    _safeNotify();
     final prefs = _preferences;
     if (prefs == null) return;
     // Reescribe hasta estabilizar: evita que un await lento pise un valor más nuevo.
-    while (true) {
+    while (!_disposed) {
       final snapshot = _option;
       await prefs.setThemeOption(snapshot);
-      if (_option == snapshot) return;
+      if (_disposed || _option == snapshot) return;
     }
   }
 
