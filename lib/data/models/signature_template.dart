@@ -97,7 +97,7 @@ class SignatureTemplate {
   factory SignatureTemplate.fromMap(Map<String, Object?> map) {
     final template = SignatureTemplate.tryFromMap(map);
     if (template == null) {
-      throw FormatException('Fila de plantilla inválida o corrupta');
+      throw FormatException('Invalid or corrupt template row');
     }
     return template;
   }

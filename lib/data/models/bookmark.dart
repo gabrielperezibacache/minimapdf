@@ -45,7 +45,7 @@ class Bookmark {
   factory Bookmark.fromMap(Map<String, Object?> map) {
     final bookmark = Bookmark.tryFromMap(map);
     if (bookmark == null) {
-      throw FormatException('Fila de marcador inválida o corrupta');
+      throw FormatException('Invalid or corrupt bookmark row');
     }
     return bookmark;
   }

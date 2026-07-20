@@ -93,7 +93,7 @@ class SignatureManifest {
   static SignatureManifest decode(String raw) {
     final decoded = jsonDecode(raw);
     if (decoded is! Map) {
-      throw const FormatException('Manifiesto JSON inválido.');
+      throw const FormatException('Invalid manifest JSON.');
     }
     return SignatureManifest.fromJson(Map<String, Object?>.from(decoded));
   }

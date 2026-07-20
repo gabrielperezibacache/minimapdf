@@ -24,7 +24,7 @@ class AppDatabase {
     final db = _db;
     if (db == null) {
       throw StateError(
-        'AppDatabase no está inicializada. Llama a open() primero.',
+        'AppDatabase is not initialized. Call open() first.',
       );
     }
     return db;

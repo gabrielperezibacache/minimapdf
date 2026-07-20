@@ -146,7 +146,7 @@ class PageAnnotation {
   factory PageAnnotation.fromMap(Map<String, Object?> map) {
     final annotation = PageAnnotation.tryFromMap(map);
     if (annotation == null) {
-      throw FormatException('Fila de anotación inválida o corrupta');
+      throw FormatException('Invalid or corrupt annotation row');
     }
     return annotation;
   }
