@@ -141,7 +141,8 @@ void main() {
     expect(annotations.toolboxVisible, isFalse);
     annotations.toggleToolbox();
     expect(annotations.toolboxVisible, isTrue);
-    expect(annotations.activeTool, AnnotationTool.highlight);
+    // Abrir la caja no auto-selecciona herramienta (el scroll sigue libre).
+    expect(annotations.activeTool, AnnotationTool.none);
 
     annotations.selectTool(AnnotationTool.underline);
     expect(annotations.activeTool, AnnotationTool.underline);
@@ -158,6 +159,9 @@ void main() {
 
     annotations.setToolboxVisible(true);
     expect(annotations.toolboxVisible, isTrue);
+    expect(annotations.activeTool, AnnotationTool.none);
+
+    annotations.selectTool(AnnotationTool.highlight);
     expect(annotations.activeTool, AnnotationTool.highlight);
   });
 

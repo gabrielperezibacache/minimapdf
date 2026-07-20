@@ -12,6 +12,8 @@ void main() {
 
     test('usa fallback si el nombre queda vacío', () {
       expect(FileNameSanitizer.sanitize('???'), 'documento.pdf');
+      expect(FileNameSanitizer.sanitize('CON.pdf'), 'documento_CON.pdf');
+      expect(FileNameSanitizer.sanitize('nul'), 'documento_nul.pdf');
     });
 
     test('uniqueName añade sufijo ante colisión', () {

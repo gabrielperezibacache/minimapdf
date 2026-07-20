@@ -132,20 +132,89 @@ class PageAnnotation {
     };
   }
 
+  /// Parseo estricto; lanza si faltan campos obligatorios.
   factory PageAnnotation.fromMap(Map<String, Object?> map) {
-    return PageAnnotation(
-      id: map['id'] as int?,
-      bookId: map['book_id'] as int,
-      pageNumber: map['page_number'] as int,
-      type: AnnotationType.fromStorage(map['type'] as String),
-      text: map['text'] as String?,
-      x: (map['x'] as num).toDouble(),
-      y: (map['y'] as num).toDouble(),
-      width: (map['width'] as num).toDouble(),
-      height: (map['height'] as num).toDouble(),
-      colorValue: map['color_value'] as int,
-      createdAt: DateTime.parse(map['created_at'] as String),
-    );
+    final annotation = PageAnnotation.tryFromMap(map);
+    if (annotation == null) {
+      throw FormatException('Fila de anotación inválida o corrupta');
+    }
+    return annotation;
+  }
+
+  /// Parseo tolerante: filas corruptas → null (no tumba la carga del lector).
+  static PageAnnotation? tryFromMap(Map<String, Object?> map) {
+    try {
+      final bookId = _asInt(map['book_id']);
+      final pageNumber = _asInt(map['page_number']);
+      final typeRaw = map['type'];
+      final createdAt = _asDateTime(map['created_at']);
+      final x = _asDouble(map['x']);
+      final y = _asDouble(map['y']);
+      final width = _asDouble(map['width']);
+      final height = _asDouble(map['height']);
+      final colorValue = _asInt(map['color_value']);
+
+      if (bookId == null ||
+          pageNumber == null ||
+          pageNumber < 1 ||
+          typeRaw is! String ||
+          typeRaw.isEmpty ||
+          createdAt == null ||
+          x == null ||
+          y == null ||
+          width == null ||
+          height == null ||
+          colorValue == null) {
+        return null;
+      }
+
+      return PageAnnotation(
+        id: _asInt(map['id']),
+        bookId: bookId,
+        pageNumber: pageNumber,
+        type: AnnotationType.fromStorage(typeRaw),
+        text: _asNullableString(map['text']),
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+        colorValue: colorValue,
+        createdAt: createdAt,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static int? _asInt(Object? value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  static double? _asDouble(Object? value) {
+    if (value == null) return null;
+    final parsed = value is double
+        ? value
+        : value is num
+            ? value.toDouble()
+            : double.tryParse(value.toString());
+    if (parsed == null || !parsed.isFinite) return null;
+    return parsed;
+  }
+
+  static String? _asNullableString(Object? value) {
+    if (value == null) return null;
+    if (value is! String) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static DateTime? _asDateTime(Object? value) {
+    if (value == null) return null;
+    if (value is! String || value.isEmpty) return null;
+    return DateTime.tryParse(value);
   }
 
   @override

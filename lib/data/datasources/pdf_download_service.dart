@@ -187,9 +187,14 @@ class PdfDownloadService {
           throw TimeoutException('Tiempo de espera de conexión agotado');
         },
       );
-      _throwIfCancelled();
+
+      if (_cancelRequested) {
+        await _drainQuietly(response.stream);
+        throw const DownloadCancelledException();
+      }
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        await _drainQuietly(response.stream);
         throw HttpException(
           'Descarga fallida (${response.statusCode})',
           uri: Uri.parse(url),
@@ -212,7 +217,9 @@ class PdfDownloadService {
         },
       );
 
-      final subscription = timedStream.listen(
+      // late: el callback de datos necesita pausar la propia suscripción.
+      late final StreamSubscription<List<int>> subscription;
+      subscription = timedStream.listen(
         (chunk) {
           if (_cancelRequested) {
             if (!done.isCompleted) {
@@ -220,17 +227,27 @@ class PdfDownloadService {
             }
             return;
           }
-          try {
-            sink!.add(chunk);
-            received += chunk.length;
-            if (total > 0) {
-              onProgress?.call((received / total).clamp(0.0, 1.0));
+          // Backpressure: pausa el stream mientras se escribe a disco.
+          subscription.pause();
+          () async {
+            try {
+              sink!.add(chunk);
+              received += chunk.length;
+              if (total > 0) {
+                onProgress?.call((received / total).clamp(0.0, 1.0));
+              }
+              // Cede el event loop para vaciar el buffer del IOSink.
+              await Future<void>.delayed(Duration.zero);
+            } catch (e, st) {
+              if (!done.isCompleted) {
+                done.completeError(e, st);
+              }
+            } finally {
+              if (!done.isCompleted) {
+                subscription.resume();
+              }
             }
-          } catch (e, st) {
-            if (!done.isCompleted) {
-              done.completeError(e, st);
-            }
-          }
+          }();
         },
         onError: (Object e, StackTrace st) {
           if (done.isCompleted) return;
@@ -269,12 +286,19 @@ class PdfDownloadService {
       sink = null;
 
       _throwIfCancelled();
+      // Evita guardar PDFs truncados cuando el servidor anunció Content-Length.
+      if (total > 0 && received != total) {
+        throw StateError(
+          'Descarga incompleta ($received de $total bytes)',
+        );
+      }
       await PdfHeader.assertFile(
         tempFile,
         contentType: contentType,
         invalidMessage: 'La URL no devolvió un PDF válido',
       );
       onProgress?.call(1);
+      _throwIfCancelled();
       return await _persistFile(
         source: tempFile,
         fileName: fileName,
@@ -425,6 +449,7 @@ class PdfDownloadService {
     bool deleteSource = true,
   }) async {
     return LibraryFileCoordinator.runExclusive(() async {
+      _throwIfCancelled();
       final libraryDir = await _ensureLibraryDir();
       await _sweepOrphanPartFiles(libraryDir, keepPath: source.path);
       final onDisk = await _existingFileNames(libraryDir);
@@ -435,6 +460,7 @@ class PdfDownloadService {
       final destinationFile = File(destination);
 
       try {
+        _throwIfCancelled();
         if (p.equals(source.path, destination)) {
           // Ya está en destino (raro); no copiar.
         } else if (source.path.endsWith('.part') &&
@@ -447,10 +473,12 @@ class PdfDownloadService {
           }
         }
 
+        _throwIfCancelled();
         final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
         final size = await destinationFile.length();
         final resolvedCollectionId =
             await _resolveCollectionId(collectionId);
+        _throwIfCancelled();
         return await _datasource.insertBook(
           Book(
             title: title,
@@ -520,12 +548,30 @@ class PdfDownloadService {
     }
   }
 
+  Future<void> _drainQuietly(Stream<List<int>> stream) async {
+    try {
+      await stream.drain<void>();
+    } catch (_) {
+      // Best-effort: liberar la conexión HTTP.
+    }
+  }
+
   void dispose() {
+    // Misma ruta que cancelActiveDownload: completa _httpDone para no
+    // dejar colgado el await de la descarga en curso.
     _cancelRequested = true;
+    final done = _httpDone;
+    if (done != null && !done.isCompleted) {
+      done.completeError(const DownloadCancelledException());
+    }
     final subscription = _httpSubscription;
     if (subscription != null) {
       unawaited(subscription.cancel());
       _httpSubscription = null;
+    }
+    final taskId = _activeNativeTaskId;
+    if (taskId != null) {
+      unawaited(_cancelNativeTask(taskId));
     }
     _http.close();
   }

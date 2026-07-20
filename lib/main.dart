@@ -12,6 +12,7 @@ import 'core/constants/app_constants.dart';
 import 'core/database/app_database.dart';
 import 'core/database/library_database.dart';
 import 'core/preferences/app_preferences.dart';
+import 'core/preferences/welcome_gate.dart';
 import 'core/theme/app_theme.dart';
 import 'data/datasources/library_local_datasource.dart';
 import 'data/datasources/pdf_download_service.dart';
@@ -23,6 +24,7 @@ import 'presentation/providers/downloader_provider.dart';
 import 'presentation/providers/library_provider.dart';
 import 'presentation/providers/locale_provider.dart';
 import 'presentation/providers/theme_provider.dart';
+import 'services/external_pdf_open_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,12 +40,18 @@ Future<void> main() async {
   final preferences = await AppPreferences.open();
   final appDatabase = AppDatabase();
   await appDatabase.open();
+  final libraryDatabase = LibraryDatabase(appDatabase);
+  final showWelcome = await prepareWelcomeVisibility(
+    preferences: preferences,
+    libraryDatabase: libraryDatabase,
+  );
 
   runApp(
     MinimalPdfApp(
       appDatabase: appDatabase,
-      libraryDatabase: LibraryDatabase(appDatabase),
+      libraryDatabase: libraryDatabase,
       preferences: preferences,
+      showWelcome: showWelcome,
     ),
   );
 }
@@ -54,16 +62,20 @@ class MinimalPdfApp extends StatelessWidget {
     required this.appDatabase,
     required this.libraryDatabase,
     this.preferences,
+    this.showWelcome,
   });
 
   final AppDatabase appDatabase;
   final LibraryDatabase libraryDatabase;
   final AppPreferences? preferences;
 
+  /// Si es null (tests), se deriva de [AppPreferences.hasSeenWelcome].
+  final bool? showWelcome;
+
   @override
   Widget build(BuildContext context) {
-    final showWelcome =
-        preferences != null && !preferences!.hasSeenWelcome;
+    final welcome = showWelcome ??
+        (preferences != null && !preferences!.hasSeenWelcome);
 
     return MultiProvider(
       providers: [
@@ -107,8 +119,11 @@ class MinimalPdfApp extends StatelessWidget {
             context.read<PdfDownloadService>(),
           ),
         ),
+        ChangeNotifierProvider<ExternalPdfOpenService>(
+          create: (_) => ExternalPdfOpenService(),
+        ),
       ],
-      child: _MinimalPdfRoot(showWelcomeInitially: showWelcome),
+      child: _MinimalPdfRoot(showWelcomeInitially: welcome),
     );
   }
 }
@@ -125,15 +140,50 @@ class _MinimalPdfRoot extends StatefulWidget {
 class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
   late bool _showWelcome = widget.showWelcomeInitially;
   bool _finishingWelcome = false;
+  bool _externalBootstrapStarted = false;
 
-  void _finishWelcome() {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_bootstrapExternalPdfOpen());
+    });
+  }
+
+  /// Arranca el puente nativo pronto: si el SO abre un PDF en frío,
+  /// omitimos la bienvenida para no bloquear el documento.
+  Future<void> _bootstrapExternalPdfOpen() async {
+    if (_externalBootstrapStarted || !mounted) return;
+    _externalBootstrapStarted = true;
+
+    final service = context.read<ExternalPdfOpenService>();
+    try {
+      await service.start();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('_bootstrapExternalPdfOpen start: $e');
+      }
+      return;
+    }
+    if (!mounted) return;
+
+    if (service.hasQueued && _showWelcome) {
+      await _finishWelcome();
+    }
+  }
+
+  Future<void> _finishWelcome() async {
     if (_finishingWelcome || !_showWelcome) return;
     _finishingWelcome = true;
-    setState(() => _showWelcome = false);
     final prefs = context.read<AppPreferences?>();
-    if (prefs != null) {
-      unawaited(prefs.markWelcomeSeen());
+    try {
+      // Cinturón de seguridad: el flag ya se marca en prepareWelcomeVisibility.
+      await prefs?.markWelcomeSeen();
+    } catch (_) {
+      // No bloqueamos el acceso a la biblioteca si falla la persistencia.
     }
+    if (!mounted) return;
+    setState(() => _showWelcome = false);
   }
 
   @override

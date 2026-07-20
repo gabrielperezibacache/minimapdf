@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../../core/utils/library_file_coordinator.dart';
 import '../../data/datasources/library_local_datasource.dart';
 import '../../data/models/book.dart';
 import '../../data/models/document_signature.dart';
@@ -137,19 +138,41 @@ class DocumentSigningProvider extends ChangeNotifier {
   /// Compatibilidad con llamadas antiguas por id.
   Future<void> loadForBookId(int bookId) async {
     final book = await _datasource.findBookById(bookId);
-    if (book == null) {
-      _bookId = bookId;
-      _book = null;
-      try {
-        _signatures = await _datasource.listSignatures(bookId);
-        _templates = await _datasource.listSignatureTemplates();
-      } catch (_) {
-        _error = 'No se pudieron cargar las firmas.';
-      }
-      _notify();
+    if (book != null) {
+      await loadForBook(book);
       return;
     }
-    await loadForBook(book);
+
+    // Libro ausente en DB: carga firmas huérfanas con las mismas barreras
+    // de generación que [loadForBook] para no pisar mutaciones locales.
+    _book = null;
+    _bookId = bookId;
+    final generation = ++_loadGeneration;
+    final dataGenerationAtStart = _dataGeneration;
+    _loading = true;
+    _error = null;
+    _notify();
+    try {
+      final loaded = await _datasource.listSignatures(bookId);
+      final templates = await _datasource.listSignatureTemplates();
+      if (generation != _loadGeneration || _bookId != bookId) return;
+      if (_saving || dataGenerationAtStart != _dataGeneration) {
+        if (dataGenerationAtStart == _dataGeneration) {
+          _templates = templates;
+        }
+        return;
+      }
+      _signatures = loaded;
+      _templates = templates;
+    } catch (_) {
+      if (generation != _loadGeneration || _bookId != bookId) return;
+      _error = 'No se pudieron cargar las firmas.';
+    } finally {
+      if (generation == _loadGeneration) {
+        _loading = false;
+        _notify();
+      }
+    }
   }
 
   void beginPlacementMode() {
@@ -297,22 +320,35 @@ class DocumentSigningProvider extends ChangeNotifier {
   }
 
   Future<void> reloadTemplates() async {
-    _templates = await _datasource.listSignatureTemplates();
-    _dataGeneration++;
-    _notify();
+    try {
+      _templates = await _datasource.listSignatureTemplates();
+      _dataGeneration++;
+      _error = null;
+      _notify();
+    } catch (_) {
+      _error = 'No se pudieron cargar las plantillas.';
+      _notify();
+    }
   }
 
   Future<bool> deleteTemplate(SignatureTemplate template) async {
     final id = template.id;
     if (id == null) return false;
-    await _datasource.removeSignatureTemplate(id);
-    _dataGeneration++;
-    _templates = [
-      for (final item in _templates)
-        if (item.id != id) item,
-    ];
-    _notify();
-    return true;
+    try {
+      await _datasource.removeSignatureTemplate(id);
+      _dataGeneration++;
+      _templates = [
+        for (final item in _templates)
+          if (item.id != id) item,
+      ];
+      _error = null;
+      _notify();
+      return true;
+    } catch (_) {
+      _error = 'No se pudo eliminar la plantilla.';
+      _notify();
+      return false;
+    }
   }
 
   /// Actualiza la posición relativa del sello en la página.
@@ -323,6 +359,11 @@ class DocumentSigningProvider extends ChangeNotifier {
     required double offsetX,
     required double offsetY,
   }) async {
+    if (_exporting) {
+      _error = 'Espera a que termine la exportación.';
+      _notify();
+      return false;
+    }
     final id = signature.id;
     if (id == null) return false;
     if (!offsetX.isFinite || !offsetY.isFinite) return false;
@@ -371,6 +412,11 @@ class DocumentSigningProvider extends ChangeNotifier {
   }
 
   Future<bool> deleteSignature(DocumentSignature signature) async {
+    if (_exporting) {
+      _error = 'Espera a que termine la exportación.';
+      _notify();
+      return false;
+    }
     final bookId = _bookId;
     final id = signature.id;
     if (bookId == null || id == null) return false;
@@ -394,6 +440,7 @@ class DocumentSigningProvider extends ChangeNotifier {
   /// Exporta PDF firmado (sellos aplanados) + manifiesto SHA-256 e importa
   /// la copia a la biblioteca.
   Future<SignedPdfExportResult?> exportSignedPdf() async {
+    if (_disposed) return null;
     final book = _book;
     if (book == null) {
       _error = 'Documento no disponible.';
@@ -425,35 +472,55 @@ class DocumentSigningProvider extends ChangeNotifier {
     _error = null;
     _notify();
 
+    // Congela firmas al inicio para que move/delete no alteren el PDF exportado.
+    final signaturesSnapshot = List<DocumentSignature>.from(_signatures);
     SignedPdfExportResult? result;
+    // Se asigna antes de insertBook: si el alta falla, el catch limpia el disco.
+    SignedPdfExportResult? writtenArtifacts;
     try {
-      result = await _exportService.exportSignedPdf(
-        book: book,
-        signatures: _signatures,
-      );
-      final file = File(result.pdfPath);
-      final baseTitle = book.title
-          .replaceAll(RegExp(r'\s*\(firmado\)\s*$'), '')
-          .trim();
-      final tags = {
-        for (final tag in book.tags) tag,
-        'firmado',
-      }.toList(growable: false);
+      // Serializa con import/descargas y reserva nombres de DB para evitar
+      // colisiones y borrados cruzados del PDF exportado.
+      result = await LibraryFileCoordinator.runExclusive(() async {
+        final reserved = await _datasource.listReservedLibraryBasenames();
+        final exported = await _exportService.exportSignedPdf(
+          book: book,
+          signatures: signaturesSnapshot,
+          reservedBasenames: reserved,
+        );
+        writtenArtifacts = exported;
+        final file = File(exported.pdfPath);
+        final baseTitle = book.title
+            .replaceAll(RegExp(r'\s*\(firmado\)\s*$'), '')
+            .trim();
+        final tags = {
+          for (final tag in book.tags) tag,
+          'firmado',
+        }.toList(growable: false);
 
-      await _datasource.insertBook(
-        Book(
-          title: '$baseTitle (firmado)',
-          filePath: result.pdfPath,
-          fileSize: await file.length(),
-          addedAt: DateTime.now(),
-          collectionId: book.collectionId,
-          tags: tags,
-        ),
-      );
+        // Evita FK rota si la colección se borró mientras el libro seguía abierto.
+        var collectionId = book.collectionId;
+        if (collectionId != null) {
+          final found = await _datasource.findCollectionById(collectionId);
+          collectionId = found?.id;
+        }
+
+        await _datasource.insertBook(
+          Book(
+            title: '$baseTitle (firmado)',
+            filePath: exported.pdfPath,
+            fileSize: await file.length(),
+            addedAt: DateTime.now(),
+            collectionId: collectionId,
+            tags: tags,
+          ),
+        );
+        return exported;
+      });
+      writtenArtifacts = null;
       return result;
     } catch (_) {
       // Limpia artefactos huérfanos si el PDF se escribió pero falló el alta.
-      final orphan = result;
+      final orphan = result ?? writtenArtifacts;
       if (orphan != null) {
         try {
           final pdf = File(orphan.pdfPath);

@@ -25,7 +25,6 @@ import 'reading_progress_saver.dart';
 import 'widgets/annotation_toolbox.dart';
 import 'widgets/floating_page_note.dart';
 import 'widgets/note_edit_sheet.dart';
-import 'widgets/page_annotations_layer.dart';
 import 'widgets/reader_sidebar.dart';
 import 'widgets/signed_pdf_page.dart';
 
@@ -58,6 +57,9 @@ class _ReaderScreenState extends State<ReaderScreen>
   int _currentPage = 1;
   String? _error;
   Map<int, Size> _pageSizes = const {};
+  PdfDocument? _openedDocument;
+  late final Future<PdfDocument> _documentFuture;
+  int _pageSizeCacheGeneration = 0;
 
   @override
   void initState() {
@@ -67,8 +69,11 @@ class _ReaderScreenState extends State<ReaderScreen>
     final initialPage = math.max(1, widget.book.lastPageRead);
     _currentPage = initialPage;
 
+    // Conservamos el Future para cerrar el documento aunque el usuario
+    // salga antes de onDocumentLoaded.
+    _documentFuture = PdfDocument.openFile(widget.book.filePath);
     _controller = PdfController(
-      document: PdfDocument.openFile(widget.book.filePath),
+      document: _documentFuture,
       initialPage: initialPage,
     );
   }
@@ -129,6 +134,8 @@ class _ReaderScreenState extends State<ReaderScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    // Cancela el barrido de tamaños antes de cerrar el documento nativo.
+    _pageSizeCacheGeneration++;
     _annotations?.removeListener(_onAnnotationsChanged);
     _annotations?.dispose();
     _signing?.removeListener(_onSigningChanged);
@@ -143,7 +150,27 @@ class _ReaderScreenState extends State<ReaderScreen>
       saver.dispose();
     }
     _controller.dispose();
+    // PdfController.dispose() no cierra el PdfDocument nativo (fuga PDFium).
+    final document = _openedDocument;
+    _openedDocument = null;
+    if (document != null && !document.isClosed) {
+      unawaited(document.close());
+    } else {
+      // Carga aún pendiente o fallida: cierra al resolver el Future.
+      unawaited(_closeDocumentWhenReady(_documentFuture));
+    }
     super.dispose();
+  }
+
+  Future<void> _closeDocumentWhenReady(Future<PdfDocument> future) async {
+    try {
+      final document = await future;
+      if (!document.isClosed) {
+        await document.close();
+      }
+    } catch (_) {
+      // Apertura fallida: nada que cerrar.
+    }
   }
 
   @override
@@ -158,6 +185,16 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Future<void> _onExit() async {
     if (_exiting) return;
+    if (_signing?.exporting == true) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Espera a que termine la exportación.'),
+          ),
+        );
+      }
+      return;
+    }
     _exiting = true;
     try {
       final saver = _progressSaver;
@@ -217,7 +254,9 @@ class _ReaderScreenState extends State<ReaderScreen>
     final annotations = _annotations;
     if (annotations == null) return;
 
-    final completed = await annotations.toggleBookmark(_currentPage);
+    // Fija la página: el usuario puede hacer scroll durante el await / diálogo.
+    final page = _currentPage;
+    final completed = await annotations.toggleBookmark(page);
     if (completed || !mounted) {
       if (annotations.error != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -233,8 +272,8 @@ class _ReaderScreenState extends State<ReaderScreen>
       builder: (context) => AlertDialog(
         backgroundColor: colors.panel,
         title: const Text('Quitar marcador'),
-        content: const Text(
-          'Esta página tiene una nota. ¿Eliminar marcador y nota?',
+        content: Text(
+          'La página $page tiene una nota. ¿Eliminar marcador y nota?',
         ),
         actions: [
           TextButton(
@@ -250,7 +289,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
 
     if (confirmed == true && mounted) {
-      await annotations.toggleBookmark(_currentPage, force: true);
+      await annotations.toggleBookmark(page, force: true);
       if (annotations.error != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(annotations.error!)),
@@ -290,6 +329,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _createAnnotationRect({
+    required int pageNumber,
     required double x,
     required double y,
     required double width,
@@ -299,12 +339,13 @@ class _ReaderScreenState extends State<ReaderScreen>
     final tool = provider?.activeTool;
     final type = tool?.annotationType;
     if (provider == null || tool == null || type == null) return;
+    if (pageNumber < 1) return;
 
     String? text;
     if (tool.needsText) {
       text = await showNoteEditSheet(
         context,
-        pageNumber: _currentPage,
+        pageNumber: pageNumber,
         title: type.label,
         hintText: 'Escribe ${type.label.toLowerCase()}…',
       );
@@ -313,7 +354,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     }
 
     final created = await provider.addAnnotation(
-      pageNumber: _currentPage,
+      pageNumber: pageNumber,
       type: type,
       x: x,
       y: y,
@@ -337,7 +378,7 @@ class _ReaderScreenState extends State<ReaderScreen>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${type.label} guardado en página $_currentPage'),
+        content: Text('${type.label} guardado en página $pageNumber'),
         duration: const Duration(milliseconds: 1400),
         behavior: SnackBarBehavior.floating,
       ),
@@ -465,6 +506,7 @@ class _ReaderScreenState extends State<ReaderScreen>
         );
       },
     );
+    if (!mounted || action == null) return;
     if (action == _AnnotationAction.delete) {
       await _confirmDeleteAnnotation(annotation);
     }
@@ -527,13 +569,14 @@ class _ReaderScreenState extends State<ReaderScreen>
     setState(() {});
   }
 
-  Future<void> _openSignatureSheetAt(double x, double y) async {
+  Future<void> _openSignatureSheetAt(int pageNumber, double x, double y) async {
     if (_signing?.saving == true || _signing?.exporting == true) return;
+    if (pageNumber < 1) return;
     _signing?.placeSignatureAt(offsetX: x, offsetY: y);
 
     final draft = await showSignatureSheet(
       context,
-      pageNumber: _currentPage,
+      pageNumber: pageNumber,
       initialSignerName: _signing?.lastSignerName,
       initialRole: _signing?.lastRole,
       initialOffsetX: x,
@@ -551,7 +594,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (_signing?.saving == true) return;
 
     final saved = await _signing?.signPage(
-      pageNumber: _currentPage,
+      pageNumber: pageNumber,
       draft: draft,
     );
     if (!mounted) return;
@@ -582,19 +625,32 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
   }
 
-  Future<void> _cachePageSizes(PdfDocument document) async {
+  Future<void> _cachePageSizes(
+    PdfDocument document,
+    int generation,
+  ) async {
     final sizes = <int, Size>{};
-    for (var pageNumber = 1; pageNumber <= document.pagesCount; pageNumber++) {
-      final page = await document.getPage(pageNumber);
-      try {
-        if (page.width > 0 && page.height > 0) {
-          sizes[pageNumber] = Size(page.width, page.height);
+    try {
+      for (var pageNumber = 1; pageNumber <= document.pagesCount; pageNumber++) {
+        if (!mounted ||
+            generation != _pageSizeCacheGeneration ||
+            document.isClosed) {
+          return;
         }
-      } finally {
-        await page.close();
+        final page = await document.getPage(pageNumber);
+        try {
+          if (page.width > 0 && page.height > 0) {
+            sizes[pageNumber] = Size(page.width, page.height);
+          }
+        } finally {
+          await page.close();
+        }
       }
+    } catch (_) {
+      // Salida rápida / documento cerrado: cancelación silenciosa.
+      return;
     }
-    if (!mounted) return;
+    if (!mounted || generation != _pageSizeCacheGeneration) return;
     setState(() => _pageSizes = sizes);
   }
 
@@ -728,15 +784,19 @@ class _ReaderScreenState extends State<ReaderScreen>
     final activeTool = annotations?.activeTool ?? AnnotationTool.none;
     final pageAnnotations =
         annotations?.annotationsForPage(_currentPage) ?? const [];
-    final placementMode = signing?.placementMode ?? false;
-    // Si hay colocación de firma o sidebar, la capa no captura gestos
-    // (PageAnnotationsLayer solo dibuja cuando activeTool != none).
-    final annotationsLayerEnabled = !placementMode && !_sidebarVisible;
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        if (_signing?.exporting == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Espera a que termine la exportación.'),
+            ),
+          );
+          return;
+        }
         if (_signing?.placementMode == true) {
           _signing?.cancelPlacementMode();
           setState(() {});
@@ -764,17 +824,6 @@ class _ReaderScreenState extends State<ReaderScreen>
             child: Stack(
               children: [
                 Positioned.fill(child: _buildPdfView(colors)),
-                Positioned.fill(
-                  child: PageAnnotationsLayer(
-                    key: ValueKey('annot-page-$_currentPage'),
-                    annotations: pageAnnotations,
-                    activeTool: activeTool,
-                    enabled: annotationsLayerEnabled,
-                    onCreateRect: _createAnnotationRect,
-                    onOpenAnnotation: _openAnnotation,
-                    onDeleteAnnotation: _confirmDeleteAnnotation,
-                  ),
-                ),
                 if (hasNote && !_noteDismissed)
                   Positioned(
                     right: 12,
@@ -900,6 +949,10 @@ class _ReaderScreenState extends State<ReaderScreen>
     final isVertical = _scrollMode.isVertical;
 
     final signing = _signing;
+    final annotations = _annotations;
+    final activeTool = annotations?.activeTool ?? AnnotationTool.none;
+    final placementMode = signing?.placementMode ?? false;
+    final annotationsLayerEnabled = !placementMode && !_sidebarVisible;
     final scaffoldBg =
         _ebonyFilter ? EbonyPdfFilter.background : colors.background;
 
@@ -916,6 +969,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       onPageChanged: _onPageChanged,
       onDocumentLoaded: (document) {
         if (!mounted) return;
+        _openedDocument = document;
         final count = document.pagesCount;
         setState(() {
           _pagesCount = count;
@@ -928,7 +982,8 @@ class _ReaderScreenState extends State<ReaderScreen>
           setState(() => _currentPage = clamped);
           _progressSaver?.onPageChanged(clamped);
         }
-        unawaited(_cachePageSizes(document));
+        final generation = ++_pageSizeCacheGeneration;
+        unawaited(_cachePageSizes(document, generation));
       },
       onDocumentError: (error) {
         if (!mounted) return;
@@ -958,15 +1013,29 @@ class _ReaderScreenState extends State<ReaderScreen>
         pageBuilder: (context, pageImage, index, document) {
           final pageNumber = index + 1;
           final pageSize = _pageSizes[pageNumber] ?? const Size(595, 842);
+          // Solo la página actual captura gestos de dibujo; el resto muestra
+          // anotaciones y permite abrir/eliminar sin bloquear el scroll.
+          final pageTool = pageNumber == _currentPage && annotationsLayerEnabled
+              ? activeTool
+              : AnnotationTool.none;
           return PhotoViewGalleryPageOptions.customChild(
             child: SignedPdfPage(
               pageImageFuture: pageImage,
               pageNumber: pageNumber,
               fallbackSize: pageSize,
               signatures: signing?.signaturesForPage(pageNumber) ?? const [],
+              annotations:
+                  annotations?.annotationsForPage(pageNumber) ?? const [],
+              activeTool: pageTool,
+              annotationsEnabled: annotationsLayerEnabled,
               ebonyFilter: _ebonyFilter,
-              placementMode: signing?.placementMode ?? false,
+              // Solo la página actual acepta toques de colocación (scroll continuo).
+              placementMode:
+                  (signing?.placementMode ?? false) && pageNumber == _currentPage,
               onPlaceTap: _openSignatureSheetAt,
+              onCreateAnnotation: _createAnnotationRect,
+              onOpenAnnotation: _openAnnotation,
+              onDeleteAnnotation: _confirmDeleteAnnotation,
               onMove: (signature, x, y) {
                 final future = _signing?.moveSignature(
                   signature: signature,
@@ -977,6 +1046,7 @@ class _ReaderScreenState extends State<ReaderScreen>
               },
               onDelete: _confirmDeleteSignature,
             ),
+            // Debe coincidir con el SizedBox de SignedPdfPage (puntos PDF).
             childSize: pageSize,
             initialScale: PhotoViewComputedScale.contained * 1.0,
             minScale: PhotoViewComputedScale.contained * 1.0,

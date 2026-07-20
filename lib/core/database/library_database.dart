@@ -34,7 +34,7 @@ class LibraryDatabase {
       limit: 1,
     );
     if (rows.isEmpty) return null;
-    return Collection.fromMap(rows.first);
+    return Collection.tryFromMap(rows.first);
   }
 
   Future<List<Collection>> getAllCollections() async {
@@ -42,7 +42,12 @@ class LibraryDatabase {
       DatabaseConfig.tableCollections,
       orderBy: 'name COLLATE NOCASE ASC',
     );
-    return rows.map(Collection.fromMap).toList();
+    final collections = <Collection>[];
+    for (final row in rows) {
+      final collection = Collection.tryFromMap(row);
+      if (collection != null) collections.add(collection);
+    }
+    return collections;
   }
 
   Future<int> updateCollection(Collection collection) async {
@@ -114,6 +119,14 @@ class LibraryDatabase {
       names.add(p.basename(path).toLowerCase());
     }
     return names;
+  }
+
+  /// `true` si ya hay al menos un libro (p. ej. instalación previa al onboarding).
+  Future<bool> hasAnyBooks() async {
+    final rows = await _db.rawQuery(
+      'SELECT 1 FROM ${DatabaseConfig.tableBooks} LIMIT 1',
+    );
+    return rows.isNotEmpty;
   }
 
   /// Libros de biblioteca: primero por última lectura, luego por alta.
@@ -223,7 +236,7 @@ class LibraryDatabase {
       limit: 1,
     );
     if (rows.isEmpty) return null;
-    return Bookmark.fromMap(rows.first);
+    return Bookmark.tryFromMap(rows.first);
   }
 
   Future<List<Bookmark>> getBookmarksForBook(int bookId) async {
@@ -233,7 +246,12 @@ class LibraryDatabase {
       whereArgs: [bookId],
       orderBy: 'page_number ASC',
     );
-    return rows.map(Bookmark.fromMap).toList();
+    final bookmarks = <Bookmark>[];
+    for (final row in rows) {
+      final bookmark = Bookmark.tryFromMap(row);
+      if (bookmark != null) bookmarks.add(bookmark);
+    }
+    return bookmarks;
   }
 
   Future<int> updateBookmark(Bookmark bookmark) async {
@@ -257,22 +275,61 @@ class LibraryDatabase {
     Bookmark bookmark, {
     bool clearNoteText = false,
   }) async {
-    final existing = await getBookmarkForPage(
-      bookmark.bookId,
-      bookmark.pageNumber,
-    );
-    if (existing == null) {
-      return createBookmark(bookmark);
-    }
+    return _db.transaction((txn) async {
+      final rows = await txn.query(
+        DatabaseConfig.tableBookmarks,
+        where: 'book_id = ? AND page_number = ?',
+        whereArgs: [bookmark.bookId, bookmark.pageNumber],
+        limit: 1,
+      );
 
-    final merged = existing.copyWith(
-      noteText: clearNoteText
-          ? null
-          : (bookmark.noteText ?? existing.noteText),
-      clearNoteText: clearNoteText,
-    );
-    await updateBookmark(merged);
-    return merged;
+      if (rows.isEmpty) {
+        final id = await txn.insert(
+          DatabaseConfig.tableBookmarks,
+          bookmark.toMap()..remove('id'),
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+        return bookmark.copyWith(id: id);
+      }
+
+      final existing = Bookmark.tryFromMap(rows.first);
+      if (existing == null || existing.id == null) {
+        // Fila corrupta: reemplazar.
+        await txn.delete(
+          DatabaseConfig.tableBookmarks,
+          where: 'book_id = ? AND page_number = ?',
+          whereArgs: [bookmark.bookId, bookmark.pageNumber],
+        );
+        final id = await txn.insert(
+          DatabaseConfig.tableBookmarks,
+          bookmark.toMap()..remove('id'),
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+        return bookmark.copyWith(id: id);
+      }
+
+      final merged = existing.copyWith(
+        noteText: clearNoteText
+            ? null
+            : (bookmark.noteText ?? existing.noteText),
+        clearNoteText: clearNoteText,
+      );
+      final updated = await txn.update(
+        DatabaseConfig.tableBookmarks,
+        merged.toMap()..remove('id'),
+        where: 'id = ?',
+        whereArgs: [existing.id],
+      );
+      if (updated == 0) {
+        final id = await txn.insert(
+          DatabaseConfig.tableBookmarks,
+          bookmark.toMap()..remove('id'),
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+        return bookmark.copyWith(id: id);
+      }
+      return merged;
+    });
   }
 
   Future<int> deleteBookmark(int id) async {
@@ -312,7 +369,7 @@ class LibraryDatabase {
       limit: 1,
     );
     if (rows.isEmpty) return null;
-    return DocumentSignature.fromMap(rows.first);
+    return DocumentSignature.tryFromMap(rows.first);
   }
 
   Future<List<DocumentSignature>> getSignaturesForBook(int bookId) async {
@@ -322,7 +379,7 @@ class LibraryDatabase {
       whereArgs: [bookId],
       orderBy: 'signing_order ASC, page_number ASC, signed_at ASC',
     );
-    return rows.map(DocumentSignature.fromMap).toList();
+    return _parseSignatures(rows);
   }
 
   Future<List<DocumentSignature>> getSignaturesForPage(
@@ -335,7 +392,16 @@ class LibraryDatabase {
       whereArgs: [bookId, pageNumber],
       orderBy: 'signing_order ASC, signed_at ASC',
     );
-    return rows.map(DocumentSignature.fromMap).toList();
+    return _parseSignatures(rows);
+  }
+
+  List<DocumentSignature> _parseSignatures(List<Map<String, Object?>> rows) {
+    final signatures = <DocumentSignature>[];
+    for (final row in rows) {
+      final signature = DocumentSignature.tryFromMap(row);
+      if (signature != null) signatures.add(signature);
+    }
+    return signatures;
   }
 
   Future<int> nextSigningOrder(int bookId) async {
@@ -389,7 +455,12 @@ class LibraryDatabase {
       DatabaseConfig.tableSignatureTemplates,
       orderBy: 'created_at DESC',
     );
-    return rows.map(SignatureTemplate.fromMap).toList();
+    final templates = <SignatureTemplate>[];
+    for (final row in rows) {
+      final template = SignatureTemplate.tryFromMap(row);
+      if (template != null) templates.add(template);
+    }
+    return templates;
   }
 
   Future<int> deleteSignatureTemplate(int id) async {
@@ -420,7 +491,7 @@ class LibraryDatabase {
       whereArgs: [bookId],
       orderBy: 'page_number ASC, created_at ASC',
     );
-    return rows.map(PageAnnotation.fromMap).toList();
+    return _parsePageAnnotations(rows);
   }
 
   Future<List<PageAnnotation>> getPageAnnotationsForPage(
@@ -433,7 +504,16 @@ class LibraryDatabase {
       whereArgs: [bookId, pageNumber],
       orderBy: 'created_at ASC',
     );
-    return rows.map(PageAnnotation.fromMap).toList();
+    return _parsePageAnnotations(rows);
+  }
+
+  List<PageAnnotation> _parsePageAnnotations(List<Map<String, Object?>> rows) {
+    final annotations = <PageAnnotation>[];
+    for (final row in rows) {
+      final annotation = PageAnnotation.tryFromMap(row);
+      if (annotation != null) annotations.add(annotation);
+    }
+    return annotations;
   }
 
   Future<int> updatePageAnnotation(PageAnnotation annotation) async {

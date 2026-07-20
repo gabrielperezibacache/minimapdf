@@ -93,16 +93,70 @@ class SignatureTemplate {
     };
   }
 
+  /// Parseo estricto; lanza si faltan campos obligatorios.
   factory SignatureTemplate.fromMap(Map<String, Object?> map) {
-    return SignatureTemplate(
-      id: map['id'] as int?,
-      name: map['name'] as String,
-      type: SignatureTypeX.fromStorage(map['type'] as String),
-      signerName: map['signer_name'] as String,
-      typedText: map['typed_text'] as String?,
-      inkJson: map['ink_json'] as String?,
-      role: SignatureRoleX.fromStorage(map['role'] as String?),
-      createdAt: DateTime.parse(map['created_at'] as String),
-    );
+    final template = SignatureTemplate.tryFromMap(map);
+    if (template == null) {
+      throw FormatException('Fila de plantilla inválida o corrupta');
+    }
+    return template;
+  }
+
+  /// Parseo tolerante: filas corruptas → null.
+  static SignatureTemplate? tryFromMap(Map<String, Object?> map) {
+    try {
+      final name = _asNonEmptyString(map['name']);
+      final signerName = _asNonEmptyString(map['signer_name']);
+      final typeRaw = map['type'];
+      final createdAt = _asDateTime(map['created_at']);
+      if (name == null ||
+          signerName == null ||
+          typeRaw is! String ||
+          typeRaw.isEmpty ||
+          createdAt == null) {
+        return null;
+      }
+
+      return SignatureTemplate(
+        id: _asInt(map['id']),
+        name: name,
+        type: SignatureTypeX.fromStorage(typeRaw),
+        signerName: signerName,
+        typedText: _asNullableString(map['typed_text']),
+        inkJson: _asNullableString(map['ink_json']),
+        role: SignatureRoleX.fromStorage(
+          map['role'] is String ? map['role'] as String : null,
+        ),
+        createdAt: createdAt,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static int? _asInt(Object? value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  static String? _asNonEmptyString(Object? value) {
+    if (value is! String) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static String? _asNullableString(Object? value) {
+    if (value == null) return null;
+    if (value is! String) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static DateTime? _asDateTime(Object? value) {
+    if (value == null) return null;
+    if (value is! String || value.isEmpty) return null;
+    return DateTime.tryParse(value);
   }
 }

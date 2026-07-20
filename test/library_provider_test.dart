@@ -5,6 +5,7 @@ import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
 import 'package:minimal_pdf/data/datasources/library_local_datasource.dart';
 import 'package:minimal_pdf/data/datasources/pdf_import_service.dart';
+import 'package:minimal_pdf/data/models/book.dart';
 import 'package:minimal_pdf/presentation/providers/library_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -47,6 +48,7 @@ void main() {
     provider = LibraryProvider(
       datasource: datasource,
       importService: importService,
+      documentsDirectory: () async => tempDir,
     );
   });
 
@@ -103,6 +105,42 @@ void main() {
 
     expect(provider.books, isEmpty);
     expect(File(book.filePath).existsSync(), isFalse);
+  });
+
+  test('deleteBook también elimina manifiesto .firmas.json compañero', () async {
+    final book = await provider.importPdf();
+    expect(book, isNotNull);
+
+    final manifestPath =
+        '${p.withoutExtension(book!.filePath)}.firmas.json';
+    await File(manifestPath).writeAsString('{"version":1}');
+    expect(File(manifestPath).existsSync(), isTrue);
+
+    await provider.deleteBook(book);
+
+    expect(File(book.filePath).existsSync(), isFalse);
+    expect(File(manifestPath).existsSync(), isFalse);
+  });
+
+  test('deleteBook no borra rutas fuera de library', () async {
+    final outside = File(p.join(tempDir.path, 'outside_secret.pdf'));
+    await outside.writeAsBytes(const [0x25, 0x50, 0x44, 0x46]);
+
+    final book = await datasource.insertBook(
+      Book(
+        title: 'Traversal',
+        filePath: outside.path,
+        fileSize: 4,
+        addedAt: DateTime.now(),
+      ),
+    );
+    await provider.load();
+
+    await provider.deleteBook(book);
+
+    // Registro eliminado, pero el archivo fuera de library permanece.
+    expect(provider.books.where((b) => b.id == book.id), isEmpty);
+    expect(outside.existsSync(), isTrue);
   });
 
   test('updateBookMetadata puede asignar colección', () async {
@@ -203,6 +241,7 @@ void main() {
         picker: slowPicker,
         documentsDirectory: () async => tempDir,
       ),
+      documentsDirectory: () async => tempDir,
     );
 
     final first = slowProvider.importPdf();
@@ -229,11 +268,50 @@ void main() {
         ),
         documentsDirectory: () async => tempDir,
       ),
+      documentsDirectory: () async => tempDir,
     );
 
     final result = await badProvider.importPdf();
     expect(result, isNull);
     expect(badProvider.error, isNotNull);
     expect(badProvider.books, isEmpty);
+  });
+
+  test('importExternalFile importa un PDF abierto desde el sistema', () async {
+    final external = File(p.join(tempDir.path, 'desde_sistema.pdf'));
+    await external.writeAsBytes(const [0x25, 0x50, 0x44, 0x46]);
+
+    final book = await provider.importExternalFile(external.path);
+
+    expect(book, isNotNull);
+    expect(book!.title.toLowerCase(), contains('desde'));
+    expect(provider.books, hasLength(1));
+    expect(File(book.filePath).existsSync(), isTrue);
+  });
+
+  test('displayNameForExternalPath quita prefijo external_<epoch>_', () {
+    expect(
+      LibraryProvider.displayNameForExternalPath(
+        '/cache/external_1710000000000_Clean Code.pdf',
+      ),
+      'Clean Code.pdf',
+    );
+    expect(
+      LibraryProvider.displayNameForExternalPath('/tmp/normal.pdf'),
+      'normal.pdf',
+    );
+  });
+
+  test('importExternalFile usa título limpio y borra copia temporal', () async {
+    final external = File(
+      p.join(tempDir.path, 'external_1710000000000_Informe.pdf'),
+    );
+    await external.writeAsBytes(const [0x25, 0x50, 0x44, 0x46]);
+
+    final book = await provider.importExternalFile(external.path);
+
+    expect(book, isNotNull);
+    expect(book!.title.toLowerCase(), contains('informe'));
+    expect(external.existsSync(), isFalse);
   });
 }

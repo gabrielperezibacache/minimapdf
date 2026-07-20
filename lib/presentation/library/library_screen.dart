@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +9,7 @@ import '../../core/theme/app_theme_option.dart';
 import '../../data/models/book.dart';
 import '../../data/models/collection.dart';
 import '../../l10n/app_localizations.dart';
+import '../../services/external_pdf_open_service.dart';
 import '../downloader/downloader_screen.dart';
 import '../providers/downloader_provider.dart';
 import '../providers/library_provider.dart';
@@ -27,24 +30,99 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen> {
   final _searchController = TextEditingController();
   DownloaderProvider? _downloader;
+  LibraryProvider? _library;
+  ExternalPdfOpenService? _externalOpen;
   int? _lastSeenDownloadId;
+  bool _handlingExternal = false;
+  bool _openingReader = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<LibraryProvider>().load();
+      _library = context.read<LibraryProvider>();
+      _library!.addListener(_onLibraryChanged);
+      unawaited(_library!.load());
       _downloader = context.read<DownloaderProvider>();
       _downloader!.addListener(_onDownloaderChanged);
+      _externalOpen = context.read<ExternalPdfOpenService>();
+      _externalOpen!.addListener(_onExternalOpenChanged);
+      unawaited(_externalOpen!.start());
+      unawaited(_drainExternalQueue());
     });
   }
 
   @override
   void dispose() {
+    _externalOpen?.removeListener(_onExternalOpenChanged);
+    _library?.removeListener(_onLibraryChanged);
     _downloader?.removeListener(_onDownloaderChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onExternalOpenChanged() {
+    unawaited(_drainExternalQueue());
+  }
+
+  void _onLibraryChanged() {
+    // Retoma PDFs externos en cola cuando termina una importación manual.
+    if (_handlingExternal) return;
+    final library = _library;
+    final service = _externalOpen;
+    if (library == null || service == null) return;
+    if (!library.importing && service.hasQueued) {
+      unawaited(_drainExternalQueue());
+    }
+  }
+
+  Future<void> _drainExternalQueue() async {
+    if (!mounted || _handlingExternal) return;
+
+    final service = _externalOpen ?? context.read<ExternalPdfOpenService>();
+    final library = _library ?? context.read<LibraryProvider>();
+    if (library.importing) return;
+
+    final path = service.takeNext();
+    if (path == null) return;
+
+    _handlingExternal = true;
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    Book? importedBook;
+
+    try {
+      // Si otra importación empezó entre takeNext y aquí, no perder el PDF.
+      if (library.importing) {
+        service.requeue(path);
+        return;
+      }
+
+      final book = await library.importExternalFile(path);
+      if (!mounted) return;
+      if (book != null) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(l10n.imported(book.title))),
+        );
+        importedBook = book;
+      } else if (library.error != null) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(_msg(library.error!))),
+        );
+      }
+    } finally {
+      _handlingExternal = false;
+      if (mounted && service.hasQueued) {
+        unawaited(_drainExternalQueue());
+      }
+    }
+
+    // Abre el lector fuera del lock de cola para no bloquear más imports.
+    final toOpen = importedBook;
+    if (toOpen != null && mounted) {
+      await _openReader(toOpen);
+    }
   }
 
   void _onDownloaderChanged() {
@@ -138,6 +216,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _openReader(Book book) async {
+    if (_openingReader) return;
+    _openingReader = true;
+    try {
+      await _openReaderBody(book);
+    } finally {
+      _openingReader = false;
+    }
+  }
+
+  Future<void> _openReaderBody(Book book) async {
     final library = context.read<LibraryProvider>();
     final exists = await library.bookFileExists(book);
     if (!mounted) return;

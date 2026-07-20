@@ -2,6 +2,13 @@
 abstract final class FileNameSanitizer {
   static final RegExp _invalid = RegExp(r'[<>:"/\\|?*\x00-\x1F]');
 
+  /// Nombres reservados de Windows (dispositivo), sin extensión.
+  static const Set<String> _windowsReserved = {
+    'con', 'prn', 'aux', 'nul',
+    'com1', 'com2', 'com3', 'com4', 'com5', 'com6', 'com7', 'com8', 'com9',
+    'lpt1', 'lpt2', 'lpt3', 'lpt4', 'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9',
+  };
+
   /// Devuelve un nombre seguro con extensión `.pdf`.
   static String sanitize(String rawName, {String fallback = 'documento'}) {
     var name = rawName.trim();
@@ -14,6 +21,9 @@ abstract final class FileNameSanitizer {
     name = name.replaceAll(RegExp(r'^_|_$'), '');
 
     if (name.isEmpty) name = fallback;
+    if (_windowsReserved.contains(name.toLowerCase())) {
+      name = '${fallback}_$name';
+    }
     if (name.length > 80) name = name.substring(0, 80);
 
     return '$name.pdf';

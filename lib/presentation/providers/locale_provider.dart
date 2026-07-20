@@ -1,3 +1,5 @@
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:flutter/material.dart';
 
 import '../../core/preferences/app_preferences.dart';
@@ -5,9 +7,13 @@ import '../../l10n/app_locale.dart';
 
 /// Gestiona el idioma de la interfaz y lo persiste en [AppPreferences].
 class LocaleProvider extends ChangeNotifier {
-  LocaleProvider({AppPreferences? preferences})
-      : _preferences = preferences,
-        _appLocale = preferences?.appLocale ?? AppLocale.es;
+  LocaleProvider({
+    AppPreferences? preferences,
+    AppLocale? fallback,
+  })  : _preferences = preferences,
+        _appLocale = preferences?.storedAppLocale ??
+            fallback ??
+            AppLocaleX.fromLocale(PlatformDispatcher.instance.locale);
 
   AppPreferences? _preferences;
   AppLocale _appLocale;
@@ -17,8 +23,8 @@ class LocaleProvider extends ChangeNotifier {
 
   void attachPreferences(AppPreferences preferences) {
     _preferences = preferences;
-    final stored = preferences.appLocale;
-    if (_appLocale != stored) {
+    final stored = preferences.storedAppLocale;
+    if (stored != null && _appLocale != stored) {
       _appLocale = stored;
       notifyListeners();
     }

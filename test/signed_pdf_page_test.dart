@@ -63,7 +63,7 @@ void main() {
             signatures: [signature],
             ebonyFilter: false,
             placementMode: false,
-            onPlaceTap: (_, _) {},
+            onPlaceTap: (_, _, _) {},
             onMove: (_, _, _) {},
             onDelete: (_) {},
           ),

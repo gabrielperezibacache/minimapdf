@@ -111,9 +111,7 @@ class PdfImportService {
 
       try {
         await source.copy(destination);
-        final size = picked.fileSize > 0
-            ? picked.fileSize
-            : await destinationFile.length();
+        final size = await destinationFile.length();
         final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
 
         int? resolvedCollectionId = collectionId;

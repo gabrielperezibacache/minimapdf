@@ -80,13 +80,25 @@ void main() {
       expect(Collection.fromMap(collection.toMap()), collection);
     });
 
-    test('Collection.fromMap tolera fecha inválida y nombre vacío', () {
-      final collection = Collection.fromMap({
-        'id': 3,
-        'name': '  ',
+    test('Collection.tryFromMap rechaza nombre vacío', () {
+      expect(
+        Collection.tryFromMap({
+          'id': 3,
+          'name': '  ',
+          'created_at': 'bad-date',
+        }),
+        isNull,
+      );
+    });
+
+    test('Collection.tryFromMap tolera id string y fecha inválida', () {
+      final collection = Collection.tryFromMap({
+        'id': '9',
+        'name': 'Papers',
         'created_at': 'bad-date',
       });
-      expect(collection.name, 'Colección');
+      expect(collection, isNotNull);
+      expect(collection!.id, 9);
       expect(collection.createdAt, DateTime.fromMillisecondsSinceEpoch(0));
     });
 
@@ -114,6 +126,35 @@ void main() {
       expect(bookmark.createdAt, DateTime.fromMillisecondsSinceEpoch(0));
     });
 
+    test('Bookmark.tryFromMap ignora book_id inválido', () {
+      expect(
+        Bookmark.tryFromMap({
+          'book_id': 0,
+          'page_number': 1,
+          'created_at': '2026-07-03T00:00:00.000Z',
+        }),
+        isNull,
+      );
+    });
+
+    test('Bookmark.tryFromMap ignora page_number inválido', () {
+      expect(
+        Bookmark.tryFromMap({
+          'book_id': 1,
+          'page_number': 0,
+          'created_at': '2026-07-03T00:00:00.000Z',
+        }),
+        isNull,
+      );
+      expect(
+        Bookmark.tryFromMap({
+          'book_id': 1,
+          'created_at': '2026-07-03T00:00:00.000Z',
+        }),
+        isNull,
+      );
+    });
+
     test('PageAnnotation round-trip', () {
       final annotation = PageAnnotation(
         id: 3,
@@ -130,6 +171,41 @@ void main() {
       );
       expect(PageAnnotation.fromMap(annotation.toMap()), annotation);
       expect(annotation.type.label, 'Marcado');
+    });
+
+    test('PageAnnotation.tryFromMap ignora filas corruptas', () {
+      expect(PageAnnotation.tryFromMap(const {}), isNull);
+      expect(
+        PageAnnotation.tryFromMap({
+          'book_id': 1,
+          'page_number': 0,
+          'type': 'highlight',
+          'x': 0.1,
+          'y': 0.2,
+          'width': 0.3,
+          'height': 0.04,
+          'color_value': 1,
+          'created_at': 'bad',
+        }),
+        isNull,
+      );
+    });
+
+    test('PageAnnotation.tryFromMap rechaza geometría no finita', () {
+      expect(
+        PageAnnotation.tryFromMap({
+          'book_id': 1,
+          'page_number': 1,
+          'type': 'highlight',
+          'x': 'NaN',
+          'y': 0.2,
+          'width': 0.3,
+          'height': 0.04,
+          'color_value': 1,
+          'created_at': '2026-07-04T00:00:00.000Z',
+        }),
+        isNull,
+      );
     });
   });
 
@@ -168,6 +244,21 @@ void main() {
       ]);
     });
 
+    test('DocumentSignature.tryFromMap sustituye offsets no finitos', () {
+      final signature = DocumentSignature.tryFromMap({
+        'book_id': 1,
+        'page_number': 1,
+        'type': 'typed',
+        'signer_name': 'Eva',
+        'offset_x': 'Infinity',
+        'offset_y': 'NaN',
+        'signed_at': '2026-07-19T00:00:00.000Z',
+      });
+      expect(signature, isNotNull);
+      expect(signature!.offsetX.isFinite, isTrue);
+      expect(signature.offsetY.isFinite, isTrue);
+    });
+
     test('inkStrokes ignora puntos malformados', () {
       final signature = DocumentSignature(
         bookId: 1,
@@ -181,6 +272,20 @@ void main() {
         [0.1, 0.2],
         [0.3, 0.4],
       ]);
+    });
+
+    test('DocumentSignature.tryFromMap ignora filas corruptas', () {
+      expect(DocumentSignature.tryFromMap(const {}), isNull);
+      expect(
+        DocumentSignature.tryFromMap({
+          'book_id': 1,
+          'page_number': 1,
+          'type': 'typed',
+          'signer_name': '',
+          'signed_at': '2026-07-19T00:00:00.000Z',
+        }),
+        isNull,
+      );
     });
   });
 }

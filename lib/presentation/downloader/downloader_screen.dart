@@ -49,6 +49,8 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
     mediaPlaybackRequiresUserGesture: true,
     transparentBackground: false,
     useShouldOverrideUrlLoading: true,
+    // Requerido para que onDownloadStarting se dispare (Content-Disposition).
+    useOnDownloadStart: true,
     javaScriptCanOpenWindowsAutomatically: false,
     supportZoom: true,
     userAgent:
@@ -410,10 +412,9 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                       initialSettings: _privacySettings,
                       pullToRefreshController: _pullToRefreshController,
                       onWebViewCreated: (controller) {
+                        // La caché ya se limpió en initState antes de montar;
+                        // no volver a clearAllCache aquí (carrera con la 1ª carga).
                         _webController = controller;
-                        unawaited(
-                          InAppWebViewController.clearAllCache(),
-                        );
                       },
                       onLoadStart: (controller, url) {
                         if (!mounted) return;
@@ -452,6 +453,20 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                         }
                         final href = uri.toString();
                         if (PdfUrlUtils.looksLikePdfUrl(href)) {
+                          final provider = context.read<DownloaderProvider>();
+                          if (provider.downloading) {
+                            // No capturamos: deja navegar para no atrapar al usuario.
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Ya hay una descarga en curso.',
+                                  ),
+                                ),
+                              );
+                            }
+                            return NavigationActionPolicy.ALLOW;
+                          }
                           // Evita abrir el PDF dentro del WebView (callejón sin salida).
                           unawaited(_downloadPdfLink(href));
                           return NavigationActionPolicy.CANCEL;
@@ -465,7 +480,11 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                             mime.contains('pdf');
                         if (!isPdf) return null;
                         unawaited(_downloadPdfLink(href));
-                        return null;
+                        // Evita el diálogo/descarga nativa del WebView.
+                        return DownloadStartResponse(
+                          handled: true,
+                          action: DownloadStartResponseAction.CANCEL,
+                        );
                       },
                       onReceivedError: (controller, request, error) {
                         _pullToRefreshController?.endRefreshing();

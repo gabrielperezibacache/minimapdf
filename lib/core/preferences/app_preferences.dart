@@ -37,7 +37,15 @@ class AppPreferences {
     await _prefs.setString(_themeKey, option.name);
   }
 
-  AppLocale get appLocale => AppLocaleX.fromCode(_prefs.getString(_localeKey));
+  /// Idioma persistido, o `null` si el usuario aún no eligió uno.
+  AppLocale? get storedAppLocale {
+    final raw = _prefs.getString(_localeKey);
+    if (raw == null || raw.isEmpty) return null;
+    return AppLocaleX.fromCode(raw);
+  }
+
+  /// Idioma efectivo: preferencia guardada, o español como fallback legacy.
+  AppLocale get appLocale => storedAppLocale ?? AppLocale.es;
 
   Future<void> setAppLocale(AppLocale locale) async {
     await _prefs.setString(_localeKey, locale.code);
