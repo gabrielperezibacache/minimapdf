@@ -18,6 +18,7 @@ import 'package:minimal_pdf/domain/electronic_signature_service.dart';
 import 'package:minimal_pdf/domain/signature_manifest.dart';
 import 'package:minimal_pdf/domain/signature_stamp_geometry.dart';
 import 'package:minimal_pdf/domain/signed_pdf_export_service.dart';
+import 'package:minimal_pdf/l10n/app_localizations.dart';
 import 'package:minimal_pdf/l10n/app_message_keys.dart';
 import 'package:minimal_pdf/presentation/providers/document_signing_provider.dart';
 import 'package:minimal_pdf/presentation/signing/signature_overlay.dart';
@@ -351,11 +352,13 @@ void main() {
     });
 
     test('título exportado no acumula (firmado)', () async {
-      final base = book.title
-          .replaceAll(RegExp(r'\s*\(firmado\)\s*$'), '')
-          .trim();
+      final base = AppLocalizations.stripSignedMarker(book.title);
       expect(base, 'Contrato');
       expect('$base (firmado)', 'Contrato (firmado)');
+      expect(
+        AppLocalizations.stripSignedMarker('Contract (signed)'),
+        'Contract',
+      );
     });
 
     test('firma se conserva si falla la plantilla', () async {
@@ -622,6 +625,8 @@ class _SlowFailingExport extends SignedPdfExportService {
     required Book book,
     required List<DocumentSignature> signatures,
     Set<String> reservedBasenames = const {},
+    String signedMarker = 'firmado',
+    String Function(SignatureRole role)? roleLabelOf,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
     throw StateError('export fail');
@@ -642,6 +647,8 @@ class _WritingThenOkExport extends SignedPdfExportService {
     required Book book,
     required List<DocumentSignature> signatures,
     Set<String> reservedBasenames = const {},
+    String signedMarker = 'firmado',
+    String Function(SignatureRole role)? roleLabelOf,
   }) async {
     final libraryDir = Directory(p.join(tempDir.path, 'library'));
     await libraryDir.create(recursive: true);

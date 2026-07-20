@@ -708,9 +708,12 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Future<void> _exportSignedPdf() async {
     if (_signing?.exporting == true) return;
-    final result = await _signing?.exportSignedPdf();
-    if (!mounted) return;
     final l10n = AppLocalizations.of(context);
+    final result = await _signing?.exportSignedPdf(
+      signedMarker: l10n.signedMarker,
+      roleLabelOf: (role) => role.label(l10n),
+    );
+    if (!mounted) return;
     if (result == null) {
       final error = _signing?.error;
       ScaffoldMessenger.of(context).showSnackBar(

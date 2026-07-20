@@ -51,6 +51,8 @@ class SignedPdfExportService {
     required Book book,
     required List<DocumentSignature> signatures,
     Set<String> reservedBasenames = const {},
+    String signedMarker = 'firmado',
+    String Function(SignatureRole role)? roleLabelOf,
   }) async {
     if (signatures.isEmpty) {
       throw StateError('No hay firmas para exportar.');
@@ -71,7 +73,10 @@ class SignedPdfExportService {
     for (final name in reservedBasenames) {
       existing.add(name.toLowerCase());
     }
-    final sanitized = FileNameSanitizer.sanitize('${book.title}_firmado');
+    final marker =
+        signedMarker.trim().isEmpty ? 'firmado' : signedMarker.trim();
+    final sanitized = FileNameSanitizer.sanitize('${book.title}_$marker');
+    final resolveRoleLabel = roleLabelOf ?? (SignatureRole role) => role.labelEs;
     final pdfName = FileNameSanitizer.uniqueName(sanitized, existing);
     final pdfPath = p.join(libraryDir.path, pdfName);
     final manifestPath = '${p.withoutExtension(pdfPath)}.firmas.json';
@@ -133,6 +138,7 @@ class SignedPdfExportService {
             width: width,
             height: height,
             signatures: byPage[pageNumber] ?? const [],
+            roleLabelOf: resolveRoleLabel,
           );
 
           final pageFormat = pw.PdfPageFormat(
@@ -209,6 +215,7 @@ class SignedPdfExportService {
     required int width,
     required int height,
     required List<DocumentSignature> signatures,
+    required String Function(SignatureRole role) roleLabelOf,
   }) async {
     final codec = await ui.instantiateImageCodec(Uint8List.fromList(pageBytes));
     try {
@@ -231,6 +238,7 @@ class SignedPdfExportService {
             canvas,
             Rect.fromLTWH(left, top, stamp.width, stamp.height),
             signature,
+            roleLabelOf: roleLabelOf,
           );
         }
 
@@ -258,7 +266,12 @@ class SignedPdfExportService {
     }
   }
 
-  void _paintStamp(Canvas canvas, Rect rect, DocumentSignature signature) {
+  void _paintStamp(
+    Canvas canvas,
+    Rect rect,
+    DocumentSignature signature, {
+    required String Function(SignatureRole role) roleLabelOf,
+  }) {
     final bg = Paint()..color = const Color(0xF5F3ECDD);
     final border = Paint()
       ..color = const Color(0xFFC89A5A)
@@ -278,7 +291,7 @@ class SignedPdfExportService {
 
     final header = TextPainter(
       text: TextSpan(
-        text: '${signature.role.labelEs} · #${signature.signingOrder}',
+        text: '${roleLabelOf(signature.role)} · #${signature.signingOrder}',
         style: TextStyle(
           color: const Color(0xFFC89A5A),
           fontSize: 11 * scale,

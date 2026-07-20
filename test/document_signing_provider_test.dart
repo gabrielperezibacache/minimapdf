@@ -8,6 +8,7 @@ import 'package:minimal_pdf/data/models/book.dart';
 import 'package:minimal_pdf/data/models/signature_role.dart';
 import 'package:minimal_pdf/data/models/signature_type.dart';
 import 'package:minimal_pdf/domain/electronic_signature_service.dart';
+import 'package:minimal_pdf/l10n/app_message_keys.dart';
 import 'package:minimal_pdf/presentation/providers/document_signing_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -103,7 +104,7 @@ void main() {
     );
 
     expect(saved, isNull);
-    expect(signing.error, contains('Dibuja'));
+    expect(signing.error, AppMessageKeys.errorDrawSignatureEmpty);
   });
 
   test('moveSignature actualiza offsets y lastSignerName', () async {

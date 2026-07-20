@@ -142,9 +142,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   switchOutCurve: Curves.easeIn,
                   child: Text(
                     key: ValueKey<bool>(isFirst),
-                    isFirst
-                        ? 'Bienvenido a una lectura offline, privada y sin ruido.'
-                        : 'Así funciona Minimal PDF',
+                    isFirst ? l10n.welcomeLead : l10n.welcomeHowItWorks,
                     style: textTheme.titleLarge?.copyWith(
                       height: 1.35,
                       fontWeight: FontWeight.w600,

@@ -152,7 +152,7 @@ class AnnotationToolbox extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    _hintFor(activeTool),
+                    _hintFor(context, activeTool),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: colors.textMuted,
                         ),
@@ -166,17 +166,15 @@ class AnnotationToolbox extends StatelessWidget {
     );
   }
 
-  String _hintFor(AnnotationTool tool) {
+  String _hintFor(BuildContext context, AnnotationTool tool) {
+    final l10n = AppLocalizations.of(context);
     return switch (tool) {
-      AnnotationTool.none =>
-        'Elige una herramienta de acento bronce para anotar el PDF.',
-      AnnotationTool.highlight =>
-        'Arrastra (o toca) para marcar un tramo de la página.',
-      AnnotationTool.underline =>
-        'Arrastra (o toca) para subrayar un tramo.',
-      AnnotationTool.note => 'Toca la página para colocar una nota.',
-      AnnotationTool.comment => 'Toca la página para dejar un comentario.',
-      AnnotationTool.annotation => 'Toca la página para añadir una anotación.',
+      AnnotationTool.none => l10n.annotationHintNone,
+      AnnotationTool.highlight => l10n.annotationHintHighlight,
+      AnnotationTool.underline => l10n.annotationHintUnderline,
+      AnnotationTool.note => l10n.annotationHintNote,
+      AnnotationTool.comment => l10n.annotationHintComment,
+      AnnotationTool.annotation => l10n.annotationHintAnnotation,
     };
   }
 }

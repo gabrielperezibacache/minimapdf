@@ -103,7 +103,7 @@ class SignatureLayer extends StatelessWidget {
                       child: Padding(
                         padding: EdgeInsets.only(top: effectiveTopReserve + 12),
                         child: Text(
-                          'Toca donde quieres colocar la firma',
+                          AppLocalizations.of(context).placeSignatureHint,
                           style: Theme.of(context)
                               .textTheme
                               .labelLarge

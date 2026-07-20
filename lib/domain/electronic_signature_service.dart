@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import '../data/models/document_signature.dart';
 import '../data/models/signature_role.dart';
 import '../data/models/signature_type.dart';
+import '../l10n/app_message_keys.dart';
 
 /// Borrador de firma electrónica antes de persistir.
 class SignatureDraft {
@@ -65,24 +66,28 @@ class ElectronicSignatureService {
   static final RegExp _multiSpace = RegExp(r'\s+');
 
   /// Valida un borrador sin construir la firma (útil en UI).
+  ///
+  /// Los mensajes son claves [AppMessageKeys] resueltas en la UI.
   void validateDraft(SignatureDraft draft, {required int pageNumber}) {
     if (pageNumber < 1) {
-      throw SignatureValidationException('Página no válida para firmar.');
+      throw SignatureValidationException(AppMessageKeys.errorInvalidSignPage);
     }
 
     final signerName = normalizePersonText(draft.signerName);
     if (signerName.isEmpty) {
-      throw SignatureValidationException('Indica el nombre del firmante.');
+      throw SignatureValidationException(
+        AppMessageKeys.errorSignerNameRequired,
+      );
     }
     if (signerName.length > maxSignerNameLength) {
       throw SignatureValidationException(
-        'El nombre del firmante es demasiado largo.',
+        AppMessageKeys.errorSignerNameTooLong,
       );
     }
 
     final reason = normalizeOptionalText(draft.reason);
     if (reason != null && reason.length > maxReasonLength) {
-      throw SignatureValidationException('El motivo es demasiado largo.');
+      throw SignatureValidationException(AppMessageKeys.errorReasonTooLong);
     }
 
     switch (draft.type) {
@@ -90,18 +95,18 @@ class ElectronicSignatureService {
         final typed = normalizePersonText(draft.typedText ?? signerName);
         if (typed.isEmpty) {
           throw SignatureValidationException(
-            'Escribe el texto de la firma mecanografiada.',
+            AppMessageKeys.errorTypedSignatureEmpty,
           );
         }
         if (typed.length > maxTypedTextLength) {
           throw SignatureValidationException(
-            'El texto de la firma es demasiado largo.',
+            AppMessageKeys.errorTypedSignatureTooLong,
           );
         }
       case SignatureType.drawn:
         if (normalizeStrokes(draft.inkStrokes).isEmpty) {
           throw SignatureValidationException(
-            'Dibuja tu firma antes de guardar.',
+            AppMessageKeys.errorDrawSignatureEmpty,
           );
         }
     }
@@ -120,7 +125,9 @@ class ElectronicSignatureService {
     int signingOrder = 1,
   }) {
     if (bookId < 1) {
-      throw SignatureValidationException('Documento no válido para firmar.');
+      throw SignatureValidationException(
+        AppMessageKeys.errorInvalidSignDocument,
+      );
     }
     validateDraft(draft, pageNumber: pageNumber);
 

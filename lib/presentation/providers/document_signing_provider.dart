@@ -12,6 +12,7 @@ import '../../data/models/signature_template.dart';
 import '../../data/models/signature_type.dart';
 import '../../domain/electronic_signature_service.dart';
 import '../../domain/signed_pdf_export_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../l10n/app_message_keys.dart';
 
 /// Firmas electrónicas del documento abierto en el lector.
@@ -315,6 +316,7 @@ class DocumentSigningProvider extends ChangeNotifier {
 
       return saved;
     } on SignatureValidationException catch (error) {
+      // Clave de l10n; la UI resuelve con AppLocalizations.message.
       if (!_disposed) _error = error.message;
       return null;
     } catch (_) {
@@ -500,7 +502,13 @@ class DocumentSigningProvider extends ChangeNotifier {
 
   /// Exporta PDF firmado (sellos aplanados) + manifiesto SHA-256 e importa
   /// la copia a la biblioteca.
-  Future<SignedPdfExportResult?> exportSignedPdf() async {
+  ///
+  /// [signedMarker] y [roleLabelOf] localizan el sufijo del título/archivo y
+  /// las etiquetas de rol pintadas en el PDF.
+  Future<SignedPdfExportResult?> exportSignedPdf({
+    String signedMarker = 'firmado',
+    String Function(SignatureRole role)? roleLabelOf,
+  }) async {
     if (_disposed) return null;
     final book = _book;
     if (book == null) {
@@ -545,19 +553,21 @@ class DocumentSigningProvider extends ChangeNotifier {
         SignedPdfExportResult? exported;
         try {
           final reserved = await _datasource.listReservedLibraryBasenames();
+          final marker =
+              signedMarker.trim().isEmpty ? 'firmado' : signedMarker.trim();
           exported = await _exportService.exportSignedPdf(
             book: book,
             signatures: signaturesSnapshot,
             reservedBasenames: reserved,
+            signedMarker: marker,
+            roleLabelOf: roleLabelOf,
           );
           writtenArtifacts = exported;
           final file = File(exported.pdfPath);
-          final baseTitle = book.title
-              .replaceAll(RegExp(r'\s*\(firmado\)\s*$'), '')
-              .trim();
+          final baseTitle = AppLocalizations.stripSignedMarker(book.title);
           final tags = {
             for (final tag in book.tags) tag,
-            'firmado',
+            marker,
           }.toList(growable: false);
 
           // Evita FK rota si la colección se borró mientras el libro seguía abierto.
@@ -569,7 +579,7 @@ class DocumentSigningProvider extends ChangeNotifier {
 
           await _datasource.insertBook(
             Book(
-              title: '$baseTitle (firmado)',
+              title: '$baseTitle ($marker)',
               filePath: exported.pdfPath,
               fileSize: await file.length(),
               addedAt: DateTime.now(),

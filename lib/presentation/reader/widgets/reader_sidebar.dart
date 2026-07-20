@@ -261,7 +261,11 @@ class _TocPaneState extends State<_TocPane> {
           child: ListView.builder(
             itemCount: pagesCount,
             itemBuilder: (context, index) {
-              final entry = PdfTocEntry.forPage(index + 1);
+              final l10n = AppLocalizations.of(context);
+              final entry = PdfTocEntry.forPage(
+                index + 1,
+                title: l10n.pageNumber(index + 1),
+              );
               final selected = entry.pageNumber == widget.currentPage;
               return InkWell(
                 onTap: () => widget.onOpenPage(entry.pageNumber),

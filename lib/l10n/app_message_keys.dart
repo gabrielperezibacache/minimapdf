@@ -49,4 +49,13 @@ abstract final class AppMessageKeys {
   static const annotationUpdateFailed = 'errorAnnotationUpdate';
   static const annotationDeleteFailed = 'errorAnnotationDelete';
   static const annotationGeometryInvalid = 'errorAnnotationGeometry';
+  static const indicateTemplateName = 'indicateTemplateName';
+  static const errorInvalidSignPage = 'errorInvalidSignPage';
+  static const errorSignerNameRequired = 'errorSignerNameRequired';
+  static const errorSignerNameTooLong = 'errorSignerNameTooLong';
+  static const errorReasonTooLong = 'errorReasonTooLong';
+  static const errorTypedSignatureEmpty = 'errorTypedSignatureEmpty';
+  static const errorTypedSignatureTooLong = 'errorTypedSignatureTooLong';
+  static const errorDrawSignatureEmpty = 'errorDrawSignatureEmpty';
+  static const errorInvalidSignDocument = 'errorInvalidSignDocument';
 }

@@ -159,7 +159,8 @@ class _SignatureFormState extends State<_SignatureForm> {
           _service.normalizePersonText(_templateNameController.text);
       if (templateName.isEmpty) {
         setState(() {
-          _validationError = 'Indica un nombre para la plantilla.';
+          _validationError =
+              AppLocalizations.of(context).indicateTemplateName;
           _submitting = false;
         });
         return;
@@ -171,7 +172,8 @@ class _SignatureFormState extends State<_SignatureForm> {
       Navigator.of(context).pop(draft);
     } on SignatureValidationException catch (error) {
       setState(() {
-        _validationError = error.message;
+        _validationError =
+            AppLocalizations.of(context).message(error.message);
         _submitting = false;
       });
     }
@@ -349,7 +351,7 @@ class _SignatureFormState extends State<_SignatureForm> {
                     const SizedBox(height: 8),
                     Text(
                       _typedController.text.trim().isEmpty
-                          ? 'Tu firma aparecerá aquí'
+                          ? l10n.typedSignaturePreview
                           : _typedController.text.trim(),
                       style: TextStyle(
                         fontFamily: 'serif',
