@@ -55,6 +55,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   AnnotationTool _activeTool = AnnotationTool.none;
   bool _toolboxVisible = false;
   bool _loading = false;
+  int? _loadingGeneration;
   String? _error;
   bool _disposed = false;
   int _loadGeneration = 0;
@@ -117,6 +118,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   Future<void> loadForBook(int bookId) async {
     final generation = ++_loadGeneration;
     _bookId = bookId;
+    _loadingGeneration = generation;
     _loading = true;
     _error = null;
     _safeNotify();
@@ -133,7 +135,8 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
         debugPrint('ReaderAnnotationsProvider.loadForBook: $e');
       }
     } finally {
-      if (!_disposed && generation == _loadGeneration) {
+      // Limpia loading aunque un refresh haya invalidado la generación de datos.
+      if (!_disposed && _loadingGeneration == generation) {
         _loading = false;
         _safeNotify();
       }
@@ -385,6 +388,11 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     if (_disposed || bookId == null || pageNumber < 1) return null;
 
     final clamped = _clampRect(x: x, y: y, width: width, height: height);
+    if (clamped == null) {
+      _error = 'Geometría de anotación inválida.';
+      _safeNotify();
+      return null;
+    }
     try {
       final created = await _datasource.insertPageAnnotation(
         PageAnnotation(
@@ -492,12 +500,15 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     }
   }
 
-  (double, double, double, double) _clampRect({
+  (double, double, double, double)? _clampRect({
     required double x,
     required double y,
     required double width,
     required double height,
   }) {
+    if (!x.isFinite || !y.isFinite || !width.isFinite || !height.isFinite) {
+      return null;
+    }
     var left = x.clamp(0.0, 1.0);
     var top = y.clamp(0.0, 1.0);
     var w = width.clamp(0.02, 1.0);

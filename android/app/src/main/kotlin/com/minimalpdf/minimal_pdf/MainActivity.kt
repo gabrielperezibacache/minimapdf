@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -11,6 +12,7 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileOutputStream
+import java.util.UUID
 
 /**
  * Recibe ACTION_VIEW / ACTION_SEND de PDFs y expone ajustes del sistema
@@ -20,7 +22,8 @@ class MainActivity : FlutterActivity() {
   private val channelName = "minimal_pdf/external_open"
   private val pendingPaths = ArrayDeque<String>()
   private var eventSink: EventChannel.EventSink? = null
-  private var lastDeliveredPath: String? = null
+  /** Deduplica por URI de origen (la ruta cache siempre es UUID-única). */
+  private var lastDeliveredSource: String? = null
   private var lastDeliveredAtMs: Long = 0L
 
   override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -89,6 +92,9 @@ class MainActivity : FlutterActivity() {
     if (uris.isEmpty()) return
 
     for (uri in uris) {
+      val sourceKey = uri.toString()
+      if (shouldSkipDuplicateSource(sourceKey)) continue
+
       try {
         contentResolver.takePersistableUriPermission(
           uri,
@@ -99,8 +105,20 @@ class MainActivity : FlutterActivity() {
       }
 
       val path = copyUriToCache(uri) ?: continue
+      // Marca dedupe solo tras copia OK para no bloquear reintentos.
+      markDeliveredSource(sourceKey)
       deliverPath(path)
     }
+  }
+
+  private fun shouldSkipDuplicateSource(sourceKey: String): Boolean {
+    val now = System.currentTimeMillis()
+    return sourceKey == lastDeliveredSource && now - lastDeliveredAtMs < 2_000L
+  }
+
+  private fun markDeliveredSource(sourceKey: String) {
+    lastDeliveredSource = sourceKey
+    lastDeliveredAtMs = System.currentTimeMillis()
   }
 
   private fun Intent.clipDataUri(): Uri? {
@@ -110,13 +128,6 @@ class MainActivity : FlutterActivity() {
   }
 
   private fun deliverPath(path: String) {
-    val now = System.currentTimeMillis()
-    if (path == lastDeliveredPath && now - lastDeliveredAtMs < 2_000L) {
-      return
-    }
-    lastDeliveredPath = path
-    lastDeliveredAtMs = now
-
     val sink = eventSink
     if (sink != null) {
       sink.success(path)
@@ -146,22 +157,43 @@ class MainActivity : FlutterActivity() {
     return list?.filterNotNull().orEmpty()
   }
 
+  private fun displayNameForUri(uri: Uri): String {
+    try {
+      contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+        ?.use { cursor ->
+          val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+          if (index >= 0 && cursor.moveToFirst()) {
+            val name = cursor.getString(index)?.trim().orEmpty()
+            if (name.isNotEmpty()) return name
+          }
+        }
+    } catch (_: Exception) {
+      // Fallback abajo.
+    }
+    val rawName = uri.lastPathSegment?.substringAfterLast('/') ?: "documento.pdf"
+    val decoded = Uri.decode(rawName)
+    return decoded.substringAfterLast(':').ifEmpty { "documento.pdf" }
+  }
+
   private fun copyUriToCache(uri: Uri): String? {
+    var out: File? = null
     return try {
-      val rawName = uri.lastPathSegment?.substringAfterLast('/') ?: "documento.pdf"
-      val decoded = Uri.decode(rawName)
-      val base = decoded.substringAfterLast(':').ifEmpty { "documento.pdf" }
-      val safeName = sanitizeFileName(base)
-      val out = File(cacheDir, "external_${System.currentTimeMillis()}_$safeName")
+      val safeName = sanitizeFileName(displayNameForUri(uri))
+      // UUID evita colisión si llegan varios PDFs con el mismo nombre en el mismo ms.
+      out = File(cacheDir, "external_${UUID.randomUUID()}_$safeName")
       contentResolver.openInputStream(uri)?.use { input ->
         FileOutputStream(out).use { output -> input.copyTo(output) }
-      } ?: return null
+      } ?: run {
+        out.delete()
+        return null
+      }
       if (!hasPdfMagic(out)) {
         out.delete()
         return null
       }
       out.absolutePath
     } catch (_: Exception) {
+      out?.delete()
       null
     }
   }
@@ -182,17 +214,25 @@ class MainActivity : FlutterActivity() {
     return cleaned
   }
 
+  /** Busca `%PDF` en los primeros 1024 bytes (alineado con PdfHeader Dart). */
   private fun hasPdfMagic(file: File): Boolean {
-    if (file.length() < 5L) return false
+    if (file.length() < 4L) return false
     return try {
       file.inputStream().use { input ->
-        val header = ByteArray(5)
+        val window = minOf(1024L, file.length()).toInt()
+        val header = ByteArray(window)
         val read = input.read(header)
-        read >= 5 &&
-          header[0] == 0x25.toByte() &&
-          header[1] == 0x50.toByte() &&
-          header[2] == 0x44.toByte() &&
-          header[3] == 0x46.toByte()
+        if (read < 4) return false
+        for (i in 0..read - 4) {
+          if (header[i] == 0x25.toByte() &&
+            header[i + 1] == 0x50.toByte() &&
+            header[i + 2] == 0x44.toByte() &&
+            header[i + 3] == 0x46.toByte()
+          ) {
+            return true
+          }
+        }
+        false
       }
     } catch (_: Exception) {
       false

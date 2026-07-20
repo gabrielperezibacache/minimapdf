@@ -141,6 +141,7 @@ class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
   late bool _showWelcome = widget.showWelcomeInitially;
   bool _finishingWelcome = false;
   bool _externalBootstrapStarted = false;
+  ExternalPdfOpenService? _externalOpen;
 
   @override
   void initState() {
@@ -150,6 +151,18 @@ class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
     });
   }
 
+  @override
+  void dispose() {
+    _externalOpen?.removeListener(_onExternalOpenForWelcome);
+    super.dispose();
+  }
+
+  void _onExternalOpenForWelcome() {
+    final service = _externalOpen;
+    if (service == null || !service.hasQueued || !_showWelcome) return;
+    unawaited(_finishWelcome());
+  }
+
   /// Arranca el puente nativo pronto: si el SO abre un PDF en frío,
   /// omitimos la bienvenida para no bloquear el documento.
   Future<void> _bootstrapExternalPdfOpen() async {
@@ -157,6 +170,8 @@ class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
     _externalBootstrapStarted = true;
 
     final service = context.read<ExternalPdfOpenService>();
+    _externalOpen = service;
+    service.addListener(_onExternalOpenForWelcome);
     try {
       await service.start();
     } catch (e) {
@@ -175,6 +190,7 @@ class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
   Future<void> _finishWelcome() async {
     if (_finishingWelcome || !_showWelcome) return;
     _finishingWelcome = true;
+    _externalOpen?.removeListener(_onExternalOpenForWelcome);
     final prefs = context.read<AppPreferences?>();
     try {
       // Cinturón de seguridad: el flag ya se marca en prepareWelcomeVisibility.

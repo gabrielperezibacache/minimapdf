@@ -76,8 +76,16 @@ class LibraryLocalDatasource {
   Future<int> removeBookmarkForPage(int bookId, int pageNumber) =>
       _db.deleteBookmarkForPage(bookId, pageNumber);
 
+  /// Siempre asigna `signing_order` en transacción (evita colisiones).
   Future<DocumentSignature> insertSignature(DocumentSignature signature) =>
-      _db.createSignature(signature);
+      _db.createSignatureWithNextOrder(signature);
+
+  /// Inserta firma con `signing_order` calculado en la misma transacción.
+  Future<DocumentSignature> insertSignatureWithNextOrder(
+    DocumentSignature signature,
+  ) {
+    return _db.createSignatureWithNextOrder(signature);
+  }
 
   Future<DocumentSignature?> findSignatureById(int id) =>
       _db.getSignatureById(id);

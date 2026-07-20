@@ -34,6 +34,13 @@ class LocaleProvider extends ChangeNotifier {
     if (_appLocale == value) return;
     _appLocale = value;
     notifyListeners();
-    await _preferences?.setAppLocale(value);
+    final prefs = _preferences;
+    if (prefs == null) return;
+    // Reescribe hasta estabilizar: evita last-write-wins con valores obsoletos.
+    while (true) {
+      final snapshot = _appLocale;
+      await prefs.setAppLocale(snapshot);
+      if (_appLocale == snapshot) return;
+    }
   }
 }

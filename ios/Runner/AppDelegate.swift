@@ -105,8 +105,9 @@ import flutter_downloader
 
     let name = url.lastPathComponent.isEmpty ? "documento.pdf" : url.lastPathComponent
     let safeName = sanitizeFileName(name)
+    // UUID evita colisión entre varios PDFs con el mismo nombre.
     let dest = FileManager.default.temporaryDirectory
-      .appendingPathComponent("external_\(Int(Date().timeIntervalSince1970 * 1000))_\(safeName)")
+      .appendingPathComponent("external_\(UUID().uuidString)_\(safeName)")
 
     do {
       if FileManager.default.fileExists(atPath: dest.path) {
@@ -140,12 +141,22 @@ import flutter_downloader
     return stem + ".pdf"
   }
 
+  /// Busca `%PDF` en los primeros 1024 bytes (alineado con PdfHeader Dart).
   private func hasPdfMagic(at url: URL) -> Bool {
     guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
     defer { try? handle.close() }
-    let data = handle.readData(ofLength: 5)
-    guard data.count >= 5 else { return false }
-    return data[0] == 0x25 && data[1] == 0x50 && data[2] == 0x44 && data[3] == 0x46
+    let data = handle.readData(ofLength: 1024)
+    guard data.count >= 4 else { return false }
+    let bytes = [UInt8](data)
+    let limit = bytes.count
+    for i in 0...(limit - 4) {
+      if bytes[i] == 0x25 && bytes[i + 1] == 0x50 &&
+        bytes[i + 2] == 0x44 && bytes[i + 3] == 0x46
+      {
+        return true
+      }
+    }
+    return false
   }
 }
 
@@ -168,9 +179,9 @@ extension AppDelegate: FlutterStreamHandler {
 }
 
 private func registerPlugins(registry: FlutterPluginRegistry) {
-  if !registry.hasPlugin("FlutterDownloaderPlugin") {
-    FlutterDownloaderPlugin.register(
-      with: registry.registrar(forPlugin: "FlutterDownloaderPlugin")!
-    )
+  if !registry.hasPlugin("FlutterDownloaderPlugin"),
+     let registrar = registry.registrar(forPlugin: "FlutterDownloaderPlugin")
+  {
+    FlutterDownloaderPlugin.register(with: registrar)
   }
 }

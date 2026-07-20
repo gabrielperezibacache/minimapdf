@@ -205,10 +205,13 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
   }
 
   Future<void> _handleResult(dynamic book, DownloaderProvider provider) async {
+    if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final l10n = AppLocalizations.of(context);
+    final library = context.read<LibraryProvider>();
     if (book != null) {
-      await context.read<LibraryProvider>().load();
+      await library.load();
+      if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(content: Text(l10n.downloaded(book.title as String))),
       );

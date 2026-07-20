@@ -35,6 +35,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
   int? _lastSeenDownloadId;
   bool _handlingExternal = false;
   bool _openingReader = false;
+  /// PDF externo importado mientras el lector ya está abierto / abriéndose.
+  Book? _pendingExternalReader;
 
   @override
   void initState() {
@@ -84,44 +86,48 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final library = _library ?? context.read<LibraryProvider>();
     if (library.importing) return;
 
-    final path = service.takeNext();
-    if (path == null) return;
-
     _handlingExternal = true;
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    Book? importedBook;
+    Book? lastImported;
 
     try {
-      // Si otra importación empezó entre takeNext y aquí, no perder el PDF.
-      if (library.importing) {
-        service.requeue(path);
-        return;
-      }
+      // Importa toda la cola; abre solo el último para evitar carreras de navegación.
+      while (mounted) {
+        if (library.importing) break;
+        final path = service.takeNext();
+        if (path == null) break;
 
-      final book = await library.importExternalFile(path);
-      if (!mounted) return;
-      if (book != null) {
-        messenger.showSnackBar(
-          SnackBar(content: Text(l10n.imported(book.title))),
-        );
-        importedBook = book;
-      } else if (library.error != null) {
-        messenger.showSnackBar(
-          SnackBar(content: Text(_msg(library.error!))),
-        );
+        final book = await library.importExternalFile(path);
+        if (!mounted) return;
+        if (book != null) {
+          messenger.showSnackBar(
+            SnackBar(content: Text(l10n.imported(book.title))),
+          );
+          lastImported = book;
+        } else if (library.importing) {
+          service.requeue(path);
+          break;
+        } else {
+          // No borra la copia cache: un fallo transitorio (disco/DB) no debe
+          // destruir el único PDF entregado por el SO. Solo se limpia tras import OK.
+          if (library.error != null) {
+            messenger.showSnackBar(
+              SnackBar(content: Text(_msg(library.error!))),
+            );
+          }
+        }
       }
     } finally {
       _handlingExternal = false;
-      if (mounted && service.hasQueued) {
-        unawaited(_drainExternalQueue());
-      }
     }
 
-    // Abre el lector fuera del lock de cola para no bloquear más imports.
-    final toOpen = importedBook;
+    final toOpen = lastImported;
     if (toOpen != null && mounted) {
       await _openReader(toOpen);
+    }
+    if (mounted && service.hasQueued) {
+      unawaited(_drainExternalQueue());
     }
   }
 
@@ -216,12 +222,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _openReader(Book book) async {
-    if (_openingReader) return;
+    if (_openingReader) {
+      // Conserva el más reciente (p. ej. cola externa) para abrirlo al volver.
+      _pendingExternalReader = book;
+      return;
+    }
     _openingReader = true;
     try {
       await _openReaderBody(book);
     } finally {
       _openingReader = false;
+      final pending = _pendingExternalReader;
+      _pendingExternalReader = null;
+      if (pending != null && mounted) {
+        unawaited(_openReader(pending));
+      }
     }
   }
 

@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../core/preferences/app_preferences.dart';
 import '../../core/utils/app_paths.dart';
+import '../../core/utils/library_file_coordinator.dart';
 import '../../data/datasources/library_local_datasource.dart';
 import '../../data/datasources/pdf_import_service.dart';
 import '../../data/models/models.dart';
@@ -117,7 +118,13 @@ class LibraryProvider extends ChangeNotifier {
     if (_gridMode == value) return;
     _gridMode = value;
     notifyListeners();
-    await _preferences?.setGridMode(value);
+    final prefs = _preferences;
+    if (prefs == null) return;
+    while (true) {
+      final snapshot = _gridMode;
+      await prefs.setGridMode(snapshot);
+      if (_gridMode == snapshot) return;
+    }
   }
 
   void selectCollection(int? collectionId) {
@@ -217,11 +224,14 @@ class LibraryProvider extends ChangeNotifier {
     }
   }
 
-  /// Quita el prefijo `external_<epoch>_` que añaden Android/iOS al copiar.
+  /// Quita el prefijo `external_<id>_` que añaden Android/iOS al copiar.
   @visibleForTesting
   static String displayNameForExternalPath(String path) {
     final base = p.basename(path);
-    final match = RegExp(r'^external_\d+_(.+)$').firstMatch(base);
+    final match = RegExp(
+      r'^external_(?:\d+|[0-9a-fA-F-]{36})_(.+)$',
+      caseSensitive: false,
+    ).firstMatch(base);
     return match?.group(1) ?? base;
   }
 
@@ -345,8 +355,10 @@ class LibraryProvider extends ChangeNotifier {
     if (id == null) return;
 
     try {
-      await datasource.removeBook(id);
-      await _deleteBookFile(book.filePath);
+      await LibraryFileCoordinator.runExclusive(() async {
+        await datasource.removeBook(id);
+        await _deleteBookFile(book.filePath);
+      });
       _error = null;
       try {
         await load();

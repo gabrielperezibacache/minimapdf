@@ -361,6 +361,28 @@ class LibraryDatabase {
     return signature.copyWith(id: id);
   }
 
+  /// Inserta la firma asignando `signing_order` atómicamente (MAX+1).
+  Future<DocumentSignature> createSignatureWithNextOrder(
+    DocumentSignature signature,
+  ) async {
+    return _db.transaction((txn) async {
+      final rows = await txn.rawQuery(
+        'SELECT MAX(signing_order) AS max_order '
+        'FROM ${DatabaseConfig.tableSignatures} WHERE book_id = ?',
+        [signature.bookId],
+      );
+      final maxOrder = rows.first['max_order'] as num?;
+      final nextOrder = (maxOrder?.toInt() ?? 0) + 1;
+      final ordered = signature.copyWith(signingOrder: nextOrder);
+      final id = await txn.insert(
+        DatabaseConfig.tableSignatures,
+        ordered.toMap()..remove('id'),
+        conflictAlgorithm: ConflictAlgorithm.abort,
+      );
+      return ordered.copyWith(id: id);
+    });
+  }
+
   Future<DocumentSignature?> getSignatureById(int id) async {
     final rows = await _db.query(
       DatabaseConfig.tableSignatures,

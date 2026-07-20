@@ -93,6 +93,7 @@ class DocumentSigningProvider extends ChangeNotifier {
   }
 
   Future<void> loadForBook(Book book) async {
+    if (_disposed) return;
     _book = book;
     final bookId = book.id;
     if (bookId == null) {
@@ -112,8 +113,11 @@ class DocumentSigningProvider extends ChangeNotifier {
     _notify();
     try {
       final loaded = await _datasource.listSignatures(bookId);
+      if (_disposed) return;
       final templates = await _datasource.listSignatureTemplates();
-      if (generation != _loadGeneration || _bookId != bookId) return;
+      if (_disposed || generation != _loadGeneration || _bookId != bookId) {
+        return;
+      }
       // Si hubo mutación local durante la carga, no pisar con datos viejos.
       if (_saving || dataGenerationAtStart != _dataGeneration) {
         if (dataGenerationAtStart == _dataGeneration) {
@@ -124,11 +128,13 @@ class DocumentSigningProvider extends ChangeNotifier {
       _signatures = loaded;
       _templates = templates;
     } catch (_) {
-      if (generation != _loadGeneration || _bookId != bookId) return;
+      if (_disposed || generation != _loadGeneration || _bookId != bookId) {
+        return;
+      }
       _error = 'No se pudieron cargar las firmas.';
       // Conserva la lista previa si ya había firmas en memoria.
     } finally {
-      if (generation == _loadGeneration) {
+      if (!_disposed && generation == _loadGeneration) {
         _loading = false;
         _notify();
       }
@@ -137,7 +143,9 @@ class DocumentSigningProvider extends ChangeNotifier {
 
   /// Compatibilidad con llamadas antiguas por id.
   Future<void> loadForBookId(int bookId) async {
+    if (_disposed) return;
     final book = await _datasource.findBookById(bookId);
+    if (_disposed) return;
     if (book != null) {
       await loadForBook(book);
       return;
@@ -154,8 +162,11 @@ class DocumentSigningProvider extends ChangeNotifier {
     _notify();
     try {
       final loaded = await _datasource.listSignatures(bookId);
+      if (_disposed) return;
       final templates = await _datasource.listSignatureTemplates();
-      if (generation != _loadGeneration || _bookId != bookId) return;
+      if (_disposed || generation != _loadGeneration || _bookId != bookId) {
+        return;
+      }
       if (_saving || dataGenerationAtStart != _dataGeneration) {
         if (dataGenerationAtStart == _dataGeneration) {
           _templates = templates;
@@ -165,10 +176,12 @@ class DocumentSigningProvider extends ChangeNotifier {
       _signatures = loaded;
       _templates = templates;
     } catch (_) {
-      if (generation != _loadGeneration || _bookId != bookId) return;
+      if (_disposed || generation != _loadGeneration || _bookId != bookId) {
+        return;
+      }
       _error = 'No se pudieron cargar las firmas.';
     } finally {
-      if (generation == _loadGeneration) {
+      if (!_disposed && generation == _loadGeneration) {
         _loading = false;
         _notify();
       }
@@ -192,6 +205,7 @@ class DocumentSigningProvider extends ChangeNotifier {
 
   /// Registra la zona tocada (0–1) y sale del modo colocación.
   void placeSignatureAt({required double offsetX, required double offsetY}) {
+    if (!offsetX.isFinite || !offsetY.isFinite) return;
     _pendingOffsetX = offsetX.clamp(0.0, 1.0).toDouble();
     _pendingOffsetY = offsetY.clamp(0.0, 1.0).toDouble();
     _placementMode = false;
@@ -209,6 +223,7 @@ class DocumentSigningProvider extends ChangeNotifier {
     required int pageNumber,
     required SignatureDraft draft,
   }) async {
+    if (_disposed) return null;
     final bookId = _bookId;
     if (bookId == null) {
       _error = 'Documento no disponible para firmar.';
@@ -231,7 +246,6 @@ class DocumentSigningProvider extends ChangeNotifier {
     _notify();
 
     try {
-      final order = await _datasource.nextSigningOrder(bookId);
       final withPlacement = SignatureDraft(
         type: draft.type,
         signerName: draft.signerName,
@@ -245,14 +259,17 @@ class DocumentSigningProvider extends ChangeNotifier {
         templateName: draft.templateName,
       );
 
+      // signingOrder provisional; la DB asigna el definitivo en la transacción.
       final signature = _signatureService.signDocument(
         bookId: bookId,
         pageNumber: pageNumber,
         draft: withPlacement,
         existingOnPage: signaturesForPage(pageNumber),
-        signingOrder: order,
+        signingOrder: 1,
       );
-      final saved = await _datasource.insertSignature(signature);
+      final saved =
+          await _datasource.insertSignatureWithNextOrder(signature);
+      if (_disposed) return saved;
       _dataGeneration++;
 
       _signatures = [
@@ -273,16 +290,18 @@ class DocumentSigningProvider extends ChangeNotifier {
         try {
           await _saveTemplateFromDraft(draft);
         } catch (_) {
-          _error = 'Firma guardada, pero no se pudo crear la plantilla.';
+          if (!_disposed) {
+            _error = 'Firma guardada, pero no se pudo crear la plantilla.';
+          }
         }
       }
 
       return saved;
     } on SignatureValidationException catch (error) {
-      _error = error.message;
+      if (!_disposed) _error = error.message;
       return null;
     } catch (_) {
-      _error = 'No se pudo guardar la firma.';
+      if (!_disposed) _error = 'No se pudo guardar la firma.';
       return null;
     } finally {
       _saving = false;
@@ -291,6 +310,7 @@ class DocumentSigningProvider extends ChangeNotifier {
   }
 
   Future<void> _saveTemplateFromDraft(SignatureDraft draft) async {
+    if (_disposed) return;
     final requestedName = draft.templateName?.trim() ?? '';
     final name = _signatureService.normalizePersonText(
       requestedName.isNotEmpty ? requestedName : draft.signerName,
@@ -315,27 +335,34 @@ class DocumentSigningProvider extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
     final saved = await _datasource.insertSignatureTemplate(template);
+    if (_disposed) return;
     _dataGeneration++;
     _templates = [saved, ..._templates];
   }
 
   Future<void> reloadTemplates() async {
+    if (_disposed) return;
     try {
-      _templates = await _datasource.listSignatureTemplates();
+      final templates = await _datasource.listSignatureTemplates();
+      if (_disposed) return;
+      _templates = templates;
       _dataGeneration++;
       _error = null;
       _notify();
     } catch (_) {
+      if (_disposed) return;
       _error = 'No se pudieron cargar las plantillas.';
       _notify();
     }
   }
 
   Future<bool> deleteTemplate(SignatureTemplate template) async {
+    if (_disposed) return false;
     final id = template.id;
     if (id == null) return false;
     try {
       await _datasource.removeSignatureTemplate(id);
+      if (_disposed) return false;
       _dataGeneration++;
       _templates = [
         for (final item in _templates)
@@ -345,6 +372,7 @@ class DocumentSigningProvider extends ChangeNotifier {
       _notify();
       return true;
     } catch (_) {
+      if (_disposed) return false;
       _error = 'No se pudo eliminar la plantilla.';
       _notify();
       return false;
@@ -359,6 +387,7 @@ class DocumentSigningProvider extends ChangeNotifier {
     required double offsetX,
     required double offsetY,
   }) async {
+    if (_disposed) return false;
     if (_exporting) {
       _error = 'Espera a que termine la exportación.';
       _notify();
@@ -386,11 +415,9 @@ class DocumentSigningProvider extends ChangeNotifier {
     _notify();
 
     try {
-      // Si otro arrastre ya superó a este, no persistir offsets obsoletos.
+      // Solo el move más reciente reescribe hasta estabilizar el offset.
       if (generation != _moveGeneration) return true;
-      await _datasource.saveSignature(moved);
-      if (generation != _moveGeneration) {
-        // El write antiguo pudo terminar después: reafirma el offset actual.
+      while (!_disposed) {
         DocumentSignature? latest;
         for (final item in _signatures) {
           if (item.id == id) {
@@ -398,12 +425,26 @@ class DocumentSigningProvider extends ChangeNotifier {
             break;
           }
         }
-        if (latest != null) {
-          await _datasource.saveSignature(latest);
+        if (latest == null) return true;
+        final snapshot = latest;
+        await _datasource.saveSignature(snapshot);
+        if (_disposed) return true;
+        if (generation != _moveGeneration) return true;
+        DocumentSignature? after;
+        for (final item in _signatures) {
+          if (item.id == id) {
+            after = item;
+            break;
+          }
+        }
+        if (after == null) return true;
+        if ((after.offsetX - snapshot.offsetX).abs() < 0.0001 &&
+            (after.offsetY - snapshot.offsetY).abs() < 0.0001) {
+          return true;
         }
       }
     } catch (_) {
-      if (generation != _moveGeneration) return true;
+      if (_disposed || generation != _moveGeneration) return true;
       _error = 'No se pudo mover la firma.';
       final book = _book;
       if (book != null) await loadForBook(book);
@@ -412,6 +453,7 @@ class DocumentSigningProvider extends ChangeNotifier {
   }
 
   Future<bool> deleteSignature(DocumentSignature signature) async {
+    if (_disposed) return false;
     if (_exporting) {
       _error = 'Espera a que termine la exportación.';
       _notify();
@@ -423,6 +465,7 @@ class DocumentSigningProvider extends ChangeNotifier {
 
     try {
       await _datasource.removeSignature(id);
+      if (_disposed) return false;
       _dataGeneration++;
       _signatures = [
         for (final item in _signatures)
@@ -431,6 +474,7 @@ class DocumentSigningProvider extends ChangeNotifier {
       _notify();
       return true;
     } catch (_) {
+      if (_disposed) return false;
       _error = 'No se pudo eliminar la firma.';
       _notify();
       return false;

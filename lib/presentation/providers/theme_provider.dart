@@ -28,7 +28,14 @@ class ThemeProvider extends ChangeNotifier {
     if (_option == option) return;
     _option = option;
     notifyListeners();
-    await _preferences?.setThemeOption(option);
+    final prefs = _preferences;
+    if (prefs == null) return;
+    // Reescribe hasta estabilizar: evita que un await lento pise un valor más nuevo.
+    while (true) {
+      final snapshot = _option;
+      await prefs.setThemeOption(snapshot);
+      if (_option == snapshot) return;
+    }
   }
 
   Future<void> cycleTheme() async {

@@ -286,8 +286,13 @@ class PdfDownloadService {
       sink = null;
 
       _throwIfCancelled();
-      // Evita guardar PDFs truncados cuando el servidor anunció Content-Length.
-      if (total > 0 && received != total) {
+      // Content-Length no es fiable con content-encoding (p. ej. gzip):
+      // package:http puede entregar bytes ya descomprimidos.
+      final encoding =
+          (response.headers['content-encoding'] ?? '').trim().toLowerCase();
+      final lengthTrusted =
+          encoding.isEmpty || encoding == 'identity' || encoding == 'none';
+      if (lengthTrusted && total > 0 && received != total) {
         throw StateError(
           'Descarga incompleta ($received de $total bytes)',
         );

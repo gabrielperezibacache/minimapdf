@@ -289,12 +289,18 @@ void main() {
     expect(File(book.filePath).existsSync(), isTrue);
   });
 
-  test('displayNameForExternalPath quita prefijo external_<epoch>_', () {
+  test('displayNameForExternalPath quita prefijo external_<id>_', () {
     expect(
       LibraryProvider.displayNameForExternalPath(
         '/cache/external_1710000000000_Clean Code.pdf',
       ),
       'Clean Code.pdf',
+    );
+    expect(
+      LibraryProvider.displayNameForExternalPath(
+        '/cache/external_550e8400-e29b-41d4-a716-446655440000_Informe.pdf',
+      ),
+      'Informe.pdf',
     );
     expect(
       LibraryProvider.displayNameForExternalPath('/tmp/normal.pdf'),

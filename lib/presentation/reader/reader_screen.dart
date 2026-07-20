@@ -146,7 +146,8 @@ class _ReaderScreenState extends State<ReaderScreen>
       if (saver.currentPage != _currentPage) {
         saver.onPageChanged(_currentPage);
       }
-      unawaited(saver.saveIfNeeded());
+      // forceTouch: actualiza last_read_at aunque no cambie de página.
+      unawaited(saver.saveNow(page: _currentPage, forceTouch: true));
       saver.dispose();
     }
     _controller.dispose();
@@ -300,15 +301,16 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Future<void> _editNote() async {
     final annotations = _annotations;
-    final existing = annotations?.bookmarkForPage(_currentPage);
+    final page = _currentPage;
+    final existing = annotations?.bookmarkForPage(page);
     final result = await showNoteEditSheet(
       context,
-      pageNumber: _currentPage,
+      pageNumber: page,
       initialText: existing?.noteText,
       title: 'Nota de página',
     );
     if (result == null || !mounted || annotations == null) return;
-    await annotations.saveNote(pageNumber: _currentPage, noteText: result);
+    await annotations.saveNote(pageNumber: page, noteText: result);
     if (!mounted) return;
     if (annotations.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -591,7 +593,13 @@ class _ReaderScreenState extends State<ReaderScreen>
       setState(() {});
       return;
     }
-    if (_signing?.saving == true) return;
+    if (_signing?.saving == true) {
+      // No abandona al usuario: mantiene modo colocación para reintentar.
+      _signing?.clearPendingPlacement();
+      _signing?.beginPlacementMode();
+      setState(() {});
+      return;
+    }
 
     final saved = await _signing?.signPage(
       pageNumber: pageNumber,
