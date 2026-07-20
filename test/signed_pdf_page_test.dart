@@ -64,7 +64,7 @@ void main() {
             ebonyFilter: false,
             placementMode: false,
             onPlaceTap: (_, _, _) {},
-            onMove: (_, _, _) {},
+            onMove: (_, _, _) async => true,
             onDelete: (_) {},
           ),
         ),

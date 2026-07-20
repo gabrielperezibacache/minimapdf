@@ -60,6 +60,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   PdfDocument? _openedDocument;
   late final Future<PdfDocument> _documentFuture;
   int _pageSizeCacheGeneration = 0;
+  bool _disposed = false;
 
   @override
   void initState() {
@@ -133,6 +134,7 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   @override
   void dispose() {
+    _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
     // Cancela el barrido de tamaños antes de cerrar el documento nativo.
     _pageSizeCacheGeneration++;
@@ -142,10 +144,8 @@ class _ReaderScreenState extends State<ReaderScreen>
     _signing?.dispose();
     // El guardado fiable ocurre en _onExit / lifecycle; aquí best-effort.
     final saver = _progressSaver;
+    _progressSaver = null;
     if (saver != null) {
-      if (saver.currentPage != _currentPage) {
-        saver.onPageChanged(_currentPage);
-      }
       // forceTouch: actualiza last_read_at aunque no cambie de página.
       unawaited(saver.saveNow(page: _currentPage, forceTouch: true));
       saver.dispose();
@@ -211,6 +211,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   void _onPageChanged(int page) {
+    if (_disposed) return;
     _currentPage = page;
     _progressSaver?.onPageChanged(page);
     _noteDismissed = false;
@@ -575,7 +576,11 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _signDocument() async {
-    if (_signing?.saving == true) return;
+    if (_signing?.saving == true ||
+        _signing?.loading == true ||
+        _signing?.exporting == true) {
+      return;
+    }
     // Anotación y firma no comparten gestos.
     _annotations?.setToolboxVisible(false);
     // Primero colocar zona en la página; luego se abre el formulario.
@@ -584,7 +589,11 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _openSignatureSheetAt(int pageNumber, double x, double y) async {
-    if (_signing?.saving == true || _signing?.exporting == true) return;
+    if (_signing?.saving == true ||
+        _signing?.loading == true ||
+        _signing?.exporting == true) {
+      return;
+    }
     if (pageNumber < 1) return;
     _signing?.placeSignatureAt(offsetX: x, offsetY: y);
 
@@ -1059,13 +1068,16 @@ class _ReaderScreenState extends State<ReaderScreen>
               onCreateAnnotation: _createAnnotationRect,
               onOpenAnnotation: _openAnnotation,
               onDeleteAnnotation: _confirmDeleteAnnotation,
-              onMove: (signature, x, y) {
-                final future = _signing?.moveSignature(
+              signaturesInteractive: !(signing?.exporting ?? false) &&
+                  !(signing?.saving ?? false) &&
+                  !(signing?.loading ?? false),
+              onMove: (signature, x, y) async {
+                final moved = await _signing?.moveSignature(
                   signature: signature,
                   offsetX: x,
                   offsetY: y,
                 );
-                if (future != null) unawaited(future);
+                return moved ?? false;
               },
               onDelete: _confirmDeleteSignature,
             ),
@@ -1201,7 +1213,9 @@ class _ReaderScreenState extends State<ReaderScreen>
             // Acciones primarias de firma siempre visibles (no se ocultan al scroll).
             IconButton(
               tooltip: placement ? 'Cancelar colocación' : 'Firmar documento',
-              onPressed: signing?.saving == true || signing?.exporting == true
+              onPressed: signing?.saving == true ||
+                      signing?.loading == true ||
+                      signing?.exporting == true
                   ? null
                   : () {
                       if (placement) {

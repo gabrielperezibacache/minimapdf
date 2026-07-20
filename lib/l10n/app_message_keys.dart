@@ -6,6 +6,7 @@ abstract final class AppMessageKeys {
   static const collectionCreateFailed = 'collectionCreateFailed';
   static const collectionRenameFailed = 'collectionRenameFailed';
   static const collectionDeleteFailed = 'collectionDeleteFailed';
+  static const collectionNameExists = 'collectionNameExists';
   static const deletePdfFailed = 'deletePdfFailed';
   static const invalidUrl = 'invalidUrl';
   static const downloading = 'downloading';

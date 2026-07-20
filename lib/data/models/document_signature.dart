@@ -179,12 +179,14 @@ class DocumentSignature {
 
       final typeRaw = map['type'];
       if (typeRaw is! String || typeRaw.isEmpty) return null;
+      final type = SignatureTypeX.tryFromStorage(typeRaw);
+      if (type == null) return null;
 
       return DocumentSignature(
         id: _asInt(map['id']),
         bookId: bookId,
         pageNumber: pageNumber,
-        type: SignatureTypeX.fromStorage(typeRaw),
+        type: type,
         signerName: signerName,
         typedText: _asNullableString(map['typed_text']),
         inkJson: _asNullableString(map['ink_json']),

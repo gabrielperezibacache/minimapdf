@@ -89,12 +89,19 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
     _pullToRefreshController = PullToRefreshController(
       settings: PullToRefreshSettings(color: accent),
       onRefresh: () async {
+        final controller = _webController;
+        if (controller == null) return;
         if (defaultTargetPlatform == TargetPlatform.android) {
-          await _webController?.reload();
-        } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-          await _webController?.loadUrl(
-            urlRequest: URLRequest(url: await _webController?.getUrl()),
-          );
+          await controller.reload();
+          return;
+        }
+        if (defaultTargetPlatform == TargetPlatform.iOS) {
+          final url = await controller.getUrl();
+          if (url != null) {
+            await controller.loadUrl(urlRequest: URLRequest(url: url));
+          } else {
+            await controller.reload();
+          }
         }
       },
     );

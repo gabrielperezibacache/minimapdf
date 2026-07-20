@@ -26,7 +26,7 @@ void main() {
                 tappedX = x;
                 tappedY = y;
               },
-              onMove: (_, _, _) {},
+              onMove: (_, _, _) async => true,
               onDelete: (_) {},
             ),
           ),

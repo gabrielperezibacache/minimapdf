@@ -120,17 +120,27 @@ class PdfImportService {
       final unique = FileNameSanitizer.uniqueName(sanitized, existing);
       final destination = p.join(libraryDir.path, unique);
       final destinationFile = File(destination);
+      final partFile = File('$destination.part');
 
       try {
-        await source.copy(destination);
-        final size = await destinationFile.length();
+        // Copia atómica vía .part + rename (como las descargas).
+        if (await partFile.exists()) {
+          await partFile.delete();
+        }
+        await source.copy(partFile.path);
+        final size = await partFile.length();
         if (size != sourceSize) {
           throw StateError('Copia incompleta del PDF');
         }
         await PdfHeader.assertFile(
-          destinationFile,
+          partFile,
           invalidMessage: 'El archivo seleccionado no es un PDF válido',
         );
+        if (await destinationFile.exists()) {
+          await destinationFile.delete();
+        }
+        await partFile.rename(destination);
+
         final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
 
         int? resolvedCollectionId = collectionId;
@@ -151,12 +161,11 @@ class PdfImportService {
         );
       } catch (e) {
         try {
-          if (await destinationFile.exists()) {
-            await destinationFile.delete();
-          }
-        } catch (_) {
-          // Limpieza best-effort.
-        }
+          if (await partFile.exists()) await partFile.delete();
+        } catch (_) {}
+        try {
+          if (await destinationFile.exists()) await destinationFile.delete();
+        } catch (_) {}
         rethrow;
       }
     });

@@ -37,6 +37,7 @@ class LibraryProvider extends ChangeNotifier {
   String? _error;
   bool _gridMode;
   int _loadGeneration = 0;
+  bool _disposed = false;
 
   List<Book> get books => _books;
   List<Collection> get collections => _collections;
@@ -47,19 +48,29 @@ class LibraryProvider extends ChangeNotifier {
   String? get error => _error;
   bool get gridMode => _gridMode;
 
+  void _safeNotify() {
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
   void attachPreferences(AppPreferences preferences) {
     _preferences = preferences;
     final stored = preferences.gridMode;
     if (_gridMode != stored) {
       _gridMode = stored;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
   void clearError() {
     if (_error == null) return;
     _error = null;
-    notifyListeners();
+    _safeNotify();
   }
 
   List<Book> get visibleBooks {
@@ -77,53 +88,54 @@ class LibraryProvider extends ChangeNotifier {
     final next = value.trimLeft();
     if (_searchQuery == next) return;
     _searchQuery = next;
-    notifyListeners();
+    _safeNotify();
   }
 
   void clearSearch() {
     if (_searchQuery.isEmpty) return;
     _searchQuery = '';
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> load() async {
+    if (_disposed) return;
     final generation = ++_loadGeneration;
     _loading = true;
     _error = null;
-    notifyListeners();
+    _safeNotify();
 
     try {
       final results = await Future.wait([
         datasource.listRecentBooks(), // todos, ordenados por lectura reciente
         datasource.listCollections(),
       ]);
-      if (generation != _loadGeneration) return;
+      if (_disposed || generation != _loadGeneration) return;
       _books = results[0] as List<Book>;
       _collections = results[1] as List<Collection>;
     } catch (e) {
-      if (generation != _loadGeneration) return;
+      if (_disposed || generation != _loadGeneration) return;
       _error = AppMessageKeys.libraryLoadFailed;
       if (kDebugMode) {
         debugPrint('LibraryProvider.load: $e');
       }
     } finally {
-      if (generation == _loadGeneration) {
+      if (!_disposed && generation == _loadGeneration) {
         _loading = false;
-        notifyListeners();
+        _safeNotify();
       }
     }
   }
 
   Future<void> setGridMode(bool value) async {
-    if (_gridMode == value) return;
+    if (_gridMode == value || _disposed) return;
     _gridMode = value;
-    notifyListeners();
+    _safeNotify();
     final prefs = _preferences;
     if (prefs == null) return;
-    while (true) {
+    while (!_disposed) {
       final snapshot = _gridMode;
       await prefs.setGridMode(snapshot);
-      if (_gridMode == snapshot) return;
+      if (_disposed || _gridMode == snapshot) return;
     }
   }
 
@@ -132,7 +144,7 @@ class LibraryProvider extends ChangeNotifier {
     _selectedCollectionId = collectionId;
     // Evita que un error previo oculte el empty-state de la colección.
     _error = null;
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<Book?> importPdf() async {
@@ -140,7 +152,7 @@ class LibraryProvider extends ChangeNotifier {
 
     _importing = true;
     _error = null;
-    notifyListeners();
+    _safeNotify();
 
     try {
       final book = await importService.importFromDevice(
@@ -172,7 +184,7 @@ class LibraryProvider extends ChangeNotifier {
       return null;
     } finally {
       _importing = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -183,7 +195,7 @@ class LibraryProvider extends ChangeNotifier {
 
     _importing = true;
     _error = null;
-    notifyListeners();
+    _safeNotify();
 
     try {
       final source = File(trimmed);
@@ -220,7 +232,7 @@ class LibraryProvider extends ChangeNotifier {
       return null;
     } finally {
       _importing = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -281,27 +293,35 @@ class LibraryProvider extends ChangeNotifier {
       if (kDebugMode) {
         debugPrint('LibraryProvider.updateBookMetadata: $e');
       }
-      notifyListeners();
+      _safeNotify();
     }
   }
 
   Future<Collection?> createCollection(String name) async {
     final trimmed = name.trim();
-    if (trimmed.isEmpty) return null;
+    if (trimmed.isEmpty || _disposed) return null;
+
+    if (_collectionNameTaken(trimmed)) {
+      _error = AppMessageKeys.collectionNameExists;
+      _safeNotify();
+      return null;
+    }
 
     try {
       final collection = await datasource.insertCollection(
         Collection(name: trimmed, createdAt: DateTime.now()),
       );
+      if (_disposed) return collection;
       _error = null;
       await load();
       return collection;
     } catch (e) {
+      if (_disposed) return null;
       _error = AppMessageKeys.collectionCreateFailed;
       if (kDebugMode) {
         debugPrint('LibraryProvider.createCollection: $e');
       }
-      notifyListeners();
+      _safeNotify();
       return null;
     }
   }
@@ -312,22 +332,39 @@ class LibraryProvider extends ChangeNotifier {
   ) async {
     final id = collection.id;
     final trimmed = name.trim();
-    if (id == null || trimmed.isEmpty) return null;
+    if (id == null || trimmed.isEmpty || _disposed) return null;
+
+    if (_collectionNameTaken(trimmed, excludingId: id)) {
+      _error = AppMessageKeys.collectionNameExists;
+      _safeNotify();
+      return null;
+    }
 
     try {
       final updated = collection.copyWith(name: trimmed);
       await datasource.saveCollection(updated);
+      if (_disposed) return updated;
       _error = null;
       await load();
       return updated;
     } catch (e) {
+      if (_disposed) return null;
       _error = AppMessageKeys.collectionRenameFailed;
       if (kDebugMode) {
         debugPrint('LibraryProvider.renameCollection: $e');
       }
-      notifyListeners();
+      _safeNotify();
       return null;
     }
+  }
+
+  bool _collectionNameTaken(String name, {int? excludingId}) {
+    final needle = name.toLowerCase();
+    for (final item in _collections) {
+      if (excludingId != null && item.id == excludingId) continue;
+      if (item.name.trim().toLowerCase() == needle) return true;
+    }
+    return false;
   }
 
   Future<void> deleteCollection(Collection collection) async {
@@ -345,7 +382,7 @@ class LibraryProvider extends ChangeNotifier {
       if (kDebugMode) {
         debugPrint('LibraryProvider.deleteCollection: $e');
       }
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -370,14 +407,14 @@ class LibraryProvider extends ChangeNotifier {
         if (kDebugMode) {
           debugPrint('LibraryProvider.deleteBook load: $e');
         }
-        notifyListeners();
+        _safeNotify();
       }
     } catch (e) {
       _error = AppMessageKeys.deletePdfFailed;
       if (kDebugMode) {
         debugPrint('LibraryProvider.deleteBook: $e');
       }
-      notifyListeners();
+      _safeNotify();
     }
   }
 

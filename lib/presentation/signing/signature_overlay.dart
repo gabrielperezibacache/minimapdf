@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
@@ -17,17 +19,24 @@ class SignatureLayer extends StatelessWidget {
     required this.onDelete,
     this.onPlaceTap,
     this.placementMode = false,
+    this.signaturesInteractive = true,
     this.bottomReserve = 0,
     this.topReserve = 0,
   });
 
   final List<DocumentSignature> signatures;
-  final void Function(DocumentSignature signature, double x, double y) onMove;
+  final Future<bool> Function(
+    DocumentSignature signature,
+    double x,
+    double y,
+  ) onMove;
   final ValueChanged<DocumentSignature> onDelete;
 
   /// Tap en zona vacía con coordenadas normalizadas (0–1).
   final void Function(double x, double y)? onPlaceTap;
   final bool placementMode;
+  /// Si false, los sellos no se pueden arrastrar ni borrar (p. ej. exportando).
+  final bool signaturesInteractive;
   final double bottomReserve;
   final double topReserve;
 
@@ -69,7 +78,7 @@ class SignatureLayer extends StatelessWidget {
                 maxLeft: maxLeft,
                 maxTop: maxTop,
                 topReserve: effectiveTopReserve,
-                interactive: !placementMode,
+                interactive: signaturesInteractive && !placementMode,
                 onMove: onMove,
                 onDelete: onDelete,
               ),
@@ -130,7 +139,11 @@ class _PositionedSignature extends StatefulWidget {
   final double maxTop;
   final double topReserve;
   final bool interactive;
-  final void Function(DocumentSignature signature, double x, double y) onMove;
+  final Future<bool> Function(
+    DocumentSignature signature,
+    double x,
+    double y,
+  ) onMove;
   final ValueChanged<DocumentSignature> onDelete;
 
   @override
@@ -139,6 +152,7 @@ class _PositionedSignature extends StatefulWidget {
 
 class _PositionedSignatureState extends State<_PositionedSignature> {
   Offset _dragDelta = Offset.zero;
+  bool _persisting = false;
 
   @override
   void didUpdateWidget(covariant _PositionedSignature oldWidget) {
@@ -146,6 +160,7 @@ class _PositionedSignatureState extends State<_PositionedSignature> {
     if (oldWidget.signature.offsetX != widget.signature.offsetX ||
         oldWidget.signature.offsetY != widget.signature.offsetY) {
       _dragDelta = Offset.zero;
+      _persisting = false;
     }
   }
 
@@ -155,6 +170,29 @@ class _PositionedSignatureState extends State<_PositionedSignature> {
     final left = (baseLeft + _dragDelta.dx).clamp(0.0, widget.maxLeft);
     final top = (baseTop + _dragDelta.dy).clamp(0.0, widget.maxTop);
     return (left.toDouble(), top.toDouble());
+  }
+
+  Future<void> _commitDrag() async {
+    if (_persisting) return;
+    final pos = _clampedPosition();
+    final nextX = widget.maxLeft <= 0 ? 0.0 : pos.$1 / widget.maxLeft;
+    final nextY = widget.maxTop <= 0 ? 0.0 : pos.$2 / widget.maxTop;
+    final shouldPersist = _dragDelta.distanceSquared > 1.0;
+    final insignificant =
+        (widget.signature.offsetX - nextX).abs() < 0.001 &&
+            (widget.signature.offsetY - nextY).abs() < 0.001;
+    if (!shouldPersist || insignificant) {
+      if (mounted) setState(() => _dragDelta = Offset.zero);
+      return;
+    }
+    _persisting = true;
+    // Mantener delta hasta offsets nuevos; si falla, revertir.
+    final ok = await widget.onMove(widget.signature, nextX, nextY);
+    if (!mounted) return;
+    _persisting = false;
+    if (!ok) {
+      setState(() => _dragDelta = Offset.zero);
+    }
   }
 
   @override
@@ -173,27 +211,7 @@ class _PositionedSignatureState extends State<_PositionedSignature> {
         onDragUpdate: widget.interactive
             ? (delta) => setState(() => _dragDelta += delta)
             : null,
-        onDragEnd: widget.interactive
-            ? () {
-                final pos = _clampedPosition();
-                final nextX =
-                    widget.maxLeft <= 0 ? 0.0 : pos.$1 / widget.maxLeft;
-                final nextY =
-                    widget.maxTop <= 0 ? 0.0 : pos.$2 / widget.maxTop;
-                final shouldPersist = _dragDelta.distanceSquared > 1.0;
-                final insignificant =
-                    (widget.signature.offsetX - nextX).abs() < 0.001 &&
-                        (widget.signature.offsetY - nextY).abs() < 0.001;
-                if (!shouldPersist || insignificant) {
-                  // Vuelve al offset guardado si el provider no persistirá.
-                  setState(() => _dragDelta = Offset.zero);
-                  return;
-                }
-                // Mantener delta hasta que lleguen los nuevos offsets
-                // (evita un salto visual al offset antiguo).
-                widget.onMove(widget.signature, nextX, nextY);
-              }
-            : null,
+        onDragEnd: widget.interactive ? () => unawaited(_commitDrag()) : null,
         onDragCancel: widget.interactive
             ? () => setState(() => _dragDelta = Offset.zero)
             : null,

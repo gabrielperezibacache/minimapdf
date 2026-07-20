@@ -29,6 +29,7 @@ class SignedPdfPage extends StatefulWidget {
     required this.onPlaceTap,
     required this.onMove,
     required this.onDelete,
+    this.signaturesInteractive = true,
     this.annotations = const [],
     this.activeTool = AnnotationTool.none,
     this.annotationsEnabled = true,
@@ -44,8 +45,14 @@ class SignedPdfPage extends StatefulWidget {
   final bool ebonyFilter;
   final bool placementMode;
   final void Function(int pageNumber, double x, double y) onPlaceTap;
-  final void Function(DocumentSignature signature, double x, double y) onMove;
+  final Future<bool> Function(
+    DocumentSignature signature,
+    double x,
+    double y,
+  ) onMove;
   final ValueChanged<DocumentSignature> onDelete;
+  /// Si false, no se pueden arrastrar/borrar firmas (export/carga).
+  final bool signaturesInteractive;
   final List<PageAnnotation> annotations;
   final AnnotationTool activeTool;
   final bool annotationsEnabled;
@@ -179,6 +186,7 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
             topReserve: 0,
             bottomReserve: 0,
             placementMode: widget.placementMode,
+            signaturesInteractive: widget.signaturesInteractive,
             onPlaceTap: (x, y) => widget.onPlaceTap(widget.pageNumber, x, y),
             onMove: widget.onMove,
             onDelete: widget.onDelete,

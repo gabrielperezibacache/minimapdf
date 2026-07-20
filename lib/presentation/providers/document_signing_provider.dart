@@ -189,6 +189,7 @@ class DocumentSigningProvider extends ChangeNotifier {
   }
 
   void beginPlacementMode() {
+    if (_disposed || _loading || _saving || _exporting) return;
     _placementMode = true;
     _pendingOffsetX = null;
     _pendingOffsetY = null;

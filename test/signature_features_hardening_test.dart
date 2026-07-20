@@ -549,7 +549,7 @@ void main() {
                   x = px;
                   y = py;
                 },
-                onMove: (_, _, _) {},
+                onMove: (_, _, _) async => true,
                 onDelete: (_) {},
               ),
             ),

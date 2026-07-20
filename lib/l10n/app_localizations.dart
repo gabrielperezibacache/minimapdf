@@ -104,6 +104,7 @@ class AppLocalizations {
   String get errorCollectionCreate => _t('errorCollectionCreate');
   String get errorCollectionRename => _t('errorCollectionRename');
   String get errorCollectionDelete => _t('errorCollectionDelete');
+  String get errorCollectionNameExists => _t('errorCollectionNameExists');
   String get errorDeletePdf => _t('errorDeletePdf');
   String get errorTimeout => _t('errorTimeout');
   String get errorNoNetwork => _t('errorNoNetwork');
@@ -188,6 +189,7 @@ class AppLocalizations {
       AppMessageKeys.collectionCreateFailed => errorCollectionCreate,
       AppMessageKeys.collectionRenameFailed => errorCollectionRename,
       AppMessageKeys.collectionDeleteFailed => errorCollectionDelete,
+      AppMessageKeys.collectionNameExists => errorCollectionNameExists,
       AppMessageKeys.deletePdfFailed => errorDeletePdf,
       AppMessageKeys.invalidUrl => errorInvalidUrl,
       AppMessageKeys.downloading => downloading,
@@ -341,6 +343,7 @@ const Map<String, Map<String, String>> _strings = {
     'errorCollectionCreate': 'No se pudo crear la colección.',
     'errorCollectionRename': 'No se pudo renombrar la colección.',
     'errorCollectionDelete': 'No se pudo eliminar la colección.',
+    'errorCollectionNameExists': 'Ya existe una colección con ese nombre.',
     'errorDeletePdf': 'No se pudo eliminar el PDF.',
     'errorTimeout': 'Tiempo de espera agotado. Inténtalo de nuevo.',
     'errorNoNetwork': 'Sin conexión de red. Comprueba tu acceso a Internet.',
@@ -463,6 +466,7 @@ const Map<String, Map<String, String>> _strings = {
     'errorCollectionCreate': 'Could not create the collection.',
     'errorCollectionRename': 'Could not rename the collection.',
     'errorCollectionDelete': 'Could not delete the collection.',
+    'errorCollectionNameExists': 'A collection with that name already exists.',
     'errorDeletePdf': 'Could not delete the PDF.',
     'errorTimeout': 'Request timed out. Try again.',
     'errorNoNetwork': 'No network connection. Check your Internet access.',
@@ -586,6 +590,7 @@ const Map<String, Map<String, String>> _strings = {
     'errorCollectionCreate': 'Não foi possível criar a coleção.',
     'errorCollectionRename': 'Não foi possível mudar o nome da coleção.',
     'errorCollectionDelete': 'Não foi possível eliminar a coleção.',
+    'errorCollectionNameExists': 'Já existe uma coleção com esse nome.',
     'errorDeletePdf': 'Não foi possível eliminar o PDF.',
     'errorTimeout': 'Tempo de espera esgotado. Tente novamente.',
     'errorNoNetwork': 'Sem ligação de rede. Verifique o acesso à Internet.',
@@ -709,6 +714,7 @@ const Map<String, Map<String, String>> _strings = {
     'errorCollectionCreate': 'Impossible de créer la collection.',
     'errorCollectionRename': 'Impossible de renommer la collection.',
     'errorCollectionDelete': 'Impossible de supprimer la collection.',
+    'errorCollectionNameExists': 'Une collection porte déjà ce nom.',
     'errorDeletePdf': 'Impossible de supprimer le PDF.',
     'errorTimeout': 'Délai d’attente dépassé. Réessayez.',
     'errorNoNetwork': 'Pas de connexion réseau. Vérifiez votre accès Internet.',
@@ -834,6 +840,7 @@ const Map<String, Map<String, String>> _strings = {
     'errorCollectionCreate': 'Sammlung konnte nicht erstellt werden.',
     'errorCollectionRename': 'Sammlung konnte nicht umbenannt werden.',
     'errorCollectionDelete': 'Sammlung konnte nicht gelöscht werden.',
+    'errorCollectionNameExists': 'Eine Sammlung mit diesem Namen existiert bereits.',
     'errorDeletePdf': 'PDF konnte nicht gelöscht werden.',
     'errorTimeout': 'Zeitüberschreitung. Bitte erneut versuchen.',
     'errorNoNetwork': 'Keine Netzwerkverbindung. Prüfen Sie Ihren Internetzugang.',
@@ -954,6 +961,7 @@ const Map<String, Map<String, String>> _strings = {
     'errorCollectionCreate': '无法创建合集。',
     'errorCollectionRename': '无法重命名合集。',
     'errorCollectionDelete': '无法删除合集。',
+    'errorCollectionNameExists': '已存在同名合集。',
     'errorDeletePdf': '无法删除 PDF。',
     'errorTimeout': '请求超时。请重试。',
     'errorNoNetwork': '无网络连接。请检查互联网访问。',
@@ -1077,6 +1085,7 @@ const Map<String, Map<String, String>> _strings = {
     'errorCollectionCreate': 'Не удалось создать коллекцию.',
     'errorCollectionRename': 'Не удалось переименовать коллекцию.',
     'errorCollectionDelete': 'Не удалось удалить коллекцию.',
+    'errorCollectionNameExists': 'Коллекция с таким именем уже существует.',
     'errorDeletePdf': 'Не удалось удалить PDF.',
     'errorTimeout': 'Время ожидания истекло. Попробуйте снова.',
     'errorNoNetwork': 'Нет сетевого подключения. Проверьте доступ в Интернет.',

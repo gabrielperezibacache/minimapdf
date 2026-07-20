@@ -25,6 +25,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final PageController _pageController = PageController();
   int _pageIndex = 0;
   bool _finished = false;
+  bool _disposed = false;
 
   static const List<_WelcomePageData> _pages = [
     _WelcomePageData(
@@ -57,12 +58,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   @override
   void dispose() {
+    _disposed = true;
     _pageController.dispose();
     super.dispose();
   }
 
   void _finish() {
-    if (_finished) return;
+    if (_finished || _disposed) return;
     _finished = true;
     widget.onFinished();
   }
@@ -161,7 +163,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   itemCount: _pages.length,
                   physics: const BouncingScrollPhysics(),
                   onPageChanged: (index) {
-                    if (_finished) return;
+                    if (_disposed || _finished) return;
                     setState(() => _pageIndex = index);
                   },
                   itemBuilder: (context, index) {

@@ -338,7 +338,7 @@ void main() {
               height: 200,
               child: SignatureLayer(
                 signatures: [signature],
-                onMove: (s, x, y) {},
+                onMove: (s, x, y) async => true,
                 onDelete: (s) {},
               ),
             ),

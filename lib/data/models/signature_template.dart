@@ -117,10 +117,13 @@ class SignatureTemplate {
         return null;
       }
 
+      final type = SignatureTypeX.tryFromStorage(typeRaw);
+      if (type == null) return null;
+
       return SignatureTemplate(
         id: _asInt(map['id']),
         name: name,
-        type: SignatureTypeX.fromStorage(typeRaw),
+        type: type,
         signerName: signerName,
         typedText: _asNullableString(map['typed_text']),
         inkJson: _asNullableString(map['ink_json']),

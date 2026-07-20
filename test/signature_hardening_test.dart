@@ -272,7 +272,7 @@ void main() {
                 signatures: [signature],
                 topReserve: 60,
                 bottomReserve: 60,
-                onMove: (s, x, y) {},
+                onMove: (s, x, y) async => true,
                 onDelete: (s) {},
               ),
             ),

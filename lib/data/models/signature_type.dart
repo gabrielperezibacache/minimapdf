@@ -19,10 +19,15 @@ extension SignatureTypeX on SignatureType {
     }
   }
 
+  /// Devuelve null si el valor no es un tipo conocido (fila corrupta).
+  static SignatureType? tryFromStorage(String value) {
+    for (final type in SignatureType.values) {
+      if (type.name == value) return type;
+    }
+    return null;
+  }
+
   static SignatureType fromStorage(String value) {
-    return SignatureType.values.firstWhere(
-      (type) => type.name == value,
-      orElse: () => SignatureType.typed,
-    );
+    return tryFromStorage(value) ?? SignatureType.typed;
   }
 }

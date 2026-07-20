@@ -12,14 +12,17 @@ class ReadingProgressSaver {
   ReadingProgressSaver(
     this._datasource, {
     this._autosaveDelay = const Duration(seconds: 2),
+    this._retryDelay = const Duration(seconds: 4),
   });
 
   final LibraryLocalDatasource _datasource;
   final Duration _autosaveDelay;
+  final Duration _retryDelay;
 
   int? _bookId;
   int _page = 1;
   bool _dirty = false;
+  bool _disposed = false;
   Future<void>? _inFlight;
   Timer? _autosaveTimer;
 
@@ -31,6 +34,7 @@ class ReadingProgressSaver {
   }
 
   void onPageChanged(int page) {
+    if (_disposed) return;
     if (page < 1 || page == _page) return;
     _page = page;
     _dirty = true;
@@ -40,9 +44,11 @@ class ReadingProgressSaver {
   int get currentPage => _page;
   bool get isDirty => _dirty;
 
-  void _scheduleAutosave() {
+  void _scheduleAutosave({Duration? delay}) {
+    if (_disposed) return;
     _autosaveTimer?.cancel();
-    _autosaveTimer = Timer(_autosaveDelay, () {
+    _autosaveTimer = Timer(delay ?? _autosaveDelay, () {
+      if (_disposed) return;
       unawaited(saveIfNeeded());
     });
   }
@@ -75,7 +81,10 @@ class ReadingProgressSaver {
         if (kDebugMode) {
           debugPrint('ReadingProgressSaver.saveIfNeeded: $e');
         }
-        // Mantiene dirty para reintentar.
+        // Mantiene dirty y reprograma reintento.
+        if (!_disposed) {
+          _scheduleAutosave(delay: _retryDelay);
+        }
         return;
       } finally {
         _inFlight = null;
@@ -88,6 +97,8 @@ class ReadingProgressSaver {
   ///
   /// Con [forceTouch] también persiste `last_read_at` aunque la página no
   /// haya cambiado (cerrar lector / pausar app → Recientes).
+  ///
+  /// Permite un flush final aunque [dispose] ya se haya llamado.
   Future<void> saveNow({int? page, bool forceTouch = false}) async {
     _autosaveTimer?.cancel();
     if (page != null && page >= 1 && page != _page) {
@@ -101,6 +112,7 @@ class ReadingProgressSaver {
   }
 
   void dispose() {
+    _disposed = true;
     _autosaveTimer?.cancel();
     _autosaveTimer = null;
   }

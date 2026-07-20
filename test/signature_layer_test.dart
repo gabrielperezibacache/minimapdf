@@ -31,7 +31,7 @@ void main() {
               signatures: [signature],
               topReserve: 0,
               bottomReserve: 0,
-              onMove: (signature, x, y) {},
+              onMove: (signature, x, y) async => true,
               onDelete: (signature) {},
             ),
           ),
@@ -75,10 +75,11 @@ void main() {
             height: 700,
             child: SignatureLayer(
               signatures: [signature],
-              onMove: (sig, x, y) {
+              onMove: (sig, x, y) async {
                 moved = sig;
                 nextX = x;
                 nextY = y;
+                return true;
               },
               onDelete: (_) {},
             ),
