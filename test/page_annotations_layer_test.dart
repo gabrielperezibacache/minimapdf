@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'support/l10n_test_app.dart';
@@ -55,6 +56,143 @@ void main() {
   testWidgets('arrastre con Marcado invoca onCreateRect', (tester) async {
     var created = false;
     var gotWidth = 0.0;
+    var gotHeight = 0.0;
+
+    await tester.pumpWidget(
+      l10nTestApp(
+        theme: AppTheme.ebony,
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 400,
+              height: 800,
+              child: PageAnnotationsLayer(
+                annotations: const [],
+                activeTool: AnnotationTool.highlight,
+                enabled: true,
+                onCreateRect: ({
+                  required x,
+                  required y,
+                  required width,
+                  required height,
+                }) async {
+                  created = true;
+                  gotWidth = width;
+                  gotHeight = height;
+                },
+                onOpenAnnotation: (_) {},
+                onDeleteAnnotation: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final center = tester.getCenter(find.byType(PageAnnotationsLayer));
+    await tester.timedDragFrom(
+      center,
+      const Offset(160, 8),
+      const Duration(milliseconds: 300),
+    );
+    await tester.pumpAndSettle();
+
+    expect(created, isTrue);
+    expect(gotWidth, greaterThan(0.25));
+    // Arrastre casi horizontal → altura de una línea, no un rectángulo grueso.
+    expect(gotHeight, lessThan(0.05));
+  });
+
+  testWidgets('arrastre con Subrayado crea trazo fino', (tester) async {
+    var created = false;
+    var gotHeight = 0.0;
+    var gotWidth = 0.0;
+
+    await tester.pumpWidget(
+      l10nTestApp(
+        theme: AppTheme.ebony,
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 400,
+              height: 800,
+              child: PageAnnotationsLayer(
+                annotations: const [],
+                activeTool: AnnotationTool.underline,
+                enabled: true,
+                onCreateRect: ({
+                  required x,
+                  required y,
+                  required width,
+                  required height,
+                }) async {
+                  created = true;
+                  gotWidth = width;
+                  gotHeight = height;
+                },
+                onOpenAnnotation: (_) {},
+                onDeleteAnnotation: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final center = tester.getCenter(find.byType(PageAnnotationsLayer));
+    await tester.timedDragFrom(
+      center,
+      const Offset(140, 6),
+      const Duration(milliseconds: 280),
+    );
+    await tester.pumpAndSettle();
+
+    expect(created, isTrue);
+    expect(gotWidth, greaterThan(0.2));
+    expect(gotHeight, lessThan(0.02));
+  });
+
+  testWidgets('toque con Marcado no crea blob del 34%', (tester) async {
+    var gotWidth = 1.0;
+
+    await tester.pumpWidget(
+      l10nTestApp(
+        theme: AppTheme.ebony,
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 400,
+              height: 800,
+              child: PageAnnotationsLayer(
+                annotations: const [],
+                activeTool: AnnotationTool.highlight,
+                enabled: true,
+                onCreateRect: ({
+                  required x,
+                  required y,
+                  required width,
+                  required height,
+                }) async {
+                  gotWidth = width;
+                },
+                onOpenAnnotation: (_) {},
+                onDeleteAnnotation: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tapAt(tester.getCenter(find.byType(PageAnnotationsLayer)));
+    await tester.pumpAndSettle();
+
+    expect(gotWidth, lessThan(0.2));
+  });
+
+  testWidgets('stylus crea marcado al arrastrar', (tester) async {
+    var created = false;
+    var gotWidth = 0.0;
 
     await tester.pumpWidget(
       l10nTestApp(
@@ -86,16 +224,18 @@ void main() {
       ),
     );
 
-    final center = tester.getCenter(find.byType(PageAnnotationsLayer));
-    await tester.timedDragFrom(
-      center,
-      const Offset(160, 48),
-      const Duration(milliseconds: 300),
+    final layer = find.byType(PageAnnotationsLayer);
+    final start = tester.getCenter(layer) - const Offset(80, 0);
+    final gesture = await tester.startGesture(
+      start,
+      kind: PointerDeviceKind.stylus,
     );
+    await gesture.moveBy(const Offset(180, 4));
+    await gesture.up();
     await tester.pumpAndSettle();
 
     expect(created, isTrue);
-    expect(gotWidth, greaterThan(0.25));
+    expect(gotWidth, greaterThan(0.3));
   });
 
   testWidgets('muestra anotación existente y permite abrirla', (tester) async {

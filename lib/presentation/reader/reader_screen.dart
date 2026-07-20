@@ -1066,6 +1066,8 @@ class _ReaderScreenState extends State<ReaderScreen>
     final activeTool = annotations?.activeTool ?? AnnotationTool.none;
     final placementMode = signing?.placementMode ?? false;
     final annotationsLayerEnabled = !placementMode && !_sidebarVisible;
+    final drawingLocksNavigation =
+        placementMode || activeTool != AnnotationTool.none;
     final scaffoldBg =
         _ebonyFilter ? EbonyPdfFilter.background : colors.background;
 
@@ -1075,9 +1077,13 @@ class _ReaderScreenState extends State<ReaderScreen>
       controller: _controller,
       scrollDirection: isVertical ? Axis.vertical : Axis.horizontal,
       pageSnapping: !isVertical,
-      physics: isVertical
-          ? const BouncingScrollPhysics()
-          : const PageScrollPhysics(),
+      // Con herramienta de anotación o colocación de firma, no desplazar
+      // páginas: el trazo (dedo/S-Pen) debe ser estable.
+      physics: drawingLocksNavigation
+          ? const NeverScrollableScrollPhysics()
+          : (isVertical
+              ? const BouncingScrollPhysics()
+              : const PageScrollPhysics()),
       backgroundDecoration: BoxDecoration(color: scaffoldBg),
       onPageChanged: _onPageChanged,
       onDocumentLoaded: (document) {
@@ -1180,6 +1186,11 @@ class _ReaderScreenState extends State<ReaderScreen>
             ),
             // Debe coincidir con el SizedBox de SignedPdfPage (puntos PDF).
             childSize: pageSize,
+            // Evita que PhotoView robe el pan/zoom mientras se dibuja
+            // con dedo o S-Pen.
+            disableGestures: pageTool != AnnotationTool.none ||
+                ((signing?.placementMode ?? false) &&
+                    pageNumber == _currentPage),
             initialScale: PhotoViewComputedScale.contained * 1.0,
             minScale: PhotoViewComputedScale.contained * 1.0,
             maxScale: PhotoViewComputedScale.contained * 3.0,

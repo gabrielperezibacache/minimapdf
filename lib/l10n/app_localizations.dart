@@ -665,8 +665,10 @@ const Map<String, Map<String, String>> _strings = {
         'welcomeLead': 'Bienvenido a una lectura offline, privada y sin ruido.',
     'welcomeHowItWorks': 'Así funciona Minimal PDF',
     'annotationHintNone': 'Elige una herramienta de acento bronce para anotar el PDF.',
-    'annotationHintHighlight': 'Arrastra (o toca) para marcar un tramo de la página.',
-    'annotationHintUnderline': 'Arrastra (o toca) para subrayar un tramo.',
+    'annotationHintHighlight':
+        'Arrastra con el dedo o el S-Pen sobre el texto para marcar el tramo exacto.',
+    'annotationHintUnderline':
+        'Arrastra con el dedo o el S-Pen sobre el texto para subrayar el tramo exacto.',
     'annotationHintNote': 'Toca la página para colocar una nota.',
     'annotationHintComment': 'Toca la página para dejar un comentario.',
     'annotationHintAnnotation': 'Toca la página para añadir una anotación.',
@@ -923,8 +925,10 @@ const Map<String, Map<String, String>> _strings = {
         'welcomeLead': 'Welcome to offline, private, distraction-free reading.',
     'welcomeHowItWorks': 'How Minimal PDF works',
     'annotationHintNone': 'Choose a bronze accent tool to annotate the PDF.',
-    'annotationHintHighlight': 'Drag (or tap) to highlight a section of the page.',
-    'annotationHintUnderline': 'Drag (or tap) to underline a section.',
+    'annotationHintHighlight':
+        'Drag with finger or stylus over the text to highlight the exact span.',
+    'annotationHintUnderline':
+        'Drag with finger or stylus over the text to underline the exact span.',
     'annotationHintNote': 'Tap the page to place a note.',
     'annotationHintComment': 'Tap the page to leave a comment.',
     'annotationHintAnnotation': 'Tap the page to add an annotation.',

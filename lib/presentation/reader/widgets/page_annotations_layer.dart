@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -7,8 +10,12 @@ import '../../../core/utils/safe_clamp.dart';
 import '../../../data/models/page_annotation.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../providers/reader_annotations_provider.dart';
+import '../annotation_markup_geometry.dart';
 
 /// Capa de dibujo/visualización de anotaciones sobre la página actual.
+///
+/// Usa [Listener] (no solo [GestureDetector]) para soportar S-Pen / lápices
+/// capacitivos con rechazo de palma mientras el stylus está activo.
 class PageAnnotationsLayer extends StatefulWidget {
   const PageAnnotationsLayer({
     super.key,
@@ -43,14 +50,17 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
   bool _panMoved = false;
   /// Herramienta fijada al iniciar el gesto (sobrevive al cambio de página).
   AnnotationTool? _gestureTool;
+  /// Puntero activo del trazo (dedo, ratón o stylus).
+  int? _activePointer;
+  /// Stylus en contacto: se ignoran toques de palma.
+  int? _stylusPointer;
 
   bool get _captureGestures =>
       widget.enabled &&
       !_creating &&
       (widget.activeTool != AnnotationTool.none || _dragStart != null);
 
-  AnnotationTool get _effectiveTool =>
-      _gestureTool ?? widget.activeTool;
+  AnnotationTool get _effectiveTool => _gestureTool ?? widget.activeTool;
 
   @override
   void didUpdateWidget(covariant PageAnnotationsLayer oldWidget) {
@@ -61,6 +71,40 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
         !_creating) {
       _gestureTool = null;
     }
+  }
+
+  bool _isStylus(PointerDeviceKind kind) =>
+      kind == PointerDeviceKind.stylus ||
+      kind == PointerDeviceKind.invertedStylus;
+
+  bool _acceptPointer(PointerEvent event) {
+    if (!_captureGestures) return false;
+    if (widget.activeTool == AnnotationTool.none && _dragStart == null) {
+      return false;
+    }
+    // Rechazo de palma: con S-Pen abajo, ignorar dedos.
+    if (_stylusPointer != null &&
+        event.pointer != _stylusPointer &&
+        !_isStylus(event.kind)) {
+      return false;
+    }
+    // Un solo trazo a la vez.
+    if (_activePointer != null && event.pointer != _activePointer) {
+      return false;
+    }
+    // Punta borrador (invertedStylus): no dibuja.
+    if (event.kind == PointerDeviceKind.invertedStylus) {
+      return false;
+    }
+    return true;
+  }
+
+  void _clearStroke() {
+    _dragStart = null;
+    _dragCurrent = null;
+    _panMoved = false;
+    _gestureTool = null;
+    _activePointer = null;
   }
 
   @override
@@ -83,61 +127,61 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
               ),
             if (_captureGestures)
               Positioned.fill(
-                child: GestureDetector(
+                child: Listener(
                   behavior: HitTestBehavior.opaque,
-                  // Tap: imprescindible para notas/comentarios (pan no recibe toques).
-                  onTapUp: (details) async {
-                    if (_dragStart != null) return;
-                    await _finishGesture(
-                      size: size,
-                      start: details.localPosition,
-                      end: details.localPosition,
-                    );
-                  },
-                  onPanStart: (details) {
+                  onPointerDown: (event) {
+                    if (!_acceptPointer(event)) return;
+                    final stylus = _isStylus(event.kind);
                     setState(() {
                       _gestureTool = widget.activeTool;
-                      _dragStart = details.localPosition;
-                      _dragCurrent = details.localPosition;
+                      _dragStart = event.localPosition;
+                      _dragCurrent = event.localPosition;
                       _panMoved = false;
+                      _activePointer = event.pointer;
+                      if (stylus) _stylusPointer = event.pointer;
                     });
                   },
-                  onPanUpdate: (details) {
-                    if (_dragStart == null) return;
+                  onPointerMove: (event) {
+                    if (event.pointer != _activePointer || _dragStart == null) {
+                      return;
+                    }
                     final moved =
-                        (details.localPosition - _dragStart!).distance > 8;
+                        (event.localPosition - _dragStart!).distance >
+                            kDragCommitPx;
                     setState(() {
-                      _dragCurrent = details.localPosition;
+                      _dragCurrent = event.localPosition;
                       if (moved) _panMoved = true;
                     });
                   },
-                  onPanEnd: (_) async {
+                  onPointerUp: (event) async {
+                    if (event.pointer != _activePointer) return;
                     final start = _dragStart;
-                    final end = _dragCurrent ?? start;
+                    final end = event.localPosition;
                     final moved = _panMoved;
                     final tool = _effectiveTool;
+                    final wasStylus = _stylusPointer == event.pointer;
                     setState(() {
-                      _dragStart = null;
-                      _dragCurrent = null;
-                      _panMoved = false;
-                      _gestureTool = null;
+                      _clearStroke();
+                      if (wasStylus) _stylusPointer = null;
                     });
-                    // Solo arrastres reales: los toques los resuelve onTapUp.
-                    if (!moved || start == null || end == null) return;
+                    if (start == null) return;
                     await _finishGesture(
                       size: size,
                       start: start,
                       end: end,
+                      fromDrag: moved,
                       toolOverride: tool,
                     );
                   },
-
-                  onPanCancel: () {
+                  onPointerCancel: (event) {
+                    if (event.pointer != _activePointer &&
+                        event.pointer != _stylusPointer) {
+                      return;
+                    }
                     setState(() {
-                      _dragStart = null;
-                      _dragCurrent = null;
-                      _panMoved = false;
-                      _gestureTool = null;
+                      final wasStylus = _stylusPointer == event.pointer;
+                      _clearStroke();
+                      if (wasStylus) _stylusPointer = null;
                     });
                   },
                 ),
@@ -159,49 +203,38 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
     required Size size,
     required Offset start,
     required Offset end,
+    required bool fromDrag,
     AnnotationTool? toolOverride,
   }) async {
     if (_creating || size.width <= 0 || size.height <= 0) return;
     final tool = toolOverride ?? widget.activeTool;
     if (tool == AnnotationTool.none) return;
 
-    final dx = (end.dx - start.dx).abs();
-    final dy = (end.dy - start.dy).abs();
-    final isTap = dx < 12 && dy < 12;
-
-    late double left;
-    late double top;
-    late double width;
-    late double height;
-
+    final MarkupRect rect;
     if (tool.needsText) {
-      width = 0.1;
-      height = 0.055;
-      left = (start.dx / size.width) - (width / 2);
-      top = (start.dy / size.height) - (height / 2);
-    } else if (isTap) {
-      width = 0.34;
-      height = tool == AnnotationTool.underline ? 0.016 : 0.045;
-      left = (start.dx / size.width) - 0.02;
-      top = (start.dy / size.height) - (height / 2);
+      rect = computePinRect(canvasSize: size, point: start);
+    } else if (tool.isMarkup) {
+      rect = computeMarkupRect(
+        tool: tool,
+        canvasSize: size,
+        start: start,
+        end: end,
+        fromDrag: fromDrag,
+      );
     } else {
-      left = (start.dx < end.dx ? start.dx : end.dx) / size.width;
-      top = (start.dy < end.dy ? start.dy : end.dy) / size.height;
-      width = (dx / size.width).clamp(0.04, 1.0);
-      height = (dy / size.height).clamp(0.012, 1.0);
-      if (tool == AnnotationTool.underline) {
-        top = top + height - 0.014;
-        height = 0.014;
-      } else if (tool == AnnotationTool.highlight && height < 0.028) {
-        height = 0.028;
-      }
+      return;
     }
 
     if (!mounted) return;
     setState(() => _creating = true);
     try {
       HapticFeedback.selectionClick();
-      await widget.onCreateRect(x: left, y: top, width: width, height: height);
+      await widget.onCreateRect(
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+      );
     } finally {
       if (mounted) setState(() => _creating = false);
     }
@@ -223,21 +256,25 @@ class _DraftRect extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final left = start.dx < current.dx ? start.dx : current.dx;
-    final top = start.dy < current.dy ? start.dy : current.dy;
-    final width = safeClamp((current.dx - start.dx).abs(), 4.0, size.width);
-    var height = safeClamp((current.dy - start.dy).abs(), 3.0, size.height);
-    var drawTop = top;
-    if (tool == AnnotationTool.underline) {
-      drawTop = top + height - 3;
-      height = 3;
-    }
+    if (!tool.isMarkup) return const SizedBox.shrink();
 
+    final rect = computeMarkupRect(
+      tool: tool,
+      canvasSize: size,
+      start: start,
+      end: current,
+      fromDrag: true,
+    );
+
+    final left = rect.x * size.width;
+    final top = rect.y * size.height;
+    final width = safeClamp(rect.width * size.width, 2.0, size.width);
+    final height = safeClamp(rect.height * size.height, 2.0, size.height);
     final color = tool.annotationType?.defaultColor ?? AppColors.ebonyAccent;
 
     return Positioned(
       left: left,
-      top: drawTop,
+      top: top,
       width: width,
       height: height,
       child: IgnorePointer(
@@ -300,7 +337,7 @@ class _AnnotationMark extends StatelessWidget {
       AnnotationType.underline => Align(
           alignment: Alignment.bottomCenter,
           child: Container(
-            height: 3,
+            height: math.max(2.0, height * 0.55).clamp(2.0, 4.0),
             decoration: BoxDecoration(
               color: annotation.color,
               borderRadius: BorderRadius.circular(1),
