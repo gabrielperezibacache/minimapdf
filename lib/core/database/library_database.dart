@@ -275,22 +275,61 @@ class LibraryDatabase {
     Bookmark bookmark, {
     bool clearNoteText = false,
   }) async {
-    final existing = await getBookmarkForPage(
-      bookmark.bookId,
-      bookmark.pageNumber,
-    );
-    if (existing == null) {
-      return createBookmark(bookmark);
-    }
+    return _db.transaction((txn) async {
+      final rows = await txn.query(
+        DatabaseConfig.tableBookmarks,
+        where: 'book_id = ? AND page_number = ?',
+        whereArgs: [bookmark.bookId, bookmark.pageNumber],
+        limit: 1,
+      );
 
-    final merged = existing.copyWith(
-      noteText: clearNoteText
-          ? null
-          : (bookmark.noteText ?? existing.noteText),
-      clearNoteText: clearNoteText,
-    );
-    await updateBookmark(merged);
-    return merged;
+      if (rows.isEmpty) {
+        final id = await txn.insert(
+          DatabaseConfig.tableBookmarks,
+          bookmark.toMap()..remove('id'),
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+        return bookmark.copyWith(id: id);
+      }
+
+      final existing = Bookmark.tryFromMap(rows.first);
+      if (existing == null || existing.id == null) {
+        // Fila corrupta: reemplazar.
+        await txn.delete(
+          DatabaseConfig.tableBookmarks,
+          where: 'book_id = ? AND page_number = ?',
+          whereArgs: [bookmark.bookId, bookmark.pageNumber],
+        );
+        final id = await txn.insert(
+          DatabaseConfig.tableBookmarks,
+          bookmark.toMap()..remove('id'),
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+        return bookmark.copyWith(id: id);
+      }
+
+      final merged = existing.copyWith(
+        noteText: clearNoteText
+            ? null
+            : (bookmark.noteText ?? existing.noteText),
+        clearNoteText: clearNoteText,
+      );
+      final updated = await txn.update(
+        DatabaseConfig.tableBookmarks,
+        merged.toMap()..remove('id'),
+        where: 'id = ?',
+        whereArgs: [existing.id],
+      );
+      if (updated == 0) {
+        final id = await txn.insert(
+          DatabaseConfig.tableBookmarks,
+          bookmark.toMap()..remove('id'),
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+        return bookmark.copyWith(id: id);
+      }
+      return merged;
+    });
   }
 
   Future<int> deleteBookmark(int id) async {

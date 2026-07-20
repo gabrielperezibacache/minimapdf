@@ -211,9 +211,13 @@ class DocumentSignature {
 
   static double? _asDouble(Object? value) {
     if (value == null) return null;
-    if (value is double) return value;
-    if (value is num) return value.toDouble();
-    return double.tryParse(value.toString());
+    final parsed = value is double
+        ? value
+        : value is num
+            ? value.toDouble()
+            : double.tryParse(value.toString());
+    if (parsed == null || !parsed.isFinite) return null;
+    return parsed;
   }
 
   static String? _asNonEmptyString(Object? value) {

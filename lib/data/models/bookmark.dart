@@ -56,14 +56,16 @@ class Bookmark {
       final bookId = _asInt(map['book_id']);
       if (bookId == null || bookId < 1) return null;
 
-      final pageNumber = _asInt(map['page_number']) ?? 1;
+      final pageNumber = _asInt(map['page_number']);
+      if (pageNumber == null || pageNumber < 1) return null;
+
       final createdAt = _asDateTime(map['created_at']) ??
           DateTime.fromMillisecondsSinceEpoch(0);
 
       return Bookmark(
         id: _asInt(map['id']),
         bookId: bookId,
-        pageNumber: pageNumber < 1 ? 1 : pageNumber,
+        pageNumber: pageNumber,
         noteText: _asNullableString(map['note_text']),
         createdAt: createdAt,
       );

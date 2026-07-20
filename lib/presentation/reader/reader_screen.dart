@@ -254,7 +254,9 @@ class _ReaderScreenState extends State<ReaderScreen>
     final annotations = _annotations;
     if (annotations == null) return;
 
-    final completed = await annotations.toggleBookmark(_currentPage);
+    // Fija la página: el usuario puede hacer scroll durante el await / diálogo.
+    final page = _currentPage;
+    final completed = await annotations.toggleBookmark(page);
     if (completed || !mounted) {
       if (annotations.error != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -270,8 +272,8 @@ class _ReaderScreenState extends State<ReaderScreen>
       builder: (context) => AlertDialog(
         backgroundColor: colors.panel,
         title: const Text('Quitar marcador'),
-        content: const Text(
-          'Esta página tiene una nota. ¿Eliminar marcador y nota?',
+        content: Text(
+          'La página $page tiene una nota. ¿Eliminar marcador y nota?',
         ),
         actions: [
           TextButton(
@@ -287,7 +289,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
 
     if (confirmed == true && mounted) {
-      await annotations.toggleBookmark(_currentPage, force: true);
+      await annotations.toggleBookmark(page, force: true);
       if (annotations.error != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(annotations.error!)),
@@ -1027,7 +1029,9 @@ class _ReaderScreenState extends State<ReaderScreen>
               activeTool: pageTool,
               annotationsEnabled: annotationsLayerEnabled,
               ebonyFilter: _ebonyFilter,
-              placementMode: signing?.placementMode ?? false,
+              // Solo la página actual acepta toques de colocación (scroll continuo).
+              placementMode:
+                  (signing?.placementMode ?? false) && pageNumber == _currentPage,
               onPlaceTap: _openSignatureSheetAt,
               onCreateAnnotation: _createAnnotationRect,
               onOpenAnnotation: _openAnnotation,

@@ -15,7 +15,10 @@ import 'page_annotations_layer.dart';
 /// El filtro Ébano se aplica solo a la imagen, no a los sellos ni anotaciones.
 /// El tamaño del widget usa [fallbackSize] (puntos PDF) para coincidir con
 /// PhotoView `childSize` y con la geometría de exportación.
-class SignedPdfPage extends StatelessWidget {
+///
+/// La imagen se cachea por [pageNumber] para evitar recopiar bytes en cada
+/// rebuild del lector (anotaciones / firmas / chrome).
+class SignedPdfPage extends StatefulWidget {
   const SignedPdfPage({
     super.key,
     required this.pageImageFuture,
@@ -58,84 +61,130 @@ class SignedPdfPage extends StatelessWidget {
   final Size fallbackSize;
 
   @override
+  State<SignedPdfPage> createState() => _SignedPdfPageState();
+}
+
+class _SignedPdfPageState extends State<SignedPdfPage> {
+  Uint8List? _cachedBytes;
+  int? _cachedPageNumber;
+  Object? _loadError;
+  Future<PdfPageImage>? _boundFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _bindFuture(widget.pageImageFuture, widget.pageNumber);
+  }
+
+  @override
+  void didUpdateWidget(covariant SignedPdfPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pageNumber != widget.pageNumber) {
+      _cachedBytes = null;
+      _cachedPageNumber = null;
+      _loadError = null;
+      _bindFuture(widget.pageImageFuture, widget.pageNumber);
+      return;
+    }
+    // Misma página: si ya hay bytes, ignorar futuros nuevos del gallery rebuild.
+    if (_cachedBytes != null && _cachedPageNumber == widget.pageNumber) {
+      return;
+    }
+    if (!identical(_boundFuture, widget.pageImageFuture)) {
+      _bindFuture(widget.pageImageFuture, widget.pageNumber);
+    }
+  }
+
+  void _bindFuture(Future<PdfPageImage> future, int pageNumber) {
+    _boundFuture = future;
+    future.then((image) {
+      if (!mounted || pageNumber != widget.pageNumber) return;
+      if (!identical(_boundFuture, future)) return;
+      setState(() {
+        _cachedBytes = Uint8List.fromList(image.bytes);
+        _cachedPageNumber = pageNumber;
+        _loadError = null;
+      });
+    }).catchError((Object error) {
+      if (!mounted || pageNumber != widget.pageNumber) return;
+      if (!identical(_boundFuture, future)) return;
+      setState(() => _loadError = error);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return FutureBuilder<PdfPageImage>(
-      future: pageImageFuture,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return SizedBox.fromSize(
-            size: fallbackSize,
-            child: const Center(child: Text('Error al cargar la página')),
-          );
-        }
-        final image = snapshot.data;
-        if (image == null) {
-          return SizedBox.fromSize(
-            size: fallbackSize,
-            child: const Center(
-              child: SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          );
-        }
+    if (_loadError != null && _cachedBytes == null) {
+      return SizedBox.fromSize(
+        size: widget.fallbackSize,
+        child: const Center(child: Text('Error al cargar la página')),
+      );
+    }
 
-        final bytes = Uint8List.fromList(image.bytes);
-
-        return SizedBox(
-          width: fallbackSize.width,
-          height: fallbackSize.height,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              EbonyPdfFilter.wrap(
-                enabled: ebonyFilter,
-                child: Image.memory(
-                  bytes,
-                  fit: BoxFit.fill,
-                  gaplessPlayback: true,
-                  filterQuality: FilterQuality.medium,
-                ),
-              ),
-              if (onCreateAnnotation != null &&
-                  onOpenAnnotation != null &&
-                  onDeleteAnnotation != null)
-                PageAnnotationsLayer(
-                  annotations: annotations,
-                  activeTool: activeTool,
-                  enabled: annotationsEnabled && !placementMode,
-                  onCreateRect: ({
-                    required double x,
-                    required double y,
-                    required double width,
-                    required double height,
-                  }) {
-                    return onCreateAnnotation!(
-                      pageNumber: pageNumber,
-                      x: x,
-                      y: y,
-                      width: width,
-                      height: height,
-                    );
-                  },
-                  onOpenAnnotation: onOpenAnnotation!,
-                  onDeleteAnnotation: onDeleteAnnotation!,
-                ),
-              SignatureLayer(
-                signatures: signatures,
-                topReserve: 0,
-                bottomReserve: 0,
-                placementMode: placementMode,
-                onPlaceTap: (x, y) => onPlaceTap(pageNumber, x, y),
-                onMove: onMove,
-                onDelete: onDelete,
-              ),
-            ],
+    final bytes = _cachedBytes;
+    if (bytes == null) {
+      return SizedBox.fromSize(
+        size: widget.fallbackSize,
+        child: const Center(
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(strokeWidth: 2),
           ),
-        );
-      },
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: widget.fallbackSize.width,
+      height: widget.fallbackSize.height,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          EbonyPdfFilter.wrap(
+            enabled: widget.ebonyFilter,
+            child: Image.memory(
+              bytes,
+              fit: BoxFit.fill,
+              gaplessPlayback: true,
+              filterQuality: FilterQuality.medium,
+            ),
+          ),
+          if (widget.onCreateAnnotation != null &&
+              widget.onOpenAnnotation != null &&
+              widget.onDeleteAnnotation != null)
+            PageAnnotationsLayer(
+              annotations: widget.annotations,
+              activeTool: widget.activeTool,
+              enabled: widget.annotationsEnabled && !widget.placementMode,
+              onCreateRect: ({
+                required double x,
+                required double y,
+                required double width,
+                required double height,
+              }) {
+                return widget.onCreateAnnotation!(
+                  pageNumber: widget.pageNumber,
+                  x: x,
+                  y: y,
+                  width: width,
+                  height: height,
+                );
+              },
+              onOpenAnnotation: widget.onOpenAnnotation!,
+              onDeleteAnnotation: widget.onDeleteAnnotation!,
+            ),
+          SignatureLayer(
+            signatures: widget.signatures,
+            topReserve: 0,
+            bottomReserve: 0,
+            placementMode: widget.placementMode,
+            onPlaceTap: (x, y) => widget.onPlaceTap(widget.pageNumber, x, y),
+            onMove: widget.onMove,
+            onDelete: widget.onDelete,
+          ),
+        ],
+      ),
     );
   }
 }

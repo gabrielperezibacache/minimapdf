@@ -7,9 +7,11 @@ class SceneDelegate: FlutterSceneDelegate {
     openURLContexts URLContexts: Set<UIOpenURLContext>
   ) {
     super.scene(scene, openURLContexts: URLContexts)
-    guard let url = URLContexts.first?.url else { return }
-    if let appDelegate = UIApplication.shared.delegate as? AppDelegate {
-      appDelegate.queueOpenedPdfFromScene(url: url)
+    guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
+      return
+    }
+    for context in URLContexts {
+      appDelegate.queueOpenedPdfFromScene(url: context.url)
     }
   }
 }

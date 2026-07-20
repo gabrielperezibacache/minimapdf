@@ -5,7 +5,7 @@ import flutter_downloader
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let channelName = "minimal_pdf/external_open"
-  private var pendingPdfPath: String?
+  private var pendingPdfPaths: [String] = []
   private var eventSink: FlutterEventSink?
   private var methodChannel: FlutterMethodChannel?
   private var eventChannel: FlutterEventChannel?
@@ -38,9 +38,11 @@ import flutter_downloader
       }
       switch call.method {
       case "getInitialPdfPath":
-        let path = self.pendingPdfPath
-        self.pendingPdfPath = nil
-        result(path)
+        if self.pendingPdfPaths.isEmpty {
+          result(nil)
+        } else {
+          result(self.pendingPdfPaths.removeFirst())
+        }
       case "openDefaultAppsSettings", "openAppSettings":
         if let url = URL(string: UIApplication.openSettingsURLString) {
           UIApplication.shared.open(url, options: [:], completionHandler: nil)
@@ -79,14 +81,17 @@ import flutter_downloader
     if sourceKey == lastQueuedSource, now - lastQueuedAt < 2 {
       return
     }
+
+    guard let path = copyPdfToTemp(url: url) else { return }
+
+    // Solo tras copia exitosa: evita bloquear reintentos si falló el copy.
     lastQueuedSource = sourceKey
     lastQueuedAt = now
 
-    guard let path = copyPdfToTemp(url: url) else { return }
     if let sink = eventSink {
       sink(path)
     } else {
-      pendingPdfPath = path
+      pendingPdfPaths.append(path)
     }
   }
 
@@ -150,9 +155,8 @@ extension AppDelegate: FlutterStreamHandler {
     eventSink events: @escaping FlutterEventSink
   ) -> FlutterError? {
     eventSink = events
-    if let queued = pendingPdfPath {
-      pendingPdfPath = nil
-      events(queued)
+    while !pendingPdfPaths.isEmpty {
+      events(pendingPdfPaths.removeFirst())
     }
     return nil
   }

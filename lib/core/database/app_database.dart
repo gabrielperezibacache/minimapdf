@@ -18,6 +18,7 @@ class AppDatabase {
   final DatabaseFactory? customFactory;
   final String? databasePath;
   Database? _db;
+  Future<Database>? _opening;
 
   Database get database {
     final db = _db;
@@ -33,41 +34,66 @@ class AppDatabase {
 
   Future<Database> open() async {
     if (_db != null && _db!.isOpen) return _db!;
+    final inFlight = _opening;
+    if (inFlight != null) return inFlight;
+
+    final future = _openOnce();
+    _opening = future;
+    try {
+      return await future;
+    } finally {
+      if (identical(_opening, future)) {
+        _opening = null;
+      }
+    }
+  }
+
+  Future<Database> _openOnce() async {
+    if (_db != null && _db!.isOpen) return _db!;
 
     final factory = customFactory ?? databaseFactory;
     final path = databasePath ?? await _defaultPath();
 
-    _db = await factory.openDatabase(
+    final db = await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
         version: DatabaseConfig.databaseVersion,
-        onConfigure: (db) async {
-          await db.execute('PRAGMA foreign_keys = ON');
+        onConfigure: (database) async {
+          await database.execute('PRAGMA foreign_keys = ON');
         },
-        onCreate: (db, version) async {
-          await _createSchema(db);
+        onCreate: (database, version) async {
+          await _createSchema(database);
         },
-        onUpgrade: (db, oldVersion, newVersion) async {
+        onUpgrade: (database, oldVersion, newVersion) async {
           if (oldVersion < 2) {
-            await _createSignaturesTable(db);
+            await _createSignaturesTable(database);
           }
           if (oldVersion < 3) {
-            await _upgradeSignaturesToV3(db);
-            await _createSignatureTemplatesTable(db);
+            await _upgradeSignaturesToV3(database);
+            await _createSignatureTemplatesTable(database);
           }
           if (oldVersion < 4) {
-            await _createPageAnnotationsTable(db);
+            await _createPageAnnotationsTable(database);
           }
         },
       ),
     );
-
-    return _db!;
+    _db = db;
+    return db;
   }
 
   Future<void> close() async {
+    final opening = _opening;
+    if (opening != null) {
+      try {
+        await opening;
+      } catch (_) {
+        // Ignorar fallo de apertura en curso al cerrar.
+      }
+    }
     final db = _db;
     _db = null;
+    _opening = null;
     if (db != null && db.isOpen) {
       await db.close();
     }

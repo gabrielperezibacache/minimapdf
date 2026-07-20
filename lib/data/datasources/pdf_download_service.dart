@@ -286,12 +286,19 @@ class PdfDownloadService {
       sink = null;
 
       _throwIfCancelled();
+      // Evita guardar PDFs truncados cuando el servidor anunció Content-Length.
+      if (total > 0 && received != total) {
+        throw StateError(
+          'Descarga incompleta ($received de $total bytes)',
+        );
+      }
       await PdfHeader.assertFile(
         tempFile,
         contentType: contentType,
         invalidMessage: 'La URL no devolvió un PDF válido',
       );
       onProgress?.call(1);
+      _throwIfCancelled();
       return await _persistFile(
         source: tempFile,
         fileName: fileName,
@@ -442,6 +449,7 @@ class PdfDownloadService {
     bool deleteSource = true,
   }) async {
     return LibraryFileCoordinator.runExclusive(() async {
+      _throwIfCancelled();
       final libraryDir = await _ensureLibraryDir();
       await _sweepOrphanPartFiles(libraryDir, keepPath: source.path);
       final onDisk = await _existingFileNames(libraryDir);
@@ -452,6 +460,7 @@ class PdfDownloadService {
       final destinationFile = File(destination);
 
       try {
+        _throwIfCancelled();
         if (p.equals(source.path, destination)) {
           // Ya está en destino (raro); no copiar.
         } else if (source.path.endsWith('.part') &&
@@ -464,10 +473,12 @@ class PdfDownloadService {
           }
         }
 
+        _throwIfCancelled();
         final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
         final size = await destinationFile.length();
         final resolvedCollectionId =
             await _resolveCollectionId(collectionId);
+        _throwIfCancelled();
         return await _datasource.insertBook(
           Book(
             title: title,

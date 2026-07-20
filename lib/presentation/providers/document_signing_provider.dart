@@ -440,6 +440,7 @@ class DocumentSigningProvider extends ChangeNotifier {
   /// Exporta PDF firmado (sellos aplanados) + manifiesto SHA-256 e importa
   /// la copia a la biblioteca.
   Future<SignedPdfExportResult?> exportSignedPdf() async {
+    if (_disposed) return null;
     final book = _book;
     if (book == null) {
       _error = 'Documento no disponible.';

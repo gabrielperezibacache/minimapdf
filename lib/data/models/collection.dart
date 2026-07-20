@@ -42,15 +42,17 @@ class Collection {
   /// Parseo tolerante: filas corruptas → null.
   static Collection? tryFromMap(Map<String, Object?> map) {
     try {
+      final id = _asInt(map['id']);
+      final nameRaw = map['name'];
+      if (nameRaw is! String) return null;
+      final name = nameRaw.trim();
+      if (name.isEmpty) return null;
+
       final createdAt = _asDateTime(map['created_at']) ??
           DateTime.fromMillisecondsSinceEpoch(0);
-      final nameRaw = map['name'];
-      final name = nameRaw is String && nameRaw.trim().isNotEmpty
-          ? nameRaw.trim()
-          : 'Colección';
 
       return Collection(
-        id: _asInt(map['id']),
+        id: id,
         name: name,
         createdAt: createdAt,
       );
