@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -11,6 +12,7 @@ import 'core/constants/app_constants.dart';
 import 'core/database/app_database.dart';
 import 'core/database/library_database.dart';
 import 'core/preferences/app_preferences.dart';
+import 'core/preferences/welcome_gate.dart';
 import 'core/theme/app_theme.dart';
 import 'data/datasources/library_local_datasource.dart';
 import 'data/datasources/pdf_download_service.dart';
@@ -38,12 +40,18 @@ Future<void> main() async {
   final preferences = await AppPreferences.open();
   final appDatabase = AppDatabase();
   await appDatabase.open();
+  final libraryDatabase = LibraryDatabase(appDatabase);
+  final showWelcome = await prepareWelcomeVisibility(
+    preferences: preferences,
+    libraryDatabase: libraryDatabase,
+  );
 
   runApp(
     MinimalPdfApp(
       appDatabase: appDatabase,
-      libraryDatabase: LibraryDatabase(appDatabase),
+      libraryDatabase: libraryDatabase,
       preferences: preferences,
+      showWelcome: showWelcome,
     ),
   );
 }
@@ -54,16 +62,20 @@ class MinimalPdfApp extends StatelessWidget {
     required this.appDatabase,
     required this.libraryDatabase,
     this.preferences,
+    this.showWelcome,
   });
 
   final AppDatabase appDatabase;
   final LibraryDatabase libraryDatabase;
   final AppPreferences? preferences;
 
+  /// Si es null (tests), se deriva de [AppPreferences.hasSeenWelcome].
+  final bool? showWelcome;
+
   @override
   Widget build(BuildContext context) {
-    final showWelcome =
-        preferences != null && !preferences!.hasSeenWelcome;
+    final welcome = showWelcome ??
+        (preferences != null && !preferences!.hasSeenWelcome);
 
     return MultiProvider(
       providers: [
@@ -111,7 +123,7 @@ class MinimalPdfApp extends StatelessWidget {
           create: (_) => ExternalPdfOpenService(),
         ),
       ],
-      child: _MinimalPdfRoot(showWelcomeInitially: showWelcome),
+      child: _MinimalPdfRoot(showWelcomeInitially: welcome),
     );
   }
 }
@@ -134,7 +146,7 @@ class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _bootstrapExternalPdfOpen();
+      unawaited(_bootstrapExternalPdfOpen());
     });
   }
 
@@ -145,7 +157,14 @@ class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
     _externalBootstrapStarted = true;
 
     final service = context.read<ExternalPdfOpenService>();
-    await service.start();
+    try {
+      await service.start();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('_bootstrapExternalPdfOpen start: $e');
+      }
+      return;
+    }
     if (!mounted) return;
 
     if (service.hasQueued && _showWelcome) {
@@ -158,10 +177,10 @@ class _MinimalPdfRootState extends State<_MinimalPdfRoot> {
     _finishingWelcome = true;
     final prefs = context.read<AppPreferences?>();
     try {
+      // Cinturón de seguridad: el flag ya se marca en prepareWelcomeVisibility.
       await prefs?.markWelcomeSeen();
     } catch (_) {
-      // Si falla la persistencia, no bloqueamos el acceso a la biblioteca;
-      // la bienvenida podría repetirse en el próximo arranque.
+      // No bloqueamos el acceso a la biblioteca si falla la persistencia.
     }
     if (!mounted) return;
     setState(() => _showWelcome = false);

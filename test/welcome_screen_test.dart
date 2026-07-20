@@ -6,6 +6,7 @@ import 'package:minimal_pdf/core/constants/app_constants.dart';
 import 'package:minimal_pdf/core/database/app_database.dart';
 import 'package:minimal_pdf/core/database/library_database.dart';
 import 'package:minimal_pdf/core/preferences/app_preferences.dart';
+import 'package:minimal_pdf/core/preferences/welcome_gate.dart';
 import 'package:minimal_pdf/core/theme/app_theme.dart';
 import 'package:minimal_pdf/main.dart';
 import 'package:minimal_pdf/presentation/onboarding/welcome_screen.dart';
@@ -20,6 +21,7 @@ void main() {
 
   late Directory tempDir;
   late AppDatabase appDatabase;
+  late LibraryDatabase libraryDatabase;
   late AppPreferences preferences;
 
   setUpAll(() {
@@ -40,6 +42,7 @@ void main() {
       databasePath: p.join(tempDir.path, 'test.db'),
     );
     await appDatabase.open();
+    libraryDatabase = LibraryDatabase(appDatabase);
   });
 
   tearDown(() async {
@@ -50,13 +53,28 @@ void main() {
     }
   });
 
+  /// sqflite en testWidgets requiere [WidgetTester.runAsync].
+  Future<bool> prepareWelcome(WidgetTester tester) {
+    return tester.runAsync(() {
+      return prepareWelcomeVisibility(
+        preferences: preferences,
+        libraryDatabase: libraryDatabase,
+      );
+    }).then((value) => value!);
+  }
+
   testWidgets('primera apertura muestra bienvenida con valor y funciones',
       (WidgetTester tester) async {
+    final showWelcome = await prepareWelcome(tester);
+    expect(showWelcome, isTrue);
+    expect(preferences.hasSeenWelcome, isTrue);
+
     await tester.pumpWidget(
       MinimalPdfApp(
         appDatabase: appDatabase,
-        libraryDatabase: LibraryDatabase(appDatabase),
+        libraryDatabase: libraryDatabase,
         preferences: preferences,
+        showWelcome: showWelcome,
       ),
     );
     await tester.pump();
@@ -70,6 +88,45 @@ void main() {
     expect(find.text('Continuar'), findsOneWidget);
     expect(find.text('Omitir'), findsOneWidget);
     expect(find.text('Biblioteca'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
+  testWidgets('segunda apertura no muestra bienvenida aunque no se terminó',
+      (WidgetTester tester) async {
+    final first = await prepareWelcome(tester);
+    expect(first, isTrue);
+
+    // Simula cierre sin Omitir / Empezar a leer.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+
+    final prefsAgain = await AppPreferences.open();
+    final second = await tester.runAsync(() {
+      return prepareWelcomeVisibility(
+        preferences: prefsAgain,
+        libraryDatabase: libraryDatabase,
+      );
+    });
+    expect(second, isFalse);
+
+    await tester.pumpWidget(
+      MinimalPdfApp(
+        appDatabase: appDatabase,
+        libraryDatabase: libraryDatabase,
+        preferences: prefsAgain,
+        showWelcome: second,
+      ),
+    );
+    await tester.pump();
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
+
+    expect(find.text('Omitir'), findsNothing);
+    expect(find.text('Biblioteca'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -112,11 +169,14 @@ void main() {
     clearExternalPdfOpenChannelMocks();
     mockExternalPdfOpenChannels(initialPdfPath: '/tmp/external_open.pdf');
 
+    final showWelcome = await prepareWelcome(tester);
+
     await tester.pumpWidget(
       MinimalPdfApp(
         appDatabase: appDatabase,
-        libraryDatabase: LibraryDatabase(appDatabase),
+        libraryDatabase: libraryDatabase,
         preferences: preferences,
+        showWelcome: showWelcome,
       ),
     );
     await tester.pump();
@@ -136,11 +196,14 @@ void main() {
 
   testWidgets('omitir marca bienvenida y abre biblioteca',
       (WidgetTester tester) async {
+    final showWelcome = await prepareWelcome(tester);
+
     await tester.pumpWidget(
       MinimalPdfApp(
         appDatabase: appDatabase,
-        libraryDatabase: LibraryDatabase(appDatabase),
+        libraryDatabase: libraryDatabase,
         preferences: preferences,
+        showWelcome: showWelcome,
       ),
     );
     await tester.pump();
@@ -163,12 +226,20 @@ void main() {
 
     final prefsAgain = await AppPreferences.open();
     expect(prefsAgain.hasSeenWelcome, isTrue);
+    final showAgain = await tester.runAsync(() {
+      return prepareWelcomeVisibility(
+        preferences: prefsAgain,
+        libraryDatabase: libraryDatabase,
+      );
+    });
+    expect(showAgain, isFalse);
 
     await tester.pumpWidget(
       MinimalPdfApp(
         appDatabase: appDatabase,
-        libraryDatabase: LibraryDatabase(appDatabase),
+        libraryDatabase: libraryDatabase,
         preferences: prefsAgain,
+        showWelcome: showAgain,
       ),
     );
     await tester.pump();

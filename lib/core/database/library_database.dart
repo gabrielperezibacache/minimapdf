@@ -121,6 +121,14 @@ class LibraryDatabase {
     return names;
   }
 
+  /// `true` si ya hay al menos un libro (p. ej. instalación previa al onboarding).
+  Future<bool> hasAnyBooks() async {
+    final rows = await _db.rawQuery(
+      'SELECT 1 FROM ${DatabaseConfig.tableBooks} LIMIT 1',
+    );
+    return rows.isNotEmpty;
+  }
+
   /// Libros de biblioteca: primero por última lectura, luego por alta.
   ///
   /// Si [limit] es null, devuelve todos (sin truncar silenciosamente).
