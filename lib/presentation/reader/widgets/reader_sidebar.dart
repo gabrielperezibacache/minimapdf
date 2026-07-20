@@ -490,7 +490,7 @@ class _SignaturesPane extends StatelessWidget {
           subtitle: Text(
             '${l10n.pageAbbrev(signature.pageNumber)} · ${signature.role.label(l10n)} '
             '#${signature.signingOrder}\n'
-            '${signature.type.label(l10n)} · ${formatSignatureDate(signature.signedAt)}',
+            '${signature.type.label(l10n)} · ${formatSignatureDate(signature.signedAt, locale: Localizations.localeOf(context).toString())}',
           ),
           isThreeLine: true,
           onTap: () => onOpenPage(signature.pageNumber),

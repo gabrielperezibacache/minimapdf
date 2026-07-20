@@ -12,6 +12,7 @@ import '../../core/utils/file_name_sanitizer.dart';
 import '../../core/utils/library_file_coordinator.dart';
 import '../../core/utils/pdf_header.dart';
 import '../../core/utils/pdf_url_utils.dart';
+import '../../l10n/app_message_keys.dart';
 import '../models/book.dart';
 import 'library_local_datasource.dart';
 
@@ -102,7 +103,7 @@ class PdfDownloadService {
     int? collectionId,
   }) async {
     if (_activeDownload != null) {
-      throw StateError('Ya hay una descarga en curso');
+      throw StateError(AppMessageKeys.downloadInProgress);
     }
 
     final future = _downloadFromUrlLocked(
@@ -128,7 +129,7 @@ class PdfDownloadService {
     _cancelRequested = false;
     final url = PdfUrlUtils.normalizeUrl(rawUrl);
     if (!PdfUrlUtils.isValidHttpUrl(url)) {
-      throw ArgumentError('URL inválida: $rawUrl');
+      throw ArgumentError(AppMessageKeys.invalidUrl);
     }
 
     if (_useFlutterDownloader) {
@@ -184,7 +185,7 @@ class PdfDownloadService {
       final response = await _http.send(request).timeout(
         const Duration(seconds: 45),
         onTimeout: () {
-          throw TimeoutException('Tiempo de espera de conexión agotado');
+          throw TimeoutException(AppMessageKeys.timeout);
         },
       );
 
@@ -196,7 +197,7 @@ class PdfDownloadService {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await _drainQuietly(response.stream);
         throw HttpException(
-          'Descarga fallida (${response.statusCode})',
+          AppMessageKeys.downloadFailed,
           uri: Uri.parse(url),
         );
       }
@@ -211,7 +212,7 @@ class PdfDownloadService {
         const Duration(seconds: 60),
         onTimeout: (eventSink) {
           eventSink.addError(
-            TimeoutException('Tiempo de espera de descarga agotado'),
+            TimeoutException(AppMessageKeys.timeout),
           );
           eventSink.close();
         },
@@ -293,14 +294,12 @@ class PdfDownloadService {
       final lengthTrusted =
           encoding.isEmpty || encoding == 'identity' || encoding == 'none';
       if (lengthTrusted && total > 0 && received != total) {
-        throw StateError(
-          'Descarga incompleta ($received de $total bytes)',
-        );
+        throw StateError(AppMessageKeys.incompleteDownload);
       }
       await PdfHeader.assertFile(
         tempFile,
         contentType: contentType,
-        invalidMessage: 'La URL no devolvió un PDF válido',
+        invalidMessage: AppMessageKeys.invalidPdf,
       );
       onProgress?.call(1);
       _throwIfCancelled();
@@ -355,7 +354,7 @@ class PdfDownloadService {
     );
 
     if (taskId == null) {
-      throw StateError('No se pudo encolar la descarga nativa');
+      throw StateError(AppMessageKeys.nativeDownloadFailed);
     }
 
     final expectedPath = p.join(tempDir.path, stagingName);
@@ -439,10 +438,10 @@ class PdfDownloadService {
             return resolved;
           }
           if (await File(expectedPath).exists()) return expectedPath;
-          throw StateError('Descarga completa pero el archivo no existe');
+          throw StateError(AppMessageKeys.nativeDownloadFailed);
         }
         if (task.status == DownloadTaskStatus.failed) {
-          throw StateError('Descarga nativa fallida');
+          throw StateError(AppMessageKeys.nativeDownloadFailed);
         }
         if (task.status == DownloadTaskStatus.canceled) {
           throw const DownloadCancelledException();
@@ -452,7 +451,7 @@ class PdfDownloadService {
       await Future<void>.delayed(const Duration(milliseconds: 300));
     }
 
-    throw TimeoutException('Tiempo de espera de descarga agotado');
+    throw TimeoutException(AppMessageKeys.timeout);
   }
 
   /// Resuelve la ruta nativa solo si queda dentro de [task.savedDir].

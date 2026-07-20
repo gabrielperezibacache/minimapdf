@@ -335,7 +335,7 @@ class DocumentSigningProvider extends ChangeNotifier {
       requestedName.isNotEmpty ? requestedName : draft.signerName,
     );
     if (name.isEmpty) {
-      throw StateError('Nombre de plantilla vacío.');
+      throw StateError(AppMessageKeys.indicateTemplateName);
     }
 
     final template = SignatureTemplate(

@@ -171,13 +171,7 @@ class LibraryProvider extends ChangeNotifier {
       }
       return book;
     } catch (e) {
-      if (e is FormatException) {
-        _error = e.message;
-      } else if (e is StateError) {
-        _error = e.message;
-      } else {
-        _error = AppMessageKeys.importPdfFailed;
-      }
+      _error = _mapImportError(e);
       if (kDebugMode) {
         debugPrint('LibraryProvider.importPdf: $e');
       }
@@ -219,13 +213,7 @@ class LibraryProvider extends ChangeNotifier {
       await _deleteExternalCacheCopy(source);
       return book;
     } catch (e) {
-      if (e is FormatException) {
-        _error = e.message;
-      } else if (e is StateError) {
-        _error = e.message;
-      } else {
-        _error = AppMessageKeys.importPdfFailed;
-      }
+      _error = _mapImportError(e);
       if (kDebugMode) {
         debugPrint('LibraryProvider.importExternalFile: $e');
       }
@@ -234,6 +222,16 @@ class LibraryProvider extends ChangeNotifier {
       _importing = false;
       _safeNotify();
     }
+  }
+
+  String _mapImportError(Object e) {
+    if (e is FormatException && AppMessageKeys.isKnown(e.message)) {
+      return e.message;
+    }
+    if (e is StateError && AppMessageKeys.isKnown(e.message)) {
+      return e.message;
+    }
+    return AppMessageKeys.importPdfFailed;
   }
 
   /// Quita el prefijo `external_<id>_` que añaden Android/iOS al copiar.

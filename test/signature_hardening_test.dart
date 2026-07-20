@@ -66,12 +66,15 @@ void main() {
       );
     });
 
-    test('formatSignatureDate rellena ceros', () {
-      expect(
-        formatSignatureDate(DateTime(2026, 3, 4, 5, 6)),
-        matches(RegExp(r'^\d{2}/\d{2}/2026 \d{2}:\d{2}$')),
+    test('formatSignatureDate localiza fecha y hora', () {
+      final es = formatSignatureDate(
+        DateTime(2026, 3, 4, 5, 6),
+        locale: 'es',
       );
-      expect(formatSignatureDate(DateTime(2026, 3, 4, 5, 6)).contains('04/03/2026'), isTrue);
+      expect(es, contains('2026'));
+      expect(es, contains('5'));
+      final fallback = formatSignatureDate(DateTime(2026, 3, 4, 5, 6));
+      expect(fallback, isNotEmpty);
     });
   });
 

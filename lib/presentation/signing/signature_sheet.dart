@@ -280,7 +280,7 @@ class _SignatureFormState extends State<_SignatureForm> {
             DropdownButtonFormField<SignatureRole>(
               key: ValueKey(_role),
               initialValue: _role,
-              decoration: const InputDecoration(labelText: 'Rol'),
+              decoration: InputDecoration(labelText: l10n.signatureRoleLabel),
               items: [
                 for (final role in SignatureRole.values)
                   DropdownMenuItem(

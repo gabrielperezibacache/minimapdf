@@ -58,4 +58,96 @@ abstract final class AppMessageKeys {
   static const errorTypedSignatureTooLong = 'errorTypedSignatureTooLong';
   static const errorDrawSignatureEmpty = 'errorDrawSignatureEmpty';
   static const errorInvalidSignDocument = 'errorInvalidSignDocument';
+
+  // Import / descarga (códigos estables; nunca texto localizado en excepciones).
+  static const signatureRoleLabel = 'signatureRoleLabel';
+  static const invalidPdf = 'invalidPdf';
+  static const emptyPdf = 'emptyPdf';
+  static const truncatedPdf = 'truncatedPdf';
+  static const fileAccessFailed = 'fileAccessFailed';
+  static const fileMissing = 'fileMissing';
+  static const incompleteCopy = 'incompleteCopy';
+  static const incompleteDownload = 'incompleteDownload';
+
+  /// Fallos de importación externa que no merecen reintento automático.
+  static bool isPermanentImportFailure(String? key) {
+    return key == invalidPdf ||
+        key == emptyPdf ||
+        key == truncatedPdf ||
+        key == fileMissing ||
+        key == fileAccessFailed;
+  }
+
+  /// True si [value] es una clave conocida (no texto libre).
+  static bool isKnown(String? value) {
+    if (value == null || value.isEmpty) return false;
+    return _known.contains(value);
+  }
+
+  static const Set<String> _known = {
+    libraryLoadFailed,
+    importPdfFailed,
+    metadataSaveFailed,
+    collectionCreateFailed,
+    collectionRenameFailed,
+    collectionDeleteFailed,
+    collectionNameExists,
+    deletePdfFailed,
+    invalidUrl,
+    downloading,
+    savedToLibrary,
+    downloadFailed,
+    noPdfLink,
+    timeout,
+    noNetwork,
+    connectionFailed,
+    downloadInProgress,
+    nativeDownloadFailed,
+    downloadCancelled,
+    multiplePdfsDetected,
+    waitForExport,
+    waitForSignaturesLoad,
+    waitForSigning,
+    signDocumentFailed,
+    exportSignedFailed,
+    deleteSignatureFailed,
+    signaturesLoadFailed,
+    signatureSaveFailed,
+    templateDeleteFailed,
+    signatureMoveFailed,
+    needSignature,
+    cancelPlacement,
+    exportInProgress,
+    documentUnavailable,
+    documentUnavailableSign,
+    signatureBusy,
+    templatePartial,
+    templatesLoadFailed,
+    annotationsLoadFailed,
+    bookmarkRemoveFailed,
+    bookmarkCreateFailed,
+    noteSaveFailed,
+    bookmarkDeleteFailed,
+    annotationSaveFailed,
+    annotationUpdateFailed,
+    annotationDeleteFailed,
+    annotationGeometryInvalid,
+    indicateTemplateName,
+    errorInvalidSignPage,
+    errorSignerNameRequired,
+    errorSignerNameTooLong,
+    errorReasonTooLong,
+    errorTypedSignatureEmpty,
+    errorTypedSignatureTooLong,
+    errorDrawSignatureEmpty,
+    errorInvalidSignDocument,
+    signatureRoleLabel,
+    invalidPdf,
+    emptyPdf,
+    truncatedPdf,
+    fileAccessFailed,
+    fileMissing,
+    incompleteCopy,
+    incompleteDownload,
+  };
 }

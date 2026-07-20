@@ -10,6 +10,7 @@ import '../../core/theme/app_theme_option.dart';
 import '../../data/models/book.dart';
 import '../../data/models/collection.dart';
 import '../../l10n/app_localizations.dart';
+import '../../l10n/app_message_keys.dart';
 import '../../services/external_pdf_open_service.dart';
 import '../downloader/downloader_screen.dart';
 import '../providers/downloader_provider.dart';
@@ -148,14 +149,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   bool _isPermanentExternalImportFailure(String? error) {
-    if (error == null) return false;
-    final lower = error.toLowerCase();
-    return lower.contains('no es un pdf') ||
-        lower.contains('pdf vacío') ||
-        lower.contains('pdf incompleto') ||
-        lower.contains('truncado') ||
-        lower.contains('not a valid pdf') ||
-        lower.contains('empty pdf');
+    return AppMessageKeys.isPermanentImportFailure(error);
   }
 
   void _deleteExternalCacheQuietly(String path) {

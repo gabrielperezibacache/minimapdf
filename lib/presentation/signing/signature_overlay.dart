@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -243,7 +244,10 @@ class SignatureOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
-    final dateLabel = formatSignatureDate(signature.signedAt);
+    final dateLabel = formatSignatureDate(
+      signature.signedAt,
+      locale: Localizations.localeOf(context).toString(),
+    );
     final canDrag = onDragUpdate != null && onDragEnd != null;
     final scale = width / SignatureStampGeometry.referenceStampWidth;
     final height = width * SignatureStampGeometry.heightOverWidth;
@@ -366,12 +370,17 @@ class SignatureOverlay extends StatelessWidget {
   }
 }
 
-String formatSignatureDate(DateTime value) {
+/// Fecha/hora de firma localizada (fallback numérico estable).
+String formatSignatureDate(DateTime value, {String? locale}) {
   final local = value.toLocal();
-  final dd = local.day.toString().padLeft(2, '0');
-  final mm = local.month.toString().padLeft(2, '0');
-  final yyyy = local.year.toString();
-  final hh = local.hour.toString().padLeft(2, '0');
-  final min = local.minute.toString().padLeft(2, '0');
-  return '$dd/$mm/$yyyy $hh:$min';
+  try {
+    return DateFormat.yMd(locale).add_Hm().format(local);
+  } catch (_) {
+    final dd = local.day.toString().padLeft(2, '0');
+    final mm = local.month.toString().padLeft(2, '0');
+    final yyyy = local.year.toString();
+    final hh = local.hour.toString().padLeft(2, '0');
+    final min = local.minute.toString().padLeft(2, '0');
+    return '$dd/$mm/$yyyy $hh:$min';
+  }
 }
