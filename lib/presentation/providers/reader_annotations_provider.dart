@@ -536,6 +536,12 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
         (color.b * 255).round();
   }
 
+  void clearError() {
+    if (_error == null) return;
+    _error = null;
+    _safeNotify();
+  }
+
   @override
   void dispose() {
     _disposed = true;

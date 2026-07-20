@@ -354,6 +354,7 @@ class AppLocalizations {
   String get fileMissing => _t('fileMissing');
   String get incompleteCopy => _t('incompleteCopy');
   String get incompleteDownload => _t('incompleteDownload');
+  String get unexpectedError => _t('unexpectedError');
 
   /// Resuelve mensajes emitidos por providers.
   String message(String key, {String? arg}) {
@@ -423,7 +424,8 @@ class AppLocalizations {
       AppMessageKeys.fileMissing => fileMissing,
       AppMessageKeys.incompleteCopy => incompleteCopy,
       AppMessageKeys.incompleteDownload => incompleteDownload,
-      _ => key,
+      AppMessageKeys.unexpectedError => unexpectedError,
+      _ => unexpectedError,
     };
   }
 }
@@ -495,6 +497,7 @@ const Map<String, Map<String, String>> _strings = {
     'fileMissing': 'El archivo seleccionado no existe.',
     'incompleteCopy': 'Copia incompleta del PDF.',
     'incompleteDownload': 'Descarga incompleta.',
+    'unexpectedError': 'Ha ocurrido un error. Inténtalo de nuevo.',
     'showControls': 'Mostrar controles',
     'hideControls': 'Ocultar controles',
     'menuToc': 'Menú / índice',
@@ -753,6 +756,7 @@ const Map<String, Map<String, String>> _strings = {
     'fileMissing': 'The selected file does not exist.',
     'incompleteCopy': 'Incomplete PDF copy.',
     'incompleteDownload': 'Incomplete download.',
+    'unexpectedError': 'Something went wrong. Please try again.',
     'showControls': 'Show controls',
     'hideControls': 'Hide controls',
     'menuToc': 'Menu / table of contents',
@@ -1010,6 +1014,7 @@ const Map<String, Map<String, String>> _strings = {
     'fileMissing': 'O ficheiro selecionado não existe.',
     'incompleteCopy': 'Cópia incompleta do PDF.',
     'incompleteDownload': 'Transferência incompleta.',
+    'unexpectedError': 'Ocorreu um erro. Tente novamente.',
     'showControls': 'Mostrar controlos',
     'hideControls': 'Ocultar controlos',
     'menuToc': 'Menu / índice',
@@ -1268,6 +1273,7 @@ const Map<String, Map<String, String>> _strings = {
     'fileMissing': 'Le fichier sélectionné n’existe pas.',
     'incompleteCopy': 'Copie PDF incomplète.',
     'incompleteDownload': 'Téléchargement incomplet.',
+    'unexpectedError': 'Une erreur s’est produite. Réessayez.',
     'showControls': 'Afficher les commandes',
     'hideControls': 'Masquer les commandes',
     'menuToc': 'Menu / table des matières',
@@ -1528,6 +1534,7 @@ const Map<String, Map<String, String>> _strings = {
     'fileMissing': 'Die ausgewählte Datei existiert nicht.',
     'incompleteCopy': 'Unvollständige PDF-Kopie.',
     'incompleteDownload': 'Unvollständiger Download.',
+    'unexpectedError': 'Etwas ist schiefgelaufen. Bitte erneut versuchen.',
     'showControls': 'Steuerung anzeigen',
     'hideControls': 'Steuerung ausblenden',
     'menuToc': 'Menü / Inhaltsverzeichnis',
@@ -1786,6 +1793,7 @@ const Map<String, Map<String, String>> _strings = {
     'fileMissing': '所选文件不存在。',
     'incompleteCopy': 'PDF 复制不完整。',
     'incompleteDownload': '下载不完整。',
+    'unexpectedError': '出现错误。请重试。',
     'showControls': '显示控件',
     'hideControls': '隐藏控件',
     'menuToc': '菜单 / 目录',
@@ -2041,6 +2049,7 @@ const Map<String, Map<String, String>> _strings = {
     'fileMissing': 'Выбранный файл не существует.',
     'incompleteCopy': 'Неполное копирование PDF.',
     'incompleteDownload': 'Неполная загрузка.',
+    'unexpectedError': 'Произошла ошибка. Попробуйте снова.',
     'showControls': 'Показать элементы управления',
     'hideControls': 'Скрыть элементы управления',
     'menuToc': 'Меню / оглавление',

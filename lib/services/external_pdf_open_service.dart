@@ -37,7 +37,7 @@ class ExternalPdfOpenService extends ChangeNotifier {
   String? takeNext() {
     if (_queue.isEmpty) return null;
     final next = _queue.removeFirst();
-    notifyListeners();
+    if (!_disposed) notifyListeners();
     return next;
   }
 

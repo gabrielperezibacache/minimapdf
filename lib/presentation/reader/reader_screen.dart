@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdfx/pdfx.dart';
@@ -111,18 +112,63 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (_annotations == null) {
       final annotations = ReaderAnnotationsProvider(datasource);
       _annotations = annotations;
-      if (bookId != null) {
-        annotations.loadForBook(bookId);
-      }
       annotations.addListener(_onAnnotationsChanged);
+      if (bookId != null) {
+        unawaited(_loadAnnotations(annotations, bookId));
+      }
     }
 
     if (_signing == null) {
       final signing = DocumentSigningProvider(datasource);
       _signing = signing;
-      signing.loadForBook(widget.book);
       signing.addListener(_onSigningChanged);
+      unawaited(_loadSigning(signing));
     }
+  }
+
+  Future<void> _loadAnnotations(
+    ReaderAnnotationsProvider annotations,
+    int bookId,
+  ) async {
+    await annotations.loadForBook(bookId);
+    if (!mounted || !identical(_annotations, annotations)) return;
+    final error = annotations.error;
+    if (error == null) return;
+    final l10n = AppLocalizations.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_msg(error)),
+        action: SnackBarAction(
+          label: l10n.retry,
+          onPressed: () {
+            annotations.clearError();
+            unawaited(_loadAnnotations(annotations, bookId));
+          },
+        ),
+      ),
+    );
+    annotations.clearError();
+  }
+
+  Future<void> _loadSigning(DocumentSigningProvider signing) async {
+    await signing.loadForBook(widget.book);
+    if (!mounted || !identical(_signing, signing)) return;
+    final error = signing.error;
+    if (error == null) return;
+    final l10n = AppLocalizations.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_msg(error)),
+        action: SnackBarAction(
+          label: l10n.retry,
+          onPressed: () {
+            signing.clearError();
+            unawaited(_loadSigning(signing));
+          },
+        ),
+      ),
+    );
+    signing.clearError();
   }
 
   void _onAnnotationsChanged() {
@@ -156,7 +202,13 @@ class _ReaderScreenState extends State<ReaderScreen>
     final document = _openedDocument;
     _openedDocument = null;
     if (document != null && !document.isClosed) {
-      unawaited(document.close());
+      unawaited(() async {
+        try {
+          await document.close();
+        } catch (_) {
+          // Best-effort al salir del lector.
+        }
+      }());
     } else {
       // Carga aún pendiente o fallida: cierra al resolver el Future.
       unawaited(_closeDocumentWhenReady(_documentFuture));
@@ -1048,7 +1100,12 @@ class _ReaderScreenState extends State<ReaderScreen>
       },
       onDocumentError: (error) {
         if (!mounted) return;
-        setState(() => _error = l10n.openPdfError('$error'));
+        // En producción no filtramos el detalle técnico del motor PDF.
+        final detail = kDebugMode ? '$error' : '';
+        final message = detail.isEmpty
+            ? l10n.openPdfError('').split('\n').first
+            : l10n.openPdfError(detail);
+        setState(() => _error = message);
       },
       builders: PdfViewBuilders<DefaultBuilderOptions>(
         options: const DefaultBuilderOptions(),
@@ -1101,11 +1158,22 @@ class _ReaderScreenState extends State<ReaderScreen>
                   !(signing?.saving ?? false) &&
                   !(signing?.loading ?? false),
               onMove: (signature, x, y) async {
+                final messenger = ScaffoldMessenger.of(context);
+                final l10n = AppLocalizations.of(context);
                 final moved = await _signing?.moveSignature(
                   signature: signature,
                   offsetX: x,
                   offsetY: y,
                 );
+                if (!(moved ?? false) && mounted) {
+                  final error = _signing?.error;
+                  if (error != null) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text(l10n.message(error))),
+                    );
+                    _signing?.clearError();
+                  }
+                }
                 return moved ?? false;
               },
               onDelete: _confirmDeleteSignature,
