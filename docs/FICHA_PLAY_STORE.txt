@@ -1,6 +1,6 @@
 FICHA PREDETERMINADA — GOOGLE PLAY STORE
 Minimal PDF
-Paquete Android: com.minimalpdf.minimal_pdf
+Paquete Android: apps.perezibacache.minimalpdf
 Idioma predeterminado sugerido: Español (es-ES / es-419)
 Versión de textos: 1.0.0 (19 de julio de 2026)
 Desarrollador: Gabriel Simón Pérez Ibacache

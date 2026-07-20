@@ -1,4 +1,4 @@
-package com.minimalpdf.minimal_pdf
+package apps.perezibacache.minimalpdf
 
 import android.content.Intent
 import android.net.Uri

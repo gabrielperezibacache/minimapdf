@@ -1,6 +1,6 @@
 POLÍTICA DE PRIVACIDAD
 Minimal PDF
-Aplicación: Minimal PDF (paquete Android: com.minimalpdf.minimal_pdf)
+Aplicación: Minimal PDF (paquete Android: apps.perezibacache.minimalpdf)
 Fecha de entrada en vigor: 19 de julio de 2026
 Última actualización: 19 de julio de 2026
 
@@ -184,7 +184,7 @@ Si tiene preguntas sobre esta Política de Privacidad o sobre el tratamiento de 
 Desarrollador: Gabriel Simón Pérez Ibacache
 Correo: gabrielperezibacache@gmail.com
 Aplicación: Minimal PDF
-Paquete Android: com.minimalpdf.minimal_pdf
+Paquete Android: apps.perezibacache.minimalpdf
 
 
 16. DECLARACIÓN PARA GOOGLE PLAY
