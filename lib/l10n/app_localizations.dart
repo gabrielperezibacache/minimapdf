@@ -324,6 +324,7 @@ class AppLocalizations {
   String get browserUnavailable => _t('browserUnavailable');
   String get browserBack => _t('browserBack');
   String get browserForward => _t('browserForward');
+  String get browserHome => _t('browserHome');
   String get browserReload => _t('browserReload');
   String get browserUrlHint => _t('browserUrlHint');
   String get privateBrowser => _t('privateBrowser');
@@ -534,6 +535,7 @@ const Map<String, Map<String, String>> _strings = {
         'El mini-navegador está disponible en Android e iOS.\nEn escritorio puedes usar la URL directa de arriba.',
     'browserBack': 'Atrás',
     'browserForward': 'Adelante',
+    'browserHome': 'Inicio',
     'browserReload': 'Recargar',
     'browserUrlHint': 'Buscar o abrir URL',
     'privateBrowser': 'Mini-navegador privado · sin telemetría',
@@ -795,6 +797,7 @@ const Map<String, Map<String, String>> _strings = {
         'The mini-browser is available on Android and iOS.\nOn desktop you can use the direct URL above.',
     'browserBack': 'Back',
     'browserForward': 'Forward',
+    'browserHome': 'Home',
     'browserReload': 'Reload',
     'browserUrlHint': 'Search or open URL',
     'privateBrowser': 'Private mini-browser · no telemetry',
@@ -1055,6 +1058,7 @@ const Map<String, Map<String, String>> _strings = {
         'O mini-navegador está disponível no Android e iOS.\nNo computador pode usar a URL direta acima.',
     'browserBack': 'Voltar',
     'browserForward': 'Avançar',
+    'browserHome': 'Início',
     'browserReload': 'Recarregar',
     'browserUrlHint': 'Pesquisar ou abrir URL',
     'privateBrowser': 'Mini-navegador privado · sem telemetria',
@@ -1314,6 +1318,7 @@ const Map<String, Map<String, String>> _strings = {
         'Le mini-navigateur est disponible sur Android et iOS.\nSur ordinateur, utilisez l’URL directe ci-dessus.',
     'browserBack': 'Retour',
     'browserForward': 'Avant',
+    'browserHome': 'Accueil',
     'browserReload': 'Recharger',
     'browserUrlHint': 'Rechercher ou ouvrir une URL',
     'privateBrowser': 'Mini-navigateur privé · sans télémétrie',
@@ -1575,6 +1580,7 @@ const Map<String, Map<String, String>> _strings = {
         'Der Mini-Browser ist unter Android und iOS verfügbar.\nAuf dem Desktop können Sie die direkte URL oben verwenden.',
     'browserBack': 'Zurück',
     'browserForward': 'Vorwärts',
+    'browserHome': 'Startseite',
     'browserReload': 'Neu laden',
     'browserUrlHint': 'Suchen oder URL öffnen',
     'privateBrowser': 'Privater Mini-Browser · ohne Telemetrie',
@@ -1832,6 +1838,7 @@ const Map<String, Map<String, String>> _strings = {
     'browserUnavailable': '迷你浏览器仅在 Android 和 iOS 上可用。\n在桌面端请使用上方的直链。',
     'browserBack': '后退',
     'browserForward': '前进',
+    'browserHome': '主页',
     'browserReload': '刷新',
     'browserUrlHint': '搜索或打开网址',
     'privateBrowser': '私密迷你浏览器 · 无遥测',
@@ -2090,6 +2097,7 @@ const Map<String, Map<String, String>> _strings = {
         'Мини-браузер доступен на Android и iOS.\nНа компьютере используйте прямой URL выше.',
     'browserBack': 'Назад',
     'browserForward': 'Вперёд',
+    'browserHome': 'Домой',
     'browserReload': 'Обновить',
     'browserUrlHint': 'Поиск или открытие URL',
     'privateBrowser': 'Приватный мини-браузер · без телеметрии',

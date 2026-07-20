@@ -78,6 +78,8 @@ void main() {
       expect(en.library, 'Library');
       expect(es.settings, 'Configuración');
       expect(en.settings, 'Settings');
+      expect(es.browserHome, 'Inicio');
+      expect(en.browserHome, 'Home');
     });
 
     test('interpola título al importar', () {
