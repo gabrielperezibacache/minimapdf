@@ -548,10 +548,10 @@ const Map<String, Map<String, String>> _strings = {
     'languageSubtitle': 'Elige el idioma de la interfaz',
     'defaultPdfReader': 'Lector PDF por defecto',
     'defaultPdfReaderSubtitle':
-        'Usa Minimal PDF para abrir PDFs desde el dispositivo u otras apps. El sistema te pedirá confirmar “Siempre”.',
-    'defaultPdfReaderOpenSettings': 'Abrir ajustes del sistema',
+        'Usa Minimal PDF solo para abrir archivos PDF. No se configura como navegador.',
+    'defaultPdfReaderOpenSettings': 'Abrir ajustes de apertura de PDF',
     'defaultPdfReaderHint':
-        'En Android, elige Minimal PDF y toca “Siempre”. En iOS, abre un PDF y selecciona Minimal PDF.',
+        'En Android se abren los ajustes de Minimal PDF (“Abrir de forma predeterminada” o info de la app). Activa los PDF o, al abrir un archivo, elige Minimal PDF y “Siempre”.',
     'defaultPdfReaderOpenFailed':
         'No se pudieron abrir los ajustes del sistema.',
     'searchHint': 'Buscar por título, autor o etiqueta',
@@ -807,10 +807,10 @@ const Map<String, Map<String, String>> _strings = {
     'languageSubtitle': 'Choose the interface language',
     'defaultPdfReader': 'Default PDF reader',
     'defaultPdfReaderSubtitle':
-        'Use Minimal PDF to open PDFs from this device or other apps. The system will ask you to confirm “Always”.',
-    'defaultPdfReaderOpenSettings': 'Open system settings',
+        'Use Minimal PDF only to open PDF files. It is not set as a browser.',
+    'defaultPdfReaderOpenSettings': 'Open PDF open-by-default settings',
     'defaultPdfReaderHint':
-        'On Android, choose Minimal PDF and tap “Always”. On iOS, open a PDF and select Minimal PDF.',
+        'On Android this opens Minimal PDF settings (“Open by default” or app info). Enable PDFs, or when opening a file choose Minimal PDF and “Always”.',
     'defaultPdfReaderOpenFailed': 'Could not open system settings.',
     'searchHint': 'Search by title, author or tag',
     'clearSearch': 'Clear search',
@@ -1065,10 +1065,10 @@ const Map<String, Map<String, String>> _strings = {
     'languageSubtitle': 'Escolha o idioma da interface',
     'defaultPdfReader': 'Leitor PDF padrão',
     'defaultPdfReaderSubtitle':
-        'Use o Minimal PDF para abrir PDFs deste dispositivo ou de outros apps. O sistema pedirá para confirmar “Sempre”.',
-    'defaultPdfReaderOpenSettings': 'Abrir definições do sistema',
+        'Use o Minimal PDF apenas para abrir ficheiros PDF. Não é configurado como navegador.',
+    'defaultPdfReaderOpenSettings': 'Abrir definições de abertura de PDF',
     'defaultPdfReaderHint':
-        'No Android, escolha Minimal PDF e toque em “Sempre”. No iOS, abra um PDF e selecione Minimal PDF.',
+        'No Android abrem-se as definições do Minimal PDF (“Abrir por predefinição” ou info da app). Ative os PDF ou, ao abrir um ficheiro, escolha Minimal PDF e “Sempre”.',
     'defaultPdfReaderOpenFailed':
         'Não foi possível abrir as definições do sistema.',
     'searchHint': 'Pesquisar por título, autor ou etiqueta',
@@ -1324,10 +1324,10 @@ const Map<String, Map<String, String>> _strings = {
     'languageSubtitle': 'Choisissez la langue de l’interface',
     'defaultPdfReader': 'Lecteur PDF par défaut',
     'defaultPdfReaderSubtitle':
-        'Utilisez Minimal PDF pour ouvrir des PDF depuis l’appareil ou d’autres apps. Le système demandera de confirmer « Toujours ».',
-    'defaultPdfReaderOpenSettings': 'Ouvrir les réglages système',
+        'Utilisez Minimal PDF uniquement pour ouvrir des fichiers PDF. Ce n’est pas un navigateur par défaut.',
+    'defaultPdfReaderOpenSettings': 'Ouvrir les réglages d’ouverture PDF',
     'defaultPdfReaderHint':
-        'Sous Android, choisissez Minimal PDF et touchez « Toujours ». Sous iOS, ouvrez un PDF et sélectionnez Minimal PDF.',
+        'Sous Android, les réglages de Minimal PDF s’ouvrent (« Ouvrir par défaut » ou infos de l’app). Autorisez les PDF ou, à l’ouverture d’un fichier, choisissez Minimal PDF et « Toujours ».',
     'defaultPdfReaderOpenFailed':
         'Impossible d’ouvrir les réglages système.',
     'searchHint': 'Rechercher par titre, auteur ou étiquette',
@@ -1585,10 +1585,10 @@ const Map<String, Map<String, String>> _strings = {
     'languageSubtitle': 'Wählen Sie die Sprache der Oberfläche',
     'defaultPdfReader': 'Standard-PDF-Reader',
     'defaultPdfReaderSubtitle':
-        'Minimal PDF zum Öffnen von PDFs vom Gerät oder aus anderen Apps verwenden. Das System fragt nach „Immer“.',
-    'defaultPdfReaderOpenSettings': 'Systemeinstellungen öffnen',
+        'Minimal PDF nur zum Öffnen von PDF-Dateien verwenden. Nicht als Browser einrichten.',
+    'defaultPdfReaderOpenSettings': 'PDF-Öffnen-Einstellungen öffnen',
     'defaultPdfReaderHint':
-        'Unter Android Minimal PDF wählen und „Immer“ tippen. Unter iOS ein PDF öffnen und Minimal PDF auswählen.',
+        'Unter Android öffnen sich die Einstellungen von Minimal PDF („Standardmäßig öffnen“ oder App-Info). PDFs aktivieren oder beim Öffnen Minimal PDF und „Immer“ wählen.',
     'defaultPdfReaderOpenFailed':
         'Systemeinstellungen konnten nicht geöffnet werden.',
     'searchHint': 'Nach Titel, Autor oder Tag suchen',
@@ -1842,10 +1842,10 @@ const Map<String, Map<String, String>> _strings = {
     'languageSubtitle': '选择界面语言',
     'defaultPdfReader': '默认 PDF 阅读器',
     'defaultPdfReaderSubtitle':
-        '用 Minimal PDF 打开本机或其他应用中的 PDF。系统会要求确认“始终”。',
-    'defaultPdfReaderOpenSettings': '打开系统设置',
+        '仅用 Minimal PDF 打开 PDF 文件，不会设为默认浏览器。',
+    'defaultPdfReaderOpenSettings': '打开 PDF 默认打开设置',
     'defaultPdfReaderHint':
-        '在 Android 上选择 Minimal PDF 并点“始终”。在 iOS 上打开 PDF 并选择 Minimal PDF。',
+        '在 Android 上会打开 Minimal PDF 的设置（“默认打开”或应用信息）。允许 PDF，或在打开文件时选择 Minimal PDF 并点“始终”。',
     'defaultPdfReaderOpenFailed': '无法打开系统设置。',
     'searchHint': '按标题、作者或标签搜索',
     'clearSearch': '清除搜索',
@@ -2100,10 +2100,10 @@ const Map<String, Map<String, String>> _strings = {
     'languageSubtitle': 'Выберите язык интерфейса',
     'defaultPdfReader': 'Программа PDF по умолчанию',
     'defaultPdfReaderSubtitle':
-        'Открывайте PDF через Minimal PDF с устройства или из других приложений. Система попросит подтвердить «Всегда».',
-    'defaultPdfReaderOpenSettings': 'Открыть системные настройки',
+        'Используйте Minimal PDF только для открытия PDF. Это не браузер по умолчанию.',
+    'defaultPdfReaderOpenSettings': 'Открыть настройки открытия PDF',
     'defaultPdfReaderHint':
-        'В Android выберите Minimal PDF и нажмите «Всегда». В iOS откройте PDF и выберите Minimal PDF.',
+        'В Android откроются настройки Minimal PDF («Открывать по умолчанию» или сведения о приложении). Разрешите PDF или при открытии файла выберите Minimal PDF и «Всегда».',
     'defaultPdfReaderOpenFailed':
         'Не удалось открыть системные настройки.',
     'searchHint': 'Поиск по названию, автору или тегу',

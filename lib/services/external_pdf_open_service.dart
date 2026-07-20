@@ -124,8 +124,9 @@ class ExternalPdfOpenService extends ChangeNotifier {
     _safeNotify();
   }
 
-  /// Opens the system screen where the user can set Minimal PDF as the
-  /// default handler for PDFs (Android) or app details (iOS).
+  /// Opens this app's system settings so the user can allow opening PDFs
+  /// (Android 12+ "Open by default", otherwise app details). Never opens the
+  /// global default-apps screen (browser / phone / SMS).
   Future<bool> openDefaultAppsSettings() async {
     try {
       final result = await _methodChannel.invokeMethod<bool>(
