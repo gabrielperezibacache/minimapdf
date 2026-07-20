@@ -15,8 +15,8 @@ import java.io.FileOutputStream
 import java.util.UUID
 
 /**
- * Recibe ACTION_VIEW / ACTION_SEND de PDFs y expone ajustes del sistema
- * para elegir Minimal PDF como lector por defecto.
+ * Recibe ACTION_VIEW / ACTION_SEND de PDFs y expone ajustes de *esta* app
+ * para asociar la apertura de PDF (nunca la pantalla de navegador por defecto).
  */
 class MainActivity : FlutterActivity() {
   private val channelName = "minimal_pdf/external_open"
@@ -239,8 +239,14 @@ class MainActivity : FlutterActivity() {
     }
   }
 
+  /**
+   * Abre ajustes de *esta* app para asociar PDFs.
+   *
+   * No usamos [Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS]: esa pantalla
+   * es para Navegador / Teléfono / SMS / etc., no para el lector PDF.
+   */
   private fun openDefaultAppsSettings(): Boolean {
-    // Android 12+: pantalla "Abrir de forma predeterminada" de esta app.
+    // Android 12+: "Abrir de forma predeterminada" de Minimal PDF.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       try {
         startActivity(
@@ -250,23 +256,19 @@ class MainActivity : FlutterActivity() {
         )
         return true
       } catch (_: Exception) {
-        // Fallback abajo.
+        // Fallback a ficha de la app.
       }
     }
 
     return try {
-      startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
+      startActivity(
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+          data = Uri.parse("package:$packageName")
+        },
+      )
       true
     } catch (_: Exception) {
-      try {
-        val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-          data = Uri.parse("package:$packageName")
-        }
-        startActivity(details)
-        true
-      } catch (_: Exception) {
-        false
-      }
+      false
     }
   }
 }
