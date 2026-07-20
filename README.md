@@ -11,6 +11,7 @@ Estética **Ébano** · Pago único · Sin IA · Sin analíticas · Privacidad a
 - [Ficha de Play Store](docs/FICHA_PLAY_STORE.txt) — nombre, descripciones y checklist para la ficha predeterminada.
 - [Gráfico de funciones](docs/store/feature_graphic.png) — asset 1024×500 para Google Play.
 - [Ícono de la app](docs/store/icon.png) — asset 512×512 para Google Play (también aplicado en Android e iOS).
+- [Capturas de pantalla](docs/store/screenshots/) — teléfono, tablet 7" y tablet 10" para la ficha de Play Store.
 
 ## Stack
 

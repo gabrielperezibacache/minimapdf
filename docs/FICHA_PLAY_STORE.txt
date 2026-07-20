@@ -149,17 +149,36 @@ Estos archivos no se generan en este documento; prepare y suba en Console:
     Paleta Ébano (#0F1714 / #C89A5A / #F3ECDD), composición limpia sin marco decorativo
     Subir en Play Console → Presencia en Google Play → Gráfico de funciones
 
-[ ] Capturas de teléfono (mínimo 2; recomendado 4–8)
-    Resoluciones habituales: 1080 × 1920 o superior
-    Sugerencia de secuencia:
-      1. Biblioteca (rejilla de PDFs, estética Ébano)
-      2. Lector con filtro Ébano / tema oscuro
-      3. Marcadores o notas / panel lateral
-      4. Descargas o mini-navegador
-      5. Firma electrónica local
-      6. Ajustes (idioma / apariencia)
+[x] Capturas de teléfono (6 capturas, 1080 × 1920 px, PNG, ratio 9:16)
+    Carpeta: docs/store/screenshots/phone/
+      01_bienvenida_privacidad.png   — Onboarding: Privacidad de verdad
+      02_bienvenida_biblioteca.png   — Onboarding: Biblioteca local
+      03_bienvenida_lector_ebano.png — Onboarding: Lector Ébano
+      04_biblioteca.png              — Biblioteca (rejilla de PDFs)
+      05_configuracion_idiomas.png   — Ajustes: selector de idioma
+      06_nueva_coleccion.png         — Biblioteca: crear colección
+    Subir en Play Console → Presencia en Google Play → Capturas de teléfono
 
-[ ] Capturas de tablet (recomendado si soporta tablets)
+[x] Capturas de tablet de 7" (2 capturas, 1350 × 2400 px, PNG, ratio 9:16)
+    Carpeta: docs/store/screenshots/tablet_7/
+      01_biblioteca.png    — Biblioteca
+      02_configuracion.png — Ajustes: idioma y apariencia
+    Subir en Play Console → Presencia en Google Play → Tablets de 7 pulgadas
+
+[x] Capturas de tablet de 10" (2 capturas, 1620 × 2880 px, PNG, ratio 9:16)
+    Carpeta: docs/store/screenshots/tablet_10/
+      01_biblioteca.png    — Biblioteca
+      02_configuracion.png — Ajustes: idioma y apariencia
+    Subir en Play Console → Presencia en Google Play → Tablets de 10 pulgadas
+
+Nota: estas capturas se generaron ejecutando la app real (build Linux
+desktop de Flutter) con datos de biblioteca de muestra, no son mockups.
+El lector de PDF (pdfx) solo tiene implementación nativa en
+Android/iOS/macOS/Windows/Web, por lo que la vista del lector con una
+página de PDF renderizada no pudo capturarse en este entorno de
+escritorio Linux; considere añadir esa captura desde un dispositivo o
+emulador Android/iOS real antes de publicar.
+
 [ ] Vídeo promocional (opcional)
 
 
