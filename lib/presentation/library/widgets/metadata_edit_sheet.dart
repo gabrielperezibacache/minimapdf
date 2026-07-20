@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/models/book.dart';
 import '../../../data/models/collection.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../widgets/sheet_safe_body.dart';
 
 /// Resultado de la edición local de metadatos.
 class BookMetadataDraft {
@@ -114,14 +115,13 @@ class _MetadataEditFormState extends State<_MetadataEditForm> {
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
     final l10n = AppLocalizations.of(context);
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
+    return SheetSafeBody(
+      padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
         AppSpacing.md,
         AppSpacing.lg,
-        AppSpacing.lg + bottomInset,
+        AppSpacing.lg,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

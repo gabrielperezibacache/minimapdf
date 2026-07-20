@@ -43,7 +43,6 @@ class AnnotationToolbox extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
     final l10n = AppLocalizations.of(context);
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return IgnorePointer(
       ignoring: !visible,
@@ -57,107 +56,123 @@ class AnnotationToolbox extends StatelessWidget {
           child: Material(
             color: colors.panel.withValues(alpha: 0.98),
             elevation: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: AppColors.ebonyAccent.withValues(alpha: 0.45)),
+            child: SafeArea(
+              top: false,
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(
+                      color: AppColors.ebonyAccent.withValues(alpha: 0.45),
+                    ),
+                  ),
                 ),
-              ),
-              padding: EdgeInsets.fromLTRB(12, 10, 8, 10 + bottomInset),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.border_color,
-                        size: 18,
-                        color: AppColors.ebonyAccent,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          pageNumber == null
-                              ? l10n.annotationTools
-                              : l10n.toolsPage(pageNumber!),
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                color: AppColors.ebonyAccent,
-                              ),
+                padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.border_color,
+                          size: 18,
+                          color: AppColors.ebonyAccent,
                         ),
-                      ),
-                      if (annotationCount > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 4),
+                        const SizedBox(width: 8),
+                        Expanded(
                           child: Text(
-                            l10n.annotationsOnPage(annotationCount),
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: colors.textMuted,
+                            pageNumber == null
+                                ? l10n.annotationTools
+                                : l10n.toolsPage(pageNumber!),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(
+                                  color: AppColors.ebonyAccent,
                                 ),
                           ),
                         ),
-                      if (activeTool != AnnotationTool.none && onClearTool != null)
-                        TextButton(
-                          onPressed: () {
-                            HapticFeedback.selectionClick();
-                            onClearTool!();
-                          },
-                          style: TextButton.styleFrom(
-                            foregroundColor: colors.textMuted,
-                            visualDensity: VisualDensity.compact,
+                        if (annotationCount > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: Text(
+                              l10n.annotationsOnPage(annotationCount),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    color: colors.textMuted,
+                                  ),
+                            ),
                           ),
-                          child: Text(l10n.releaseTool),
+                        if (activeTool != AnnotationTool.none &&
+                            onClearTool != null)
+                          TextButton(
+                            onPressed: () {
+                              HapticFeedback.selectionClick();
+                              onClearTool!();
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: colors.textMuted,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            child: Text(l10n.releaseTool),
+                          ),
+                        IconButton(
+                          tooltip: l10n.closeToolbox,
+                          onPressed: onClose,
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(
+                            Icons.close,
+                            color: colors.textMuted,
+                            size: 20,
+                          ),
                         ),
-                      IconButton(
-                        tooltip: l10n.closeToolbox,
-                        onPressed: onClose,
-                        visualDensity: VisualDensity.compact,
-                        icon: Icon(Icons.close, color: colors.textMuted, size: 20),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        if (onToggleBookmark != null) ...[
-                          _ToolChip(
-                            selected: isBookmarked,
-                            label: l10n.bookmarkTool,
-                            icon: isBookmarked
-                                ? Icons.bookmark
-                                : Icons.bookmark_border,
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              onToggleBookmark!();
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        for (final tool in tools) ...[
-                          _ToolChip(
-                            selected: activeTool == tool,
-                            label: tool.label(l10n),
-                            icon: tool.annotationType!.icon,
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              onSelectTool(tool);
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                        ],
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    _hintFor(context, activeTool),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colors.textMuted,
-                        ),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          if (onToggleBookmark != null) ...[
+                            _ToolChip(
+                              selected: isBookmarked,
+                              label: l10n.bookmarkTool,
+                              icon: isBookmarked
+                                  ? Icons.bookmark
+                                  : Icons.bookmark_border,
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                onToggleBookmark!();
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          for (final tool in tools) ...[
+                            _ToolChip(
+                              selected: activeTool == tool,
+                              label: tool.label(l10n),
+                              icon: tool.annotationType!.icon,
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                onSelectTool(tool);
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      _hintFor(context, activeTool),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colors.textMuted,
+                          ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

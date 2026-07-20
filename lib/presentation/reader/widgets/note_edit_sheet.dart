@@ -4,6 +4,7 @@ import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../widgets/sheet_safe_body.dart';
 
 /// Formulario sencillo para nota / comentario / anotación de texto.
 Future<String?> showNoteEditSheet(
@@ -72,14 +73,13 @@ class _NoteEditFormState extends State<_NoteEditForm> {
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
     final l10n = AppLocalizations.of(context);
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
+    return SheetSafeBody(
+      padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
         AppSpacing.md,
         AppSpacing.lg,
-        AppSpacing.lg + bottomInset,
+        AppSpacing.lg,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

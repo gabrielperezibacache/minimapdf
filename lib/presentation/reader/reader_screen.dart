@@ -1393,10 +1393,12 @@ class _ReaderScreenState extends State<ReaderScreen>
       left: 0,
       right: 0,
       bottom: 0,
-      child: Container(
-        color: colors.panel.withValues(alpha: 0.94),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
+      child: SafeArea(
+        top: false,
+        child: Container(
+          color: colors.panel.withValues(alpha: 0.94),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
           children: [
             if (isBookmarked) ...[
               Icon(Icons.bookmark, size: 16, color: colors.accent),
@@ -1449,6 +1451,7 @@ class _ReaderScreenState extends State<ReaderScreen>
               ),
             ],
           ],
+        ),
         ),
       ),
     );

@@ -18,6 +18,7 @@ import '../providers/library_provider.dart';
 import '../providers/theme_provider.dart';
 import '../reader/reader_screen.dart';
 import '../settings/settings_screen.dart';
+import '../widgets/sheet_safe_body.dart';
 import 'widgets/library_book_tile.dart';
 import 'widgets/metadata_edit_sheet.dart';
 
@@ -373,7 +374,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final action = await showModalBottomSheet<_CollectionAction>(
       context: context,
       backgroundColor: colors.panel,
-      builder: (context) => SafeArea(
+      builder: (context) => SheetSafeBody(
+        padding: EdgeInsets.zero,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
