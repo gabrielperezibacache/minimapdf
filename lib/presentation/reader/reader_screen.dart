@@ -1251,6 +1251,16 @@ class _ReaderScreenState extends State<ReaderScreen>
                 size: toolboxVisible ? 24 : 22,
               ),
             ),
+            IconButton(
+              tooltip: l10n.scrollModeTooltip(
+                _scrollMode.localizedLabel(l10n),
+              ),
+              onPressed: _toggleScrollMode,
+              icon: Icon(
+                _scrollMode.isVertical ? Icons.swap_vert : Icons.swap_horiz,
+                color: colors.accent,
+              ),
+            ),
             PopupMenuButton<_ReaderToolAction>(
               tooltip: l10n.options,
               icon: Icon(Icons.more_vert, color: colors.textMuted),
@@ -1262,8 +1272,6 @@ class _ReaderScreenState extends State<ReaderScreen>
                     _editNote();
                   case _ReaderToolAction.ebonyFilter:
                     _toggleFilter();
-                  case _ReaderToolAction.scrollMode:
-                    _toggleScrollMode();
                   case _ReaderToolAction.hideControls:
                     _toggleControls();
                   case _ReaderToolAction.sign:
@@ -1318,18 +1326,6 @@ class _ReaderScreenState extends State<ReaderScreen>
                           ? l10n.filterEbonyOff
                           : l10n.filterEbonyOn,
                       color: _ebonyFilter ? colors.accent : colors.textMuted,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: _ReaderToolAction.scrollMode,
-                    child: _ReaderToolMenuRow(
-                      icon: _scrollMode.isVertical
-                          ? Icons.swap_vert
-                          : Icons.swap_horiz,
-                      label: l10n.scrollModeTooltip(
-                        _scrollMode.localizedLabel(l10n),
-                      ),
-                      color: colors.accent,
                     ),
                   ),
                   PopupMenuItem(
@@ -1454,7 +1450,6 @@ enum _ReaderToolAction {
   bookmark,
   note,
   ebonyFilter,
-  scrollMode,
   hideControls,
   sign,
   export,
