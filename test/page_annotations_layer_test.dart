@@ -13,6 +13,7 @@ void main() {
     var created = false;
     var gotX = -1.0;
     var gotY = -1.0;
+    AnnotationTool? gotTool;
 
     await tester.pumpWidget(
       l10nTestApp(
@@ -27,12 +28,14 @@ void main() {
                 activeTool: AnnotationTool.note,
                 enabled: true,
                 onCreateRect: ({
+                  required tool,
                   required x,
                   required y,
                   required width,
                   required height,
                 }) async {
                   created = true;
+                  gotTool = tool;
                   gotX = x;
                   gotY = y;
                 },
@@ -49,6 +52,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(created, isTrue);
+    expect(gotTool, AnnotationTool.note);
     expect(gotX, closeTo(0.5 - 0.05, 0.08));
     expect(gotY, closeTo(0.5 - 0.0275, 0.08));
   });
@@ -71,6 +75,7 @@ void main() {
                 activeTool: AnnotationTool.highlight,
                 enabled: true,
                 onCreateRect: ({
+                  required tool,
                   required x,
                   required y,
                   required width,
@@ -99,7 +104,6 @@ void main() {
 
     expect(created, isTrue);
     expect(gotWidth, greaterThan(0.25));
-    // Arrastre casi horizontal → altura de una línea, no un rectángulo grueso.
     expect(gotHeight, lessThan(0.05));
   });
 
@@ -121,6 +125,7 @@ void main() {
                 activeTool: AnnotationTool.underline,
                 enabled: true,
                 onCreateRect: ({
+                  required tool,
                   required x,
                   required y,
                   required width,
@@ -152,8 +157,8 @@ void main() {
     expect(gotHeight, lessThan(0.02));
   });
 
-  testWidgets('toque con Marcado no crea blob del 34%', (tester) async {
-    var gotWidth = 1.0;
+  testWidgets('toque con Marcado no crea marca accidental', (tester) async {
+    var created = false;
 
     await tester.pumpWidget(
       l10nTestApp(
@@ -168,12 +173,13 @@ void main() {
                 activeTool: AnnotationTool.highlight,
                 enabled: true,
                 onCreateRect: ({
+                  required tool,
                   required x,
                   required y,
                   required width,
                   required height,
                 }) async {
-                  gotWidth = width;
+                  created = true;
                 },
                 onOpenAnnotation: (_) {},
                 onDeleteAnnotation: (_) {},
@@ -187,12 +193,13 @@ void main() {
     await tester.tapAt(tester.getCenter(find.byType(PageAnnotationsLayer)));
     await tester.pumpAndSettle();
 
-    expect(gotWidth, lessThan(0.2));
+    expect(created, isFalse);
   });
 
   testWidgets('stylus crea marcado al arrastrar', (tester) async {
     var created = false;
     var gotWidth = 0.0;
+    AnnotationTool? gotTool;
 
     await tester.pumpWidget(
       l10nTestApp(
@@ -207,12 +214,14 @@ void main() {
                 activeTool: AnnotationTool.highlight,
                 enabled: true,
                 onCreateRect: ({
+                  required tool,
                   required x,
                   required y,
                   required width,
                   required height,
                 }) async {
                   created = true;
+                  gotTool = tool;
                   gotWidth = width;
                 },
                 onOpenAnnotation: (_) {},
@@ -235,6 +244,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(created, isTrue);
+    expect(gotTool, AnnotationTool.highlight);
     expect(gotWidth, greaterThan(0.3));
   });
 
@@ -267,6 +277,7 @@ void main() {
                 activeTool: AnnotationTool.none,
                 enabled: true,
                 onCreateRect: ({
+                  required tool,
                   required x,
                   required y,
                   required width,

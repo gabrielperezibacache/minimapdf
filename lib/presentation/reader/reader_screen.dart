@@ -400,15 +400,15 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Future<void> _createAnnotationRect({
     required int pageNumber,
+    required AnnotationTool tool,
     required double x,
     required double y,
     required double width,
     required double height,
   }) async {
     final provider = _annotations;
-    final tool = provider?.activeTool;
-    final type = tool?.annotationType;
-    if (provider == null || tool == null || type == null) return;
+    final type = tool.annotationType;
+    if (provider == null || type == null) return;
     if (pageNumber < 1) return;
 
     final l10n = AppLocalizations.of(context);
