@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/pdf_url_utils.dart';
 import '../../l10n/app_localizations.dart';
@@ -236,6 +237,10 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
     }
   }
 
+  Future<void> _goBrowserHome() async {
+    await _loadBrowserUrl(AppConstants.browserHomeUrl);
+  }
+
   Future<void> _loadBrowserUrl(String raw) async {
     var value = raw.trim();
     if (value.isEmpty) return;
@@ -392,6 +397,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
             onSubmit: _loadBrowserUrl,
             onBack: () => _webController?.goBack(),
             onForward: () => _webController?.goForward(),
+            onHome: _goBrowserHome,
             onReload: () => _webController?.reload(),
           ),
           Expanded(
@@ -596,6 +602,7 @@ class _BrowserChrome extends StatelessWidget {
     required this.onSubmit,
     required this.onBack,
     required this.onForward,
+    required this.onHome,
     required this.onReload,
   });
 
@@ -605,6 +612,7 @@ class _BrowserChrome extends StatelessWidget {
   final ValueChanged<String> onSubmit;
   final VoidCallback onBack;
   final VoidCallback onForward;
+  final VoidCallback onHome;
   final VoidCallback onReload;
 
   @override
@@ -627,6 +635,11 @@ class _BrowserChrome extends StatelessWidget {
                 tooltip: l10n.browserForward,
                 onPressed: onForward,
                 icon: Icon(Icons.arrow_forward, color: colors.textMuted),
+              ),
+              IconButton(
+                tooltip: l10n.browserHome,
+                onPressed: onHome,
+                icon: Icon(Icons.home_outlined, color: colors.textMuted),
               ),
               IconButton(
                 tooltip: l10n.browserReload,

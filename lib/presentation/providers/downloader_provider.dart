@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../../core/constants/app_constants.dart';
 import '../../core/utils/pdf_url_utils.dart';
 import '../../data/datasources/pdf_download_service.dart';
 import '../../data/models/book.dart';
@@ -20,7 +21,7 @@ class DownloaderProvider extends ChangeNotifier {
   final Duration _progressThrottle;
 
   String _urlInput = '';
-  String _browserUrl = 'https://www.google.com/search?q=filetype:pdf';
+  String _browserUrl = AppConstants.browserHomeUrl;
   List<String> _detectedPdfUrls = const [];
   bool _downloading = false;
   double _progress = 0;
