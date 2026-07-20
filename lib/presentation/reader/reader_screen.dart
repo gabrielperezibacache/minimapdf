@@ -1252,66 +1252,79 @@ class _ReaderScreenState extends State<ReaderScreen>
                 size: toolboxVisible ? 24 : 22,
               ),
             ),
-            Flexible(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                reverse: true,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      tooltip: isBookmarked
-                          ? l10n.removeBookmark
-                          : l10n.addBookmark,
-                      onPressed: _toggleBookmark,
-                      icon: Icon(
-                        isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                        color: colors.accent,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: l10n.addNote,
-                      onPressed: _editNote,
-                      icon: Icon(
-                        Icons.sticky_note_2_outlined,
-                        color: colors.accent,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: _ebonyFilter
-                          ? l10n.filterEbonyOff
-                          : l10n.filterEbonyOn,
-                      onPressed: _toggleFilter,
-                      icon: Icon(
-                        _ebonyFilter
-                            ? Icons.dark_mode
-                            : Icons.dark_mode_outlined,
-                        color:
-                            _ebonyFilter ? colors.accent : colors.textMuted,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: l10n.scrollModeTooltip(
-                        _scrollMode.localizedLabel(l10n),
-                      ),
-                      onPressed: _toggleScrollMode,
-                      icon: Icon(
-                        _scrollMode.isVertical
-                            ? Icons.swap_vert
-                            : Icons.swap_horiz,
-                        color: colors.accent,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: l10n.hideControls,
-                      onPressed: _toggleControls,
-                      icon: Icon(Icons.fullscreen, color: colors.textMuted),
-                    ),
-                  ],
+            PopupMenuButton<_ReaderToolAction>(
+              tooltip: l10n.options,
+              icon: Icon(Icons.more_vert, color: colors.textMuted),
+              onSelected: (action) {
+                switch (action) {
+                  case _ReaderToolAction.bookmark:
+                    _toggleBookmark();
+                  case _ReaderToolAction.note:
+                    _editNote();
+                  case _ReaderToolAction.ebonyFilter:
+                    _toggleFilter();
+                  case _ReaderToolAction.scrollMode:
+                    _toggleScrollMode();
+                  case _ReaderToolAction.hideControls:
+                    _toggleControls();
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: _ReaderToolAction.bookmark,
+                  child: _ReaderToolMenuRow(
+                    icon: isBookmarked
+                        ? Icons.bookmark
+                        : Icons.bookmark_border,
+                    label: isBookmarked
+                        ? l10n.removeBookmark
+                        : l10n.addBookmark,
+                    color: colors.accent,
+                  ),
                 ),
-              ),
+                PopupMenuItem(
+                  value: _ReaderToolAction.note,
+                  child: _ReaderToolMenuRow(
+                    icon: Icons.sticky_note_2_outlined,
+                    label: l10n.addNote,
+                    color: colors.accent,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _ReaderToolAction.ebonyFilter,
+                  child: _ReaderToolMenuRow(
+                    icon: _ebonyFilter
+                        ? Icons.dark_mode
+                        : Icons.dark_mode_outlined,
+                    label: _ebonyFilter
+                        ? l10n.filterEbonyOff
+                        : l10n.filterEbonyOn,
+                    color: _ebonyFilter ? colors.accent : colors.textMuted,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _ReaderToolAction.scrollMode,
+                  child: _ReaderToolMenuRow(
+                    icon: _scrollMode.isVertical
+                        ? Icons.swap_vert
+                        : Icons.swap_horiz,
+                    label: l10n.scrollModeTooltip(
+                      _scrollMode.localizedLabel(l10n),
+                    ),
+                    color: colors.accent,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _ReaderToolAction.hideControls,
+                  child: _ReaderToolMenuRow(
+                    icon: Icons.fullscreen,
+                    label: l10n.hideControls,
+                    color: colors.textMuted,
+                  ),
+                ),
+              ],
             ),
-            // Acciones primarias de firma siempre visibles (no se ocultan al scroll).
+            // Acciones primarias de firma siempre visibles.
             IconButton(
               tooltip: placement ? l10n.cancelPlacement : l10n.signDocument,
               onPressed: signing?.saving == true ||
@@ -1428,4 +1441,36 @@ class _ReaderScreenState extends State<ReaderScreen>
 }
 
 enum _AnnotationAction { edit, delete }
+
+enum _ReaderToolAction {
+  bookmark,
+  note,
+  ebonyFilter,
+  scrollMode,
+  hideControls,
+}
+
+class _ReaderToolMenuRow extends StatelessWidget {
+  const _ReaderToolMenuRow({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: 12),
+        Text(label),
+      ],
+    );
+  }
+}
 
