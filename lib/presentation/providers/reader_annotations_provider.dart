@@ -522,8 +522,8 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     }
     var left = x.clamp(0.0, 1.0);
     var top = y.clamp(0.0, 1.0);
-    var w = width.clamp(0.02, 1.0);
-    var h = height.clamp(0.01, 1.0);
+    var w = width.clamp(0.01, 1.0);
+    var h = height.clamp(0.006, 1.0);
     if (left + w > 1) left = 1 - w;
     if (top + h > 1) top = 1 - h;
     return (left, top, w, h);
