@@ -1199,7 +1199,6 @@ class _ReaderScreenState extends State<ReaderScreen>
   }) {
     final l10n = AppLocalizations.of(context);
     final placement = signing?.placementMode == true;
-    final canExport = signing != null && signing.hasSignatures;
 
     return Positioned(
       top: 0,
@@ -1267,96 +1266,105 @@ class _ReaderScreenState extends State<ReaderScreen>
                     _toggleScrollMode();
                   case _ReaderToolAction.hideControls:
                     _toggleControls();
+                  case _ReaderToolAction.sign:
+                    if (placement) {
+                      signing?.cancelPlacementMode();
+                      setState(() {});
+                      return;
+                    }
+                    _signDocument();
+                  case _ReaderToolAction.export:
+                    _exportSignedPdf();
                 }
               },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: _ReaderToolAction.bookmark,
-                  child: _ReaderToolMenuRow(
-                    icon: isBookmarked
-                        ? Icons.bookmark
-                        : Icons.bookmark_border,
-                    label: isBookmarked
-                        ? l10n.removeBookmark
-                        : l10n.addBookmark,
-                    color: colors.accent,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: _ReaderToolAction.note,
-                  child: _ReaderToolMenuRow(
-                    icon: Icons.sticky_note_2_outlined,
-                    label: l10n.addNote,
-                    color: colors.accent,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: _ReaderToolAction.ebonyFilter,
-                  child: _ReaderToolMenuRow(
-                    icon: _ebonyFilter
-                        ? Icons.dark_mode
-                        : Icons.dark_mode_outlined,
-                    label: _ebonyFilter
-                        ? l10n.filterEbonyOff
-                        : l10n.filterEbonyOn,
-                    color: _ebonyFilter ? colors.accent : colors.textMuted,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: _ReaderToolAction.scrollMode,
-                  child: _ReaderToolMenuRow(
-                    icon: _scrollMode.isVertical
-                        ? Icons.swap_vert
-                        : Icons.swap_horiz,
-                    label: l10n.scrollModeTooltip(
-                      _scrollMode.localizedLabel(l10n),
+              itemBuilder: (context) {
+                final signBusy = signing?.saving == true ||
+                    signing?.loading == true ||
+                    signing?.exporting == true;
+                final exportEnabled = signing != null &&
+                    signing.hasSignatures &&
+                    !signing.exporting &&
+                    !signing.saving &&
+                    !placement;
+
+                return [
+                  PopupMenuItem(
+                    value: _ReaderToolAction.bookmark,
+                    child: _ReaderToolMenuRow(
+                      icon: isBookmarked
+                          ? Icons.bookmark
+                          : Icons.bookmark_border,
+                      label: isBookmarked
+                          ? l10n.removeBookmark
+                          : l10n.addBookmark,
+                      color: colors.accent,
                     ),
-                    color: colors.accent,
                   ),
-                ),
-                PopupMenuItem(
-                  value: _ReaderToolAction.hideControls,
-                  child: _ReaderToolMenuRow(
-                    icon: Icons.fullscreen,
-                    label: l10n.hideControls,
-                    color: colors.textMuted,
+                  PopupMenuItem(
+                    value: _ReaderToolAction.note,
+                    child: _ReaderToolMenuRow(
+                      icon: Icons.sticky_note_2_outlined,
+                      label: l10n.addNote,
+                      color: colors.accent,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            // Acciones primarias de firma siempre visibles.
-            IconButton(
-              tooltip: placement ? l10n.cancelPlacement : l10n.signDocument,
-              onPressed: signing?.saving == true ||
-                      signing?.loading == true ||
-                      signing?.exporting == true
-                  ? null
-                  : () {
-                      if (placement) {
-                        signing?.cancelPlacementMode();
-                        setState(() {});
-                        return;
-                      }
-                      _signDocument();
-                    },
-              icon: Icon(
-                placement ? Icons.close : Icons.draw_outlined,
-                color: AppColors.ebonyAccent,
-              ),
-            ),
-            IconButton(
-              tooltip: l10n.exportSignedPdf,
-              onPressed: signing == null ||
-                      !signing.hasSignatures ||
-                      signing.exporting ||
-                      signing.saving ||
-                      placement
-                  ? null
-                  : _exportSignedPdf,
-              icon: Icon(
-                Icons.ios_share_outlined,
-                color: canExport ? AppColors.ebonyAccent : colors.textMuted,
-              ),
+                  PopupMenuItem(
+                    value: _ReaderToolAction.ebonyFilter,
+                    child: _ReaderToolMenuRow(
+                      icon: _ebonyFilter
+                          ? Icons.dark_mode
+                          : Icons.dark_mode_outlined,
+                      label: _ebonyFilter
+                          ? l10n.filterEbonyOff
+                          : l10n.filterEbonyOn,
+                      color: _ebonyFilter ? colors.accent : colors.textMuted,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _ReaderToolAction.scrollMode,
+                    child: _ReaderToolMenuRow(
+                      icon: _scrollMode.isVertical
+                          ? Icons.swap_vert
+                          : Icons.swap_horiz,
+                      label: l10n.scrollModeTooltip(
+                        _scrollMode.localizedLabel(l10n),
+                      ),
+                      color: colors.accent,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _ReaderToolAction.hideControls,
+                    child: _ReaderToolMenuRow(
+                      icon: Icons.fullscreen,
+                      label: l10n.hideControls,
+                      color: colors.textMuted,
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: _ReaderToolAction.sign,
+                    enabled: !signBusy,
+                    child: _ReaderToolMenuRow(
+                      icon: placement ? Icons.close : Icons.draw_outlined,
+                      label: placement
+                          ? l10n.cancelPlacement
+                          : l10n.signDocument,
+                      color: AppColors.ebonyAccent,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _ReaderToolAction.export,
+                    enabled: exportEnabled,
+                    child: _ReaderToolMenuRow(
+                      icon: Icons.ios_share_outlined,
+                      label: l10n.exportSignedPdf,
+                      color: exportEnabled
+                          ? AppColors.ebonyAccent
+                          : colors.textMuted,
+                    ),
+                  ),
+                ];
+              },
             ),
           ],
         ),
@@ -1448,6 +1456,8 @@ enum _ReaderToolAction {
   ebonyFilter,
   scrollMode,
   hideControls,
+  sign,
+  export,
 }
 
 class _ReaderToolMenuRow extends StatelessWidget {
