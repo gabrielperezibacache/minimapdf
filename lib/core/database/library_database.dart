@@ -53,7 +53,7 @@ class LibraryDatabase {
   Future<int> updateCollection(Collection collection) async {
     final id = collection.id;
     if (id == null) {
-      throw ArgumentError('Collection.id es obligatorio para actualizar');
+      throw ArgumentError('Collection.id is required for update');
     }
     return _db.update(
       DatabaseConfig.tableCollections,
@@ -181,7 +181,7 @@ class LibraryDatabase {
   Future<int> updateBook(Book book) async {
     final id = book.id;
     if (id == null) {
-      throw ArgumentError('Book.id es obligatorio para actualizar');
+      throw ArgumentError('Book.id is required for update');
     }
     return _db.update(
       DatabaseConfig.tableBooks,
@@ -257,7 +257,7 @@ class LibraryDatabase {
   Future<int> updateBookmark(Bookmark bookmark) async {
     final id = bookmark.id;
     if (id == null) {
-      throw ArgumentError('Bookmark.id es obligatorio para actualizar');
+      throw ArgumentError('Bookmark.id is required for update');
     }
     return _db.update(
       DatabaseConfig.tableBookmarks,
@@ -448,7 +448,7 @@ class LibraryDatabase {
   Future<int> updateSignature(DocumentSignature signature) async {
     final id = signature.id;
     if (id == null) {
-      throw ArgumentError('DocumentSignature.id es obligatorio para actualizar');
+      throw ArgumentError('DocumentSignature.id is required for update');
     }
     return _db.update(
       DatabaseConfig.tableSignatures,
@@ -550,7 +550,7 @@ class LibraryDatabase {
   Future<int> updatePageAnnotation(PageAnnotation annotation) async {
     final id = annotation.id;
     if (id == null) {
-      throw ArgumentError('PageAnnotation.id es obligatorio para actualizar');
+      throw ArgumentError('PageAnnotation.id is required for update');
     }
     return _db.update(
       DatabaseConfig.tablePageAnnotations,

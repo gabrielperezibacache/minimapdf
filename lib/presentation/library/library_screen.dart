@@ -125,7 +125,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
             if (attempts <= 2) {
               service.queueLast(path);
             } else {
+              // Agota reintentos: limpia caché externa para no dejar huérfanos.
               _externalRetryCounts.remove(path);
+              _deleteExternalCacheQuietly(path);
             }
           }
           if (library.error != null) {

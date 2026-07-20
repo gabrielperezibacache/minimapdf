@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
+import '../l10n/app_message_keys.dart';
+
 /// Utilidades de integridad (SHA-256) para PDFs firmados offline.
 class DocumentHashService {
   const DocumentHashService();
@@ -9,7 +11,7 @@ class DocumentHashService {
   Future<String> sha256File(String path) async {
     final file = File(path);
     if (!await file.exists()) {
-      throw StateError('Archivo no encontrado: $path');
+      throw StateError(AppMessageKeys.fileMissing);
     }
     final digest = await sha256.bind(file.openRead()).first;
     return digest.toString();

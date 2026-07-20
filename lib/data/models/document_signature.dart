@@ -157,7 +157,7 @@ class DocumentSignature {
   factory DocumentSignature.fromMap(Map<String, Object?> map) {
     final signature = DocumentSignature.tryFromMap(map);
     if (signature == null) {
-      throw FormatException('Fila de firma inválida o corrupta');
+      throw FormatException('Invalid or corrupt signature row');
     }
     return signature;
   }

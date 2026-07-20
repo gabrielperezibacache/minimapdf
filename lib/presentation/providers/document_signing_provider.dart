@@ -463,12 +463,25 @@ class DocumentSigningProvider extends ChangeNotifier {
         }
       }
     } catch (_) {
-      if (_disposed || generation != _moveGeneration) return true;
+      if (_disposed || generation != _moveGeneration) return false;
       _error = AppMessageKeys.signatureMoveFailed;
+      // Revierte el offset optimista; no dejar sellos "fantasma" para export.
+      _signatures = [
+        for (final item in _signatures)
+          if (item.id == id) signature else item,
+      ];
+      _notify();
       final book = _book;
-      if (book != null) await loadForBook(book);
+      if (book != null) {
+        try {
+          await loadForBook(book);
+        } catch (_) {
+          // El error de move ya está expuesto; el reload es best-effort.
+        }
+      }
+      return false;
     }
-    return true;
+    return false;
   }
 
   Future<bool> deleteSignature(DocumentSignature signature) async {
@@ -506,7 +519,7 @@ class DocumentSigningProvider extends ChangeNotifier {
   /// [signedMarker] y [roleLabelOf] localizan el sufijo del título/archivo y
   /// las etiquetas de rol pintadas en el PDF.
   Future<SignedPdfExportResult?> exportSignedPdf({
-    String signedMarker = 'firmado',
+    String signedMarker = 'signed',
     String Function(SignatureRole role)? roleLabelOf,
   }) async {
     if (_disposed) return null;
@@ -554,7 +567,7 @@ class DocumentSigningProvider extends ChangeNotifier {
         try {
           final reserved = await _datasource.listReservedLibraryBasenames();
           final marker =
-              signedMarker.trim().isEmpty ? 'firmado' : signedMarker.trim();
+              signedMarker.trim().isEmpty ? 'signed' : signedMarker.trim();
           exported = await _exportService.exportSignedPdf(
             book: book,
             signatures: signaturesSnapshot,

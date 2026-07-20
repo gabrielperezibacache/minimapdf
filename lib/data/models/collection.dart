@@ -34,7 +34,7 @@ class Collection {
   factory Collection.fromMap(Map<String, Object?> map) {
     final collection = Collection.tryFromMap(map);
     if (collection == null) {
-      throw FormatException('Fila de colección inválida o corrupta');
+      throw FormatException('Invalid or corrupt collection row');
     }
     return collection;
   }

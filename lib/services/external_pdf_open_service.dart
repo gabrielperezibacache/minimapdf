@@ -33,11 +33,16 @@ class ExternalPdfOpenService extends ChangeNotifier {
   /// Snapshot of queued absolute paths (oldest first).
   List<String> get queuedPaths => List<String>.unmodifiable(_queue);
 
+  void _safeNotify() {
+    if (_disposed) return;
+    notifyListeners();
+  }
+
   /// Removes and returns the next path, or `null` if the queue is empty.
   String? takeNext() {
     if (_queue.isEmpty) return null;
     final next = _queue.removeFirst();
-    notifyListeners();
+    _safeNotify();
     return next;
   }
 
@@ -46,7 +51,7 @@ class ExternalPdfOpenService extends ChangeNotifier {
     final trimmed = path.trim();
     if (trimmed.isEmpty || _disposed) return;
     _queue.addFirst(trimmed);
-    notifyListeners();
+    _safeNotify();
   }
 
   /// Encola al final (reintento tras fallo transitorio sin bloquear la cola).
@@ -54,11 +59,11 @@ class ExternalPdfOpenService extends ChangeNotifier {
     final trimmed = path.trim();
     if (trimmed.isEmpty || _disposed) return;
     if (_queue.contains(trimmed)) {
-      notifyListeners();
+      _safeNotify();
       return;
     }
     _queue.addLast(trimmed);
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> start() async {
@@ -116,7 +121,7 @@ class ExternalPdfOpenService extends ChangeNotifier {
     _lastEnqueued = path;
     _lastEnqueuedAt = now;
     _queue.addLast(path);
-    notifyListeners();
+    _safeNotify();
   }
 
   /// Opens the system screen where the user can set Minimal PDF as the

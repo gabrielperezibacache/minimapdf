@@ -75,7 +75,7 @@ class Book {
   factory Book.fromMap(Map<String, Object?> map) {
     final book = Book.tryFromMap(map);
     if (book == null) {
-      throw FormatException('Fila de libro inválida o corrupta');
+      throw FormatException('Invalid or corrupt book row');
     }
     return book;
   }

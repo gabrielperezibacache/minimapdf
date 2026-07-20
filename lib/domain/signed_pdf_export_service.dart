@@ -14,6 +14,7 @@ import '../data/models/book.dart';
 import '../data/models/document_signature.dart';
 import '../data/models/signature_role.dart';
 import '../data/models/signature_type.dart';
+import '../l10n/app_message_keys.dart';
 import 'document_hash_service.dart';
 import 'signature_manifest.dart';
 import 'signature_stamp_geometry.dart';
@@ -51,15 +52,15 @@ class SignedPdfExportService {
     required Book book,
     required List<DocumentSignature> signatures,
     Set<String> reservedBasenames = const {},
-    String signedMarker = 'firmado',
+    String signedMarker = 'signed',
     String Function(SignatureRole role)? roleLabelOf,
   }) async {
     if (signatures.isEmpty) {
-      throw StateError('No hay firmas para exportar.');
+      throw StateError(AppMessageKeys.needSignature);
     }
     final source = File(book.filePath);
     if (!await source.exists()) {
-      throw StateError('El PDF original no existe.');
+      throw StateError(AppMessageKeys.documentUnavailable);
     }
 
     final sourceSha = await _hashService.sha256File(book.filePath);
@@ -74,9 +75,10 @@ class SignedPdfExportService {
       existing.add(name.toLowerCase());
     }
     final marker =
-        signedMarker.trim().isEmpty ? 'firmado' : signedMarker.trim();
+        signedMarker.trim().isEmpty ? 'signed' : signedMarker.trim();
     final sanitized = FileNameSanitizer.sanitize('${book.title}_$marker');
-    final resolveRoleLabel = roleLabelOf ?? (SignatureRole role) => role.labelEs;
+    final resolveRoleLabel =
+        roleLabelOf ?? (SignatureRole role) => role.storageValue;
     final pdfName = FileNameSanitizer.uniqueName(sanitized, existing);
     final pdfPath = p.join(libraryDir.path, pdfName);
     final manifestPath = '${p.withoutExtension(pdfPath)}.firmas.json';
@@ -86,7 +88,7 @@ class SignedPdfExportService {
     final document = await PdfDocument.openFile(book.filePath);
     try {
       if (document.pagesCount < 1) {
-        throw StateError('El PDF no tiene páginas.');
+        throw StateError(AppMessageKeys.exportSignedFailed);
       }
 
       final outOfRange = signatures
@@ -97,9 +99,7 @@ class SignedPdfExportService {
           )
           .toList(growable: false);
       if (outOfRange.isNotEmpty) {
-        throw StateError(
-          'Hay firmas fuera del rango de páginas del documento.',
-        );
+        throw StateError(AppMessageKeys.exportSignedFailed);
       }
 
       final output = pdf.Document();
@@ -113,7 +113,7 @@ class SignedPdfExportService {
         try {
           final pageSize = Size(page.width, page.height);
           if (!SignatureStampGeometry.isUsablePageSize(pageSize)) {
-            throw StateError('Página $pageNumber con tamaño inválido.');
+            throw StateError(AppMessageKeys.exportSignedFailed);
           }
 
           final rendered = await page.render(
@@ -122,7 +122,7 @@ class SignedPdfExportService {
             format: PdfPageImageFormat.png,
           );
           if (rendered == null) {
-            throw StateError('No se pudo renderizar la página $pageNumber.');
+            throw StateError(AppMessageKeys.exportSignedFailed);
           }
 
           final width =
@@ -130,7 +130,7 @@ class SignedPdfExportService {
           final height =
               rendered.height ?? (page.height * _renderScale).round();
           if (width < 1 || height < 1) {
-            throw StateError('Render vacío en la página $pageNumber.');
+            throw StateError(AppMessageKeys.exportSignedFailed);
           }
 
           final stampedBytes = await _stampPageImage(
@@ -249,7 +249,7 @@ class SignedPdfExportService {
             final byteData =
                 await stamped.toByteData(format: ui.ImageByteFormat.png);
             if (byteData == null) {
-              throw StateError('No se pudo codificar la página firmada.');
+              throw StateError(AppMessageKeys.exportSignedFailed);
             }
             return byteData.buffer.asUint8List();
           } finally {

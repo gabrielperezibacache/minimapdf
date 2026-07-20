@@ -68,6 +68,7 @@ abstract final class AppMessageKeys {
   static const fileMissing = 'fileMissing';
   static const incompleteCopy = 'incompleteCopy';
   static const incompleteDownload = 'incompleteDownload';
+  static const unexpectedError = 'unexpectedError';
 
   /// Fallos de importación externa que no merecen reintento automático.
   static bool isPermanentImportFailure(String? key) {
@@ -149,5 +150,6 @@ abstract final class AppMessageKeys {
     fileMissing,
     incompleteCopy,
     incompleteDownload,
+    unexpectedError,
   };
 }
