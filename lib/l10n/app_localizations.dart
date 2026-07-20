@@ -668,7 +668,7 @@ const Map<String, Map<String, String>> _strings = {
     'annotationHintHighlight':
         'Arrastra con el dedo o el S-Pen sobre el texto para marcar el tramo exacto.',
     'annotationHintUnderline':
-        'Arrastra con el dedo o el S-Pen sobre el texto para subrayar el tramo exacto.',
+        'Arrastra con el dedo o el S-Pen bajo el texto para subrayar el tramo exacto.',
     'annotationHintNote': 'Toca la página para colocar una nota.',
     'annotationHintComment': 'Toca la página para dejar un comentario.',
     'annotationHintAnnotation': 'Toca la página para añadir una anotación.',
@@ -928,7 +928,7 @@ const Map<String, Map<String, String>> _strings = {
     'annotationHintHighlight':
         'Drag with finger or stylus over the text to highlight the exact span.',
     'annotationHintUnderline':
-        'Drag with finger or stylus over the text to underline the exact span.',
+        'Drag with finger or stylus under the text to underline the exact span.',
     'annotationHintNote': 'Tap the page to place a note.',
     'annotationHintComment': 'Tap the page to leave a comment.',
     'annotationHintAnnotation': 'Tap the page to add an annotation.',

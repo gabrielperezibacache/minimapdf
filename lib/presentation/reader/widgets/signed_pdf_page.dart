@@ -59,6 +59,7 @@ class SignedPdfPage extends StatefulWidget {
   final bool annotationsEnabled;
   final Future<void> Function({
     required int pageNumber,
+    required AnnotationTool tool,
     required double x,
     required double y,
     required double width,
@@ -168,6 +169,7 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
               activeTool: widget.activeTool,
               enabled: widget.annotationsEnabled && !widget.placementMode,
               onCreateRect: ({
+                required AnnotationTool tool,
                 required double x,
                 required double y,
                 required double width,
@@ -175,6 +177,7 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
               }) {
                 return widget.onCreateAnnotation!(
                   pageNumber: widget.pageNumber,
+                  tool: tool,
                   x: x,
                   y: y,
                   width: width,
