@@ -360,15 +360,16 @@ class PdfDownloadService {
 
     final expectedPath = p.join(tempDir.path, stagingName);
     _activeNativeTaskId = taskId;
+    String? resolvedPath;
     try {
       _throwIfCancelled();
-      final path = await _waitForNativeTask(
+      resolvedPath = await _waitForNativeTask(
         taskId,
         expectedPath: expectedPath,
         onProgress: onProgress,
       );
 
-      final source = File(path);
+      final source = File(resolvedPath);
       await PdfHeader.assertFile(source);
       return await _persistFile(
         source: source,
@@ -379,6 +380,10 @@ class PdfDownloadService {
     } catch (e) {
       await _cancelNativeTask(taskId);
       await _deleteQuietly(File(expectedPath));
+      final extra = resolvedPath;
+      if (extra != null && extra != expectedPath) {
+        await _deleteQuietly(File(extra));
+      }
       if (_cancelRequested) {
         throw const DownloadCancelledException();
       }
@@ -426,10 +431,13 @@ class PdfDownloadService {
       if (task != null) {
         onProgress?.call((task.progress / 100).clamp(0.0, 1.0));
         if (task.status == DownloadTaskStatus.complete) {
-          final resolved = task.filename != null
-              ? p.join(task.savedDir, task.filename!)
-              : expectedPath;
-          if (await File(resolved).exists()) return resolved;
+          final resolved = _resolveNativeDownloadPath(
+            task: task,
+            expectedPath: expectedPath,
+          );
+          if (resolved != null && await File(resolved).exists()) {
+            return resolved;
+          }
           if (await File(expectedPath).exists()) return expectedPath;
           throw StateError('Descarga completa pero el archivo no existe');
         }
@@ -445,6 +453,23 @@ class PdfDownloadService {
     }
 
     throw TimeoutException('Tiempo de espera de descarga agotado');
+  }
+
+  /// Resuelve la ruta nativa solo si queda dentro de [task.savedDir].
+  String? _resolveNativeDownloadPath({
+    required DownloadTask task,
+    required String expectedPath,
+  }) {
+    final savedDir = task.savedDir.trim();
+    if (savedDir.isEmpty) return expectedPath;
+    final root = p.normalize(p.absolute(savedDir));
+    final filename = task.filename?.trim();
+    if (filename == null || filename.isEmpty) return expectedPath;
+    final resolved = p.normalize(p.absolute(p.join(savedDir, filename)));
+    if (resolved == root || p.isWithin(root, resolved)) {
+      return resolved;
+    }
+    return expectedPath;
   }
 
   Future<Book> _persistFile({

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -109,8 +110,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
           service.requeue(path);
           break;
         } else {
-          // No borra la copia cache: un fallo transitorio (disco/DB) no debe
-          // destruir el único PDF entregado por el SO. Solo se limpia tras import OK.
+          // Solo borra cache si el PDF es inválido de forma permanente.
+          // Fallos transitorios (disco/DB) conservan la copia del SO.
+          if (_isPermanentExternalImportFailure(library.error)) {
+            _deleteExternalCacheQuietly(path);
+          }
           if (library.error != null) {
             messenger.showSnackBar(
               SnackBar(content: Text(_msg(library.error!))),
@@ -128,6 +132,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }
     if (mounted && service.hasQueued) {
       unawaited(_drainExternalQueue());
+    }
+  }
+
+  bool _isPermanentExternalImportFailure(String? error) {
+    if (error == null) return false;
+    final lower = error.toLowerCase();
+    return lower.contains('no es un pdf') ||
+        lower.contains('pdf vacío') ||
+        lower.contains('pdf incompleto') ||
+        lower.contains('truncado') ||
+        lower.contains('not a valid pdf') ||
+        lower.contains('empty pdf');
+  }
+
+  void _deleteExternalCacheQuietly(String path) {
+    final name = path.split(RegExp(r'[/\\]')).last;
+    if (!name.startsWith('external_')) return;
+    try {
+      final file = File(path);
+      if (file.existsSync()) file.deleteSync();
+    } catch (_) {
+      // Best-effort.
     }
   }
 

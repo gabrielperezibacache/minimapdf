@@ -84,7 +84,8 @@ class Bookmark {
   static String? _asNullableString(Object? value) {
     if (value == null) return null;
     if (value is! String) return null;
-    return value;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   static DateTime? _asDateTime(Object? value) {

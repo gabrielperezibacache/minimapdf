@@ -230,6 +230,11 @@ class DocumentSigningProvider extends ChangeNotifier {
       _notify();
       return null;
     }
+    if (_loading) {
+      _error = 'Espera a que terminen de cargar las firmas.';
+      _notify();
+      return null;
+    }
     if (_saving) {
       _error = 'Ya hay una firma en curso.';
       _notify();
@@ -272,17 +277,27 @@ class DocumentSigningProvider extends ChangeNotifier {
       if (_disposed) return saved;
       _dataGeneration++;
 
-      _signatures = [
-        for (final item in _signatures)
-          if (item.id != saved.id) item,
-        saved,
-      ]..sort((a, b) {
-          final byOrder = a.signingOrder.compareTo(b.signingOrder);
-          if (byOrder != 0) return byOrder;
-          final byPage = a.pageNumber.compareTo(b.pageNumber);
-          if (byPage != 0) return byPage;
-          return a.signedAt.compareTo(b.signedAt);
-        });
+      // Recarga desde DB: evita huérfanos si loadForBook quedó a medias.
+      try {
+        final loaded = await _datasource.listSignatures(bookId);
+        if (!_disposed) {
+          _signatures = loaded;
+        }
+      } catch (_) {
+        if (!_disposed) {
+          _signatures = [
+            for (final item in _signatures)
+              if (item.id != saved.id) item,
+            saved,
+          ]..sort((a, b) {
+              final byOrder = a.signingOrder.compareTo(b.signingOrder);
+              if (byOrder != 0) return byOrder;
+              final byPage = a.pageNumber.compareTo(b.pageNumber);
+              if (byPage != 0) return byPage;
+              return a.signedAt.compareTo(b.signedAt);
+            });
+        }
+      }
       _pendingOffsetX = null;
       _pendingOffsetY = null;
 
@@ -525,54 +540,60 @@ class DocumentSigningProvider extends ChangeNotifier {
       // Serializa con import/descargas y reserva nombres de DB para evitar
       // colisiones y borrados cruzados del PDF exportado.
       result = await LibraryFileCoordinator.runExclusive(() async {
-        final reserved = await _datasource.listReservedLibraryBasenames();
-        final exported = await _exportService.exportSignedPdf(
-          book: book,
-          signatures: signaturesSnapshot,
-          reservedBasenames: reserved,
-        );
-        writtenArtifacts = exported;
-        final file = File(exported.pdfPath);
-        final baseTitle = book.title
-            .replaceAll(RegExp(r'\s*\(firmado\)\s*$'), '')
-            .trim();
-        final tags = {
-          for (final tag in book.tags) tag,
-          'firmado',
-        }.toList(growable: false);
+        SignedPdfExportResult? exported;
+        try {
+          final reserved = await _datasource.listReservedLibraryBasenames();
+          exported = await _exportService.exportSignedPdf(
+            book: book,
+            signatures: signaturesSnapshot,
+            reservedBasenames: reserved,
+          );
+          writtenArtifacts = exported;
+          final file = File(exported.pdfPath);
+          final baseTitle = book.title
+              .replaceAll(RegExp(r'\s*\(firmado\)\s*$'), '')
+              .trim();
+          final tags = {
+            for (final tag in book.tags) tag,
+            'firmado',
+          }.toList(growable: false);
 
-        // Evita FK rota si la colección se borró mientras el libro seguía abierto.
-        var collectionId = book.collectionId;
-        if (collectionId != null) {
-          final found = await _datasource.findCollectionById(collectionId);
-          collectionId = found?.id;
+          // Evita FK rota si la colección se borró mientras el libro seguía abierto.
+          var collectionId = book.collectionId;
+          if (collectionId != null) {
+            final found = await _datasource.findCollectionById(collectionId);
+            collectionId = found?.id;
+          }
+
+          await _datasource.insertBook(
+            Book(
+              title: '$baseTitle (firmado)',
+              filePath: exported.pdfPath,
+              fileSize: await file.length(),
+              addedAt: DateTime.now(),
+              collectionId: collectionId,
+              tags: tags,
+            ),
+          );
+          return exported;
+        } catch (_) {
+          // Limpia dentro del lock para no borrar un import concurrente.
+          final orphan = exported ?? writtenArtifacts;
+          if (orphan != null) {
+            try {
+              final pdf = File(orphan.pdfPath);
+              if (await pdf.exists()) await pdf.delete();
+              final manifest = File(orphan.manifestPath);
+              if (await manifest.exists()) await manifest.delete();
+            } catch (_) {}
+            writtenArtifacts = null;
+          }
+          rethrow;
         }
-
-        await _datasource.insertBook(
-          Book(
-            title: '$baseTitle (firmado)',
-            filePath: exported.pdfPath,
-            fileSize: await file.length(),
-            addedAt: DateTime.now(),
-            collectionId: collectionId,
-            tags: tags,
-          ),
-        );
-        return exported;
       });
       writtenArtifacts = null;
       return result;
     } catch (_) {
-      // Limpia artefactos huérfanos si el PDF se escribió pero falló el alta.
-      final orphan = result ?? writtenArtifacts;
-      if (orphan != null) {
-        try {
-          final pdf = File(orphan.pdfPath);
-          if (await pdf.exists()) await pdf.delete();
-          final manifest = File(orphan.manifestPath);
-          if (await manifest.exists()) await manifest.delete();
-        } catch (_) {}
-      }
       _error = 'No se pudo exportar el PDF firmado.';
       return null;
     } finally {

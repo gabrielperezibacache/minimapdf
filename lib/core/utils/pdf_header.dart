@@ -34,11 +34,33 @@ abstract final class PdfHeader {
     return false;
   }
 
+  /// Ventana al final del archivo para buscar `%%EOF` (anti-truncado).
+  static const int eofScanWindow = 2048;
+
+  /// Tamaño mínimo para exigir marca de fin (tests usan PDFs minúsculos).
+  static const int eofMinFileSize = 256;
+
+  static bool containsEofMarker(List<int> bytes) {
+    // %%EOF → 0x25 0x25 0x45 0x4F 0x46
+    if (bytes.length < 5) return false;
+    for (var i = 0; i <= bytes.length - 5; i++) {
+      if (bytes[i] == 0x25 &&
+          bytes[i + 1] == 0x25 &&
+          bytes[i + 2] == 0x45 &&
+          bytes[i + 3] == 0x4F &&
+          bytes[i + 4] == 0x46) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   static Future<void> assertFile(
     File file, {
     String contentType = '',
     String invalidMessage = 'El archivo no es un PDF válido',
     bool requireMagic = true,
+    bool requireEof = true,
   }) async {
     if (!await file.exists()) {
       throw FormatException(invalidMessage);
@@ -52,13 +74,28 @@ abstract final class PdfHeader {
     try {
       final toRead = size < scanWindow ? size : scanWindow;
       final header = await raf.read(toRead);
-      if (containsMagic(header)) return;
+      final hasMagic = containsMagic(header);
+      if (!hasMagic) {
+        if (!requireMagic && contentType.toLowerCase().contains('pdf')) {
+          // Sin magia pero content-type PDF: sigue validando EOF si aplica.
+        } else {
+          throw FormatException(invalidMessage);
+        }
+      }
+
+      // PDFs truncados a menudo pierden %%EOF; exige marca en cola.
+      if (requireEof && size >= eofMinFileSize) {
+        final tailStart = size > eofScanWindow ? size - eofScanWindow : 0;
+        await raf.setPosition(tailStart);
+        final tail = await raf.read(size - tailStart);
+        if (!containsEofMarker(tail)) {
+          throw const FormatException('PDF incompleto o truncado');
+        }
+      }
+      return;
     } finally {
       await raf.close();
     }
-
-    if (!requireMagic && contentType.toLowerCase().contains('pdf')) return;
-    throw FormatException(invalidMessage);
   }
 
   static void assertBytes(

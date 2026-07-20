@@ -89,6 +89,18 @@ class PdfImportService {
     final sanitized = FileNameSanitizer.sanitize(picked.displayName);
 
     return LibraryFileCoordinator.runExclusive(() async {
+      // Revalida bajo el lock: el origen pudo cambiar mientras se esperaba.
+      if (!await source.exists()) {
+        throw StateError(
+          'El archivo seleccionado no existe: ${picked.sourcePath}',
+        );
+      }
+      await PdfHeader.assertFile(
+        source,
+        invalidMessage: 'El archivo seleccionado no es un PDF válido',
+      );
+      final sourceSize = await source.length();
+
       final docs = await _documentsDirectory();
       final libraryDir = Directory(p.join(docs.path, 'library'));
       if (!await libraryDir.exists()) {
@@ -112,6 +124,13 @@ class PdfImportService {
       try {
         await source.copy(destination);
         final size = await destinationFile.length();
+        if (size != sourceSize) {
+          throw StateError('Copia incompleta del PDF');
+        }
+        await PdfHeader.assertFile(
+          destinationFile,
+          invalidMessage: 'El archivo seleccionado no es un PDF válido',
+        );
         final title = p.basenameWithoutExtension(unique).replaceAll('_', ' ');
 
         int? resolvedCollectionId = collectionId;

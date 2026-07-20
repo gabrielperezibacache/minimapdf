@@ -356,8 +356,10 @@ class LibraryProvider extends ChangeNotifier {
 
     try {
       await LibraryFileCoordinator.runExclusive(() async {
-        await datasource.removeBook(id);
+        // Borra disco primero: si falla la DB, el libro queda con archivo ausente
+        // (recuperable); al revés quedarían huérfanos sin fila.
         await _deleteBookFile(book.filePath);
+        await datasource.removeBook(id);
       });
       _error = null;
       try {

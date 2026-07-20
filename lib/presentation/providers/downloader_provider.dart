@@ -30,6 +30,7 @@ class DownloaderProvider extends ChangeNotifier {
   Book? _lastDownloaded;
   int? _targetCollectionId;
   DateTime? _lastProgressNotify;
+  bool _disposed = false;
 
   String get urlInput => _urlInput;
   String get browserUrl => _browserUrl;
@@ -43,14 +44,24 @@ class DownloaderProvider extends ChangeNotifier {
   bool get hasDetectedPdfs => _detectedPdfUrls.isNotEmpty;
   int? get targetCollectionId => _targetCollectionId;
 
+  void _safeNotify() {
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
   void setUrlInput(String value) {
     _urlInput = value;
-    notifyListeners();
+    _safeNotify();
   }
 
   void setBrowserUrl(String value) {
     _browserUrl = value;
-    notifyListeners();
+    _safeNotify();
   }
 
   /// Colección activa de la biblioteca donde se registrará la descarga.
@@ -68,17 +79,18 @@ class DownloaderProvider extends ChangeNotifier {
       }
     }
     _detectedPdfUrls = unique.toList(growable: false);
-    notifyListeners();
+    _safeNotify();
   }
 
   void clearError() {
     if (_error == null && _messageArg == null) return;
     _error = null;
     _messageArg = null;
-    notifyListeners();
+    _safeNotify();
   }
 
   void _reportProgress(double value) {
+    if (_disposed) return;
     _progress = value;
     final now = DateTime.now();
     final last = _lastProgressNotify;
@@ -87,7 +99,7 @@ class DownloaderProvider extends ChangeNotifier {
         value >= 1.0 ||
         value <= 0.0) {
       _lastProgressNotify = now;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -127,18 +139,19 @@ class DownloaderProvider extends ChangeNotifier {
   }
 
   Future<Book?> downloadUrl(String rawUrl) async {
+    if (_disposed) return null;
     final url = PdfUrlUtils.normalizeUrl(rawUrl);
     if (!PdfUrlUtils.isValidHttpUrl(url)) {
       _error = AppMessageKeys.invalidUrl;
       _messageArg = null;
-      notifyListeners();
+      _safeNotify();
       return null;
     }
 
     if (_downloading) {
       _error = AppMessageKeys.downloadInProgress;
       _messageArg = null;
-      notifyListeners();
+      _safeNotify();
       return null;
     }
 
@@ -149,7 +162,7 @@ class DownloaderProvider extends ChangeNotifier {
     _statusMessage = AppMessageKeys.downloading;
     _lastDownloaded = null;
     _lastProgressNotify = null;
-    notifyListeners();
+    _safeNotify();
 
     try {
       final book = await downloadService.downloadFromUrl(
@@ -157,16 +170,19 @@ class DownloaderProvider extends ChangeNotifier {
         onProgress: _reportProgress,
         collectionId: _targetCollectionId,
       );
+      if (_disposed) return book;
       _lastDownloaded = book;
       _statusMessage = AppMessageKeys.savedToLibrary;
       _messageArg = book.title;
       return book;
     } on DownloadCancelledException {
+      if (_disposed) return null;
       _error = null;
       _statusMessage = AppMessageKeys.downloadCancelled;
       _messageArg = null;
       return null;
     } catch (e) {
+      if (_disposed) return null;
       _error = _mapDownloadError(e);
       _statusMessage = null;
       _messageArg = null;
@@ -176,7 +192,7 @@ class DownloaderProvider extends ChangeNotifier {
       return null;
     } finally {
       _downloading = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -209,12 +225,13 @@ class DownloaderProvider extends ChangeNotifier {
   ///
   /// Si hay varios candidatos, no elige al azar: pide elegir de la lista.
   Future<Book?> capturePdf({String? currentUrl}) async {
+    if (_disposed) return null;
     final unique = resolveCaptureCandidates(currentUrl: currentUrl);
 
     if (unique.isEmpty) {
       _error = AppMessageKeys.noPdfLink;
       _messageArg = null;
-      notifyListeners();
+      _safeNotify();
       return null;
     }
 
@@ -223,7 +240,7 @@ class DownloaderProvider extends ChangeNotifier {
       _error = AppMessageKeys.multiplePdfsDetected;
       _messageArg = '${unique.length}';
       _statusMessage = null;
-      notifyListeners();
+      _safeNotify();
       return null;
     }
 

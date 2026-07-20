@@ -77,5 +77,44 @@ void main() {
         isTrue,
       );
     });
+
+    test('assertFile exige %%EOF en PDFs grandes', () async {
+      final dir = await Directory.systemTemp.createTemp('pdf_header_eof_');
+      addTearDown(() async {
+        if (await dir.exists()) await dir.delete(recursive: true);
+      });
+
+      final truncated = File(p.join(dir.path, 'truncated.pdf'));
+      await truncated.writeAsBytes([
+        0x25, 0x50, 0x44, 0x46, // %PDF
+        ...List<int>.filled(300, 0x20),
+      ]);
+      expect(
+        () => PdfHeader.assertFile(truncated),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('incompleto'),
+          ),
+        ),
+      );
+
+      final complete = File(p.join(dir.path, 'complete.pdf'));
+      await complete.writeAsBytes([
+        0x25, 0x50, 0x44, 0x46,
+        ...List<int>.filled(300, 0x20),
+        0x25, 0x25, 0x45, 0x4F, 0x46, // %%EOF
+      ]);
+      await PdfHeader.assertFile(complete);
+    });
+
+    test('containsEofMarker detecta %%EOF', () {
+      expect(
+        PdfHeader.containsEofMarker(const [0x25, 0x25, 0x45, 0x4F, 0x46]),
+        isTrue,
+      );
+      expect(PdfHeader.containsEofMarker(const [0x25, 0x50, 0x44, 0x46]), isFalse);
+    });
   });
 }

@@ -413,16 +413,24 @@ void main() {
   test('DownloaderProvider limita notificaciones de progreso', () async {
     var notifyCount = 0;
     final client = MockClient((request) async {
+      final bytes = List<int>.filled(64 * 1024, 0x20)
+        ..[0] = 0x25
+        ..[1] = 0x50
+        ..[2] = 0x44
+        ..[3] = 0x46;
+      // %%EOF al final (validación anti-truncado).
+      final n = bytes.length;
+      bytes[n - 5] = 0x25;
+      bytes[n - 4] = 0x25;
+      bytes[n - 3] = 0x45;
+      bytes[n - 2] = 0x4F;
+      bytes[n - 1] = 0x46;
       return http.Response.bytes(
-        List<int>.filled(64 * 1024, 0x20)
-          ..[0] = 0x25
-          ..[1] = 0x50
-          ..[2] = 0x44
-          ..[3] = 0x46,
+        bytes,
         200,
         headers: {
           'content-type': 'application/pdf',
-          'content-length': '${64 * 1024}',
+          'content-length': '${bytes.length}',
         },
       );
     });

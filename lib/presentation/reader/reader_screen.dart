@@ -234,13 +234,25 @@ class _ReaderScreenState extends State<ReaderScreen>
         ? ReaderScrollMode.horizontalPaged
         : ReaderScrollMode.verticalContinuous;
     setState(() => _scrollMode = next);
-    await _preferences?.setScrollModeName(next.name);
+    final prefs = _preferences;
+    if (prefs == null) return;
+    while (mounted) {
+      final snapshot = _scrollMode;
+      await prefs.setScrollModeName(snapshot.name);
+      if (!mounted || _scrollMode == snapshot) return;
+    }
   }
 
   Future<void> _toggleFilter() async {
     final next = !_ebonyFilter;
     setState(() => _ebonyFilter = next);
-    await _preferences?.setEbonyFilter(next);
+    final prefs = _preferences;
+    if (prefs == null) return;
+    while (mounted) {
+      final snapshot = _ebonyFilter;
+      await prefs.setEbonyFilter(snapshot);
+      if (!mounted || _ebonyFilter == snapshot) return;
+    }
   }
 
   void _toggleControls() {
@@ -647,7 +659,10 @@ class _ReaderScreenState extends State<ReaderScreen>
         }
         final page = await document.getPage(pageNumber);
         try {
-          if (page.width > 0 && page.height > 0) {
+          if (page.width.isFinite &&
+              page.height.isFinite &&
+              page.width >= 1 &&
+              page.height >= 1) {
             sizes[pageNumber] = Size(page.width, page.height);
           }
         } finally {

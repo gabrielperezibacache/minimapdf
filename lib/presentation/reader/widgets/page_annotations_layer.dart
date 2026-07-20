@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/safe_clamp.dart';
 import '../../../data/models/page_annotation.dart';
 import '../../providers/reader_annotations_provider.dart';
 
@@ -179,6 +180,7 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
       }
     }
 
+    if (!mounted) return;
     setState(() => _creating = true);
     try {
       HapticFeedback.selectionClick();
@@ -206,8 +208,8 @@ class _DraftRect extends StatelessWidget {
   Widget build(BuildContext context) {
     final left = start.dx < current.dx ? start.dx : current.dx;
     final top = start.dy < current.dy ? start.dy : current.dy;
-    final width = (current.dx - start.dx).abs().clamp(4.0, size.width);
-    var height = (current.dy - start.dy).abs().clamp(3.0, size.height);
+    final width = safeClamp((current.dx - start.dx).abs(), 4.0, size.width);
+    var height = safeClamp((current.dy - start.dy).abs(), 3.0, size.height);
     var drawTop = top;
     if (tool == AnnotationTool.underline) {
       drawTop = top + height - 3;
@@ -258,10 +260,16 @@ class _AnnotationMark extends StatelessWidget {
     final colors = AppPalette.of(context);
     final left = annotation.x * canvasSize.width;
     final top = annotation.y * canvasSize.height;
-    final width =
-        (annotation.width * canvasSize.width).clamp(10.0, canvasSize.width);
-    final height =
-        (annotation.height * canvasSize.height).clamp(6.0, canvasSize.height);
+    final width = safeClamp(
+      annotation.width * canvasSize.width,
+      1.0,
+      canvasSize.width.isFinite ? canvasSize.width : 1.0,
+    );
+    final height = safeClamp(
+      annotation.height * canvasSize.height,
+      1.0,
+      canvasSize.height.isFinite ? canvasSize.height : 1.0,
+    );
 
     final child = switch (annotation.type) {
       AnnotationType.highlight => DecoratedBox(
