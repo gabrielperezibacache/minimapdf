@@ -15,10 +15,15 @@ import '../../signing/ink_stroke_painter.dart';
 import '../annotation_ink.dart';
 import '../annotation_markup_geometry.dart';
 
-/// Gana la arena de gestos de inmediato para que PdfView/PhotoView no
-/// cancelen el trazo de un solo dedo o S-Pen.
-class _EagerPanGestureRecognizer extends PanGestureRecognizer {
-  _EagerPanGestureRecognizer({super.debugOwner, super.supportedDevices});
+/// Gana la arena de inmediato (PageView/PhotoView no pueden cancelar el trazo).
+///
+/// No usamos [PanGestureRecognizer]: durante el `setState` del preview el pan
+/// se recreaba/sincronizaba y a veces perdía frente al scroll del PdfView.
+class _ArenaWinningRecognizer extends OneSequenceGestureRecognizer {
+  _ArenaWinningRecognizer({
+    super.debugOwner,
+    super.supportedDevices,
+  });
 
   @override
   void addAllowedPointer(PointerDownEvent event) {
@@ -28,9 +33,59 @@ class _EagerPanGestureRecognizer extends PanGestureRecognizer {
     super.addAllowedPointer(event);
     resolve(GestureDisposition.accepted);
   }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (event is PointerUpEvent || event is PointerCancelEvent) {
+      stopTrackingPointer(event.pointer);
+    }
+  }
+
+  @override
+  void acceptGesture(int pointer) {}
+
+  @override
+  void rejectGesture(int pointer) {
+    stopTrackingPointer(pointer);
+  }
+
+  @override
+  void didStopTrackingLastPointer(int pointer) {}
+
+  @override
+  String get debugDescription => 'arenaWinning';
 }
 
-/// Capa de dibujo/visualización de anotaciones sobre la página actual.
+/// Preview del trazo sin reconstruir el [RawGestureDetector] en cada move.
+class _DraftStrokeListenable extends ChangeNotifier {
+  final List<Offset> points = <Offset>[];
+  bool moved = false;
+
+  void begin(Offset point) {
+    points
+      ..clear()
+      ..add(point);
+    moved = false;
+    notifyListeners();
+  }
+
+  void append(Offset point, {required bool markMoved}) {
+    points.add(point);
+    if (markMoved && !moved) {
+      moved = true;
+    }
+    notifyListeners();
+  }
+
+  void clear() {
+    if (points.isEmpty && !moved) return;
+    points.clear();
+    moved = false;
+    notifyListeners();
+  }
+}
+
+/// Capa de dibujo/visualización de anotaciones sobre la página.
 ///
 /// Marcado y subrayado son trazos a mano alzada (estilo Samsung Notes):
 /// el path se pinta tal cual, sin redimensionar a cajas de texto.
@@ -68,9 +123,8 @@ class PageAnnotationsLayer extends StatefulWidget {
 }
 
 class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
-  final List<Offset> _path = <Offset>[];
+  final _DraftStrokeListenable _draft = _DraftStrokeListenable();
   bool _creating = false;
-  bool _panMoved = false;
   AnnotationTool? _gestureTool;
   int? _activePointer;
   PointerDeviceKind? _activeKind;
@@ -79,7 +133,7 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
   bool get _captureGestures =>
       widget.enabled &&
       !_creating &&
-      (widget.activeTool != AnnotationTool.none || _path.isNotEmpty);
+      (widget.activeTool != AnnotationTool.none || _draft.points.isNotEmpty);
 
   AnnotationTool get _effectiveTool => _gestureTool ?? widget.activeTool;
 
@@ -96,11 +150,17 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
       widget.strokeWidthPx ?? strokeWidthPxForTool(_effectiveTool);
 
   @override
+  void dispose() {
+    _draft.dispose();
+    super.dispose();
+  }
+
+  @override
   void didUpdateWidget(covariant PageAnnotationsLayer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if ((oldWidget.activeTool != widget.activeTool ||
             oldWidget.enabled != widget.enabled) &&
-        _path.isEmpty &&
+        _draft.points.isEmpty &&
         !_creating) {
       _gestureTool = null;
       _activePointer = null;
@@ -122,21 +182,17 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
 
   void _beginStroke(PointerEvent event) {
     final stylus = _isStylus(event.kind);
-    setState(() {
-      _gestureTool = widget.activeTool;
-      _path
-        ..clear()
-        ..add(event.localPosition);
-      _panMoved = false;
-      _activePointer = event.pointer;
-      _activeKind = event.kind;
-      _stylusPointer = stylus ? event.pointer : null;
-    });
+    _gestureTool = widget.activeTool;
+    _activePointer = event.pointer;
+    _activeKind = event.kind;
+    _stylusPointer = stylus ? event.pointer : null;
+    // Sin setState: evita reconstruir el recognizer a mitad del gesto.
+    _draft.begin(event.localPosition);
   }
 
   bool _acceptPointerDown(PointerEvent event) {
     if (!_captureGestures) return false;
-    if (widget.activeTool == AnnotationTool.none && _path.isEmpty) {
+    if (widget.activeTool == AnnotationTool.none && _draft.points.isEmpty) {
       return false;
     }
     if (!_isDrawablePointer(event)) return false;
@@ -162,12 +218,11 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
     return true;
   }
 
-  void _clearStroke() {
-    _path.clear();
-    _panMoved = false;
+  void _clearStrokePointers() {
     _gestureTool = null;
     _activePointer = null;
     _activeKind = null;
+    _stylusPointer = null;
   }
 
   @override
@@ -192,37 +247,44 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
               ),
             if (_captureGestures && widget.activeTool.isMarkup)
               Positioned.fill(child: _buildCaptureSurface(size)),
-            if (_panMoved && _path.length >= 2)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: CustomPaint(
-                    painter: InkStrokePainter(
-                      strokes: [
-                        [
-                          for (final p in _path) [p.dx, p.dy],
+            Positioned.fill(
+              child: ListenableBuilder(
+                listenable: _draft,
+                builder: (context, _) {
+                  if (!_draft.moved || _draft.points.length < 2) {
+                    return const SizedBox.shrink();
+                  }
+                  return IgnorePointer(
+                    child: CustomPaint(
+                      painter: InkStrokePainter(
+                        strokes: [
+                          [
+                            for (final p in _draft.points) [p.dx, p.dy],
+                          ],
                         ],
-                      ],
-                      color: _draftColor,
-                      strokeWidth: _draftStrokeWidth,
-                      normalized: false,
+                        color: _draftColor,
+                        strokeWidth: _draftStrokeWidth,
+                        normalized: false,
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
+            ),
           ],
         );
       },
     );
   }
 
-  /// Eager pan gana la arena; Listener recoge dedo y S-Pen sin cancelaciones.
+  /// Recognizer que gana la arena; [Listener] recoge el path sin cancelaciones.
   Widget _buildCaptureSurface(Size size) {
     return RawGestureDetector(
       behavior: HitTestBehavior.opaque,
       gestures: <Type, GestureRecognizerFactory>{
-        _EagerPanGestureRecognizer:
-            GestureRecognizerFactoryWithHandlers<_EagerPanGestureRecognizer>(
-          () => _EagerPanGestureRecognizer(
+        _ArenaWinningRecognizer:
+            GestureRecognizerFactoryWithHandlers<_ArenaWinningRecognizer>(
+          () => _ArenaWinningRecognizer(
             debugOwner: this,
             supportedDevices: const {
               PointerDeviceKind.touch,
@@ -230,17 +292,13 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
               PointerDeviceKind.mouse,
             },
           ),
-          (_EagerPanGestureRecognizer instance) {
-            instance
-              ..onStart = (_) {}
-              ..onUpdate = (_) {}
-              ..onEnd = (_) {}
-              ..onCancel = () {};
+          (_ArenaWinningRecognizer instance) {
+            // Sin callbacks: solo ocupa la arena para que PageView no gane.
           },
         ),
       },
       child: Listener(
-        behavior: HitTestBehavior.translucent,
+        behavior: HitTestBehavior.opaque,
         onPointerDown: (event) {
           if (!_acceptPointerDown(event)) return;
 
@@ -257,18 +315,16 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
           _beginStroke(event);
         },
         onPointerMove: (event) {
-          if (event.pointer != _activePointer || _path.isEmpty) {
+          if (event.pointer != _activePointer || _draft.points.isEmpty) {
             return;
           }
-          final last = _path.last;
+          final last = _draft.points.last;
           final delta = (event.localPosition - last).distance;
-          if (delta < kStrokeSamplePx && _path.length > 1) return;
+          if (delta < kStrokeSamplePx && _draft.points.length > 1) return;
           final moved =
-              (event.localPosition - _path.first).distance > kStrokeCommitPx;
-          setState(() {
-            _path.add(event.localPosition);
-            if (moved) _panMoved = true;
-          });
+              (event.localPosition - _draft.points.first).distance >
+                  kStrokeCommitPx;
+          _draft.append(event.localPosition, markMoved: moved);
         },
         onPointerUp: (event) {
           if (event.pointer != _activePointer) return;
@@ -279,14 +335,11 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
               event.pointer != _stylusPointer) {
             return;
           }
-          // Si el scroll padre canceló un trazo válido, guardarlo igual.
-          final points = List<Offset>.from(_path);
+          // Si el sistema/scroll canceló un trazo válido, guardarlo igual.
+          final points = List<Offset>.from(_draft.points);
           final tool = _effectiveTool;
-          final wasStylus = _stylusPointer == event.pointer;
-          setState(() {
-            _clearStroke();
-            if (wasStylus) _stylusPointer = null;
-          });
+          _clearStrokePointers();
+          _draft.clear();
           if (tool.isMarkup && isStrokeCommitWorthy(points)) {
             unawaited(
               _finishGesture(
@@ -302,7 +355,7 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
   }
 
   Future<void> _completeStroke(Offset lastPoint, Size size) async {
-    final points = List<Offset>.from(_path);
+    final points = List<Offset>.from(_draft.points);
     if (points.isNotEmpty) {
       if ((points.last - lastPoint).distance > 0.5) {
         points.add(lastPoint);
@@ -311,11 +364,8 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
       }
     }
     final tool = _effectiveTool;
-    final wasStylus = _stylusPointer == _activePointer;
-    setState(() {
-      _clearStroke();
-      if (wasStylus) _stylusPointer = null;
-    });
+    _clearStrokePointers();
+    _draft.clear();
     if (points.isEmpty) return;
     await _finishGesture(
       size: size,

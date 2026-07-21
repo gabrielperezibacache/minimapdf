@@ -1426,11 +1426,15 @@ class _ReaderScreenState extends State<ReaderScreen>
         pageBuilder: (context, pageImage, index, document) {
           final pageNumber = index + 1;
           final pageSize = _pageSizes[pageNumber] ?? const Size(595, 842);
-          // Solo la página actual captura gestos de dibujo; el resto muestra
-          // anotaciones y permite abrir/eliminar sin bloquear el scroll.
-          final pageTool = pageNumber == _currentPage && annotationsLayerEnabled
+          // Con herramienta armada, TODAS las páginas visibles capturan el trazo.
+          // Antes solo _currentPage lo hacía: en scroll continuo el toque a veces
+          // caía en una página vecina (sin captura) y el trazo “fallaba”.
+          final pageTool = annotationsLayerEnabled &&
+                  activeTool != AnnotationTool.none
               ? activeTool
               : AnnotationTool.none;
+          final placementOnPage =
+              (signing?.placementMode ?? false) && pageNumber == _currentPage;
           return PhotoViewGalleryPageOptions.customChild(
             child: SignedPdfPage(
               pageImageFuture: pageImage,
@@ -1446,8 +1450,7 @@ class _ReaderScreenState extends State<ReaderScreen>
               strokeWidthPx: annotations?.activeStrokeWidthPx,
               ebonyFilter: _ebonyFilter,
               // Solo la página actual acepta toques de colocación (scroll continuo).
-              placementMode:
-                  (signing?.placementMode ?? false) && pageNumber == _currentPage,
+              placementMode: placementOnPage,
               onPlaceTap: _openSignatureSheetAt,
               onCreateAnnotation: _createAnnotationRect,
               onOpenAnnotation: _openAnnotation,
@@ -1481,10 +1484,8 @@ class _ReaderScreenState extends State<ReaderScreen>
             // Debe coincidir con el SizedBox de SignedPdfPage (puntos PDF).
             childSize: pageSize,
             // Evita que PhotoView robe el pan/zoom mientras se dibuja
-            // con dedo o S-Pen.
-            disableGestures: pageTool != AnnotationTool.none ||
-                ((signing?.placementMode ?? false) &&
-                    pageNumber == _currentPage),
+            // con dedo o S-Pen (en todas las páginas visibles).
+            disableGestures: pageTool != AnnotationTool.none || placementOnPage,
             initialScale: PhotoViewComputedScale.contained * 1.0,
             minScale: PhotoViewComputedScale.contained * 1.0,
             maxScale: PhotoViewComputedScale.contained * 3.0,

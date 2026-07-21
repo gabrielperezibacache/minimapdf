@@ -367,6 +367,121 @@ void main() {
     expect(created, isTrue);
   });
 
+  testWidgets(
+      'un dedo gana frente a un PageView padre (scroll no cancela el trazo)',
+      (tester) async {
+    var created = false;
+    AnnotationTool? gotTool;
+
+    await tester.pumpWidget(
+      l10nTestApp(
+        theme: AppTheme.ebony,
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            height: 800,
+            child: PageView(
+              // Simula PdfView: el drag vertical compite con el trazo.
+              scrollDirection: Axis.vertical,
+              children: [
+                PageAnnotationsLayer(
+                  annotations: const [],
+                  activeTool: AnnotationTool.highlight,
+                  enabled: true,
+                  onCreateRect: ({
+                    required tool,
+                    required x,
+                    required y,
+                    required width,
+                    required height,
+                    strokes,
+                  }) async {
+                    created = true;
+                    gotTool = tool;
+                  },
+                  onOpenAnnotation: (_) {},
+                  onDeleteAnnotation: (_) {},
+                ),
+                const SizedBox.expand(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final start =
+        tester.getCenter(find.byType(PageAnnotationsLayer)) - const Offset(80, 0);
+    final finger = await tester.startGesture(
+      start,
+      kind: PointerDeviceKind.touch,
+    );
+    // Movimiento diagonal: el PageView vertical intentaría ganar el eje Y.
+    for (var i = 0; i < 14; i++) {
+      await finger.moveBy(const Offset(10, 6));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await finger.up();
+    await tester.pumpAndSettle();
+
+    expect(created, isTrue);
+    expect(gotTool, AnnotationTool.highlight);
+  });
+
+  testWidgets(
+      'varios movimientos con un dedo siguen creando marcado (no intermitente)',
+      (tester) async {
+    var createdCount = 0;
+
+    await tester.pumpWidget(
+      l10nTestApp(
+        theme: AppTheme.ebony,
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 400,
+              height: 800,
+              child: PageAnnotationsLayer(
+                annotations: const [],
+                activeTool: AnnotationTool.underline,
+                enabled: true,
+                onCreateRect: ({
+                  required tool,
+                  required x,
+                  required y,
+                  required width,
+                  required height,
+                  strokes,
+                }) async {
+                  createdCount++;
+                },
+                onOpenAnnotation: (_) {},
+                onDeleteAnnotation: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final center = tester.getCenter(find.byType(PageAnnotationsLayer));
+    for (var stroke = 0; stroke < 4; stroke++) {
+      final start = center + Offset(-100.0, -40.0 + stroke * 24.0);
+      final finger = await tester.startGesture(
+        start,
+        kind: PointerDeviceKind.touch,
+      );
+      for (var i = 0; i < 10; i++) {
+        await finger.moveBy(const Offset(14, 0));
+        await tester.pump(const Duration(milliseconds: 12));
+      }
+      await finger.up();
+      await tester.pumpAndSettle();
+    }
+
+    expect(createdCount, 4);
+  });
+
   testWidgets('muestra anotación existente y permite abrirla', (tester) async {
     var opened = false;
     final annotation = PageAnnotation(
