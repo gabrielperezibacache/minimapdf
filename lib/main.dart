@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:pdfrx/pdfrx.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -28,6 +29,9 @@ import 'services/external_pdf_open_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Motor PDFium para extraer texto embebido (imantado + selección).
+  pdfrxFlutterInitialize();
 
   // Sqflite nativo solo en móvil; en escritorio usamos FFI.
   if (!kIsWeb && (Platform.isLinux || Platform.isWindows)) {

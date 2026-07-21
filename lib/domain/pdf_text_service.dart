@@ -1,5 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
-import 'package:syncfusion_flutter_pdf/pdf.dart' as sf;
+import 'package:pdfrx/pdfrx.dart';
 
 import '../presentation/reader/annotation_ink.dart' show MarkupRect;
 
@@ -22,13 +24,7 @@ class PdfLineBox {
   final List<PdfWordBox> words;
 }
 
-class _ExtractRequest {
-  const _ExtractRequest(this.bytes, this.pageIndex);
-  final Uint8List bytes;
-  final int pageIndex;
-}
-
-/// Extrae texto embebido del PDF (líneas y palabras con posición).
+/// Extrae texto embebido del PDF (líneas y palabras con posición) vía PDFium.
 ///
 /// Funciona con PDFs que tienen capa de texto; los escaneados (solo imagen)
 /// devuelven listas vacías (ahí se usa el respaldo por proyección de tinta).
@@ -39,6 +35,8 @@ class PdfTextService {
   final Future<Uint8List> Function() _bytesLoader;
 
   Uint8List? _bytes;
+  PdfDocument? _doc;
+  Future<PdfDocument?>? _docFuture;
   final Map<int, List<PdfLineBox>> _cache = {};
   final Map<int, Future<List<PdfLineBox>>> _inFlight = {};
 
@@ -53,13 +51,40 @@ class PdfTextService {
     return future;
   }
 
+  Future<PdfDocument?> _document() {
+    final doc = _doc;
+    if (doc != null) return Future.value(doc);
+    return _docFuture ??= () async {
+      _bytes ??= await _bytesLoader();
+      final opened = await PdfDocument.openData(
+        _bytes!,
+        sourceName: 'minimal_pdf_text_service',
+      );
+      _doc = opened;
+      return opened;
+    }();
+  }
+
   Future<List<PdfLineBox>> _extract(int pageIndex) async {
     try {
-      _bytes ??= await _bytesLoader();
-      final bytes = _bytes!;
-      final lines = await compute(
-        _extractLinesIsolate,
-        _ExtractRequest(bytes, pageIndex),
+      final doc = await _document();
+      if (doc == null || pageIndex < 0 || pageIndex >= doc.pages.length) {
+        _cache[pageIndex] = const [];
+        return const [];
+      }
+      final page = doc.pages[pageIndex];
+      final w = page.width;
+      final h = page.height;
+      if (w <= 0 || h <= 0) {
+        _cache[pageIndex] = const [];
+        return const [];
+      }
+      final pageText = await page.loadStructuredText();
+      final lines = linesFromCharRects(
+        fullText: pageText.fullText,
+        charRects: pageText.charRects,
+        pageWidth: w,
+        pageHeight: h,
       );
       _cache[pageIndex] = lines;
       return lines;
@@ -72,68 +97,162 @@ class PdfTextService {
     }
   }
 
-  void clear() {
+  Future<void> dispose() async {
     _cache.clear();
     _inFlight.clear();
+    final doc = _doc;
+    _doc = null;
+    _docFuture = null;
+    _bytes = null;
+    if (doc != null) {
+      try {
+        await doc.dispose();
+      } catch (_) {
+        // Best-effort al cerrar el documento nativo.
+      }
+    }
   }
 }
 
-/// Ejecutado en un isolate: abre el PDF y extrae líneas de una página.
-List<PdfLineBox> _extractLinesIsolate(_ExtractRequest req) {
-  sf.PdfDocument? doc;
-  try {
-    doc = sf.PdfDocument(inputBytes: req.bytes);
-    if (req.pageIndex < 0 || req.pageIndex >= doc.pages.count) {
-      return const [];
-    }
-    final size = doc.pages[req.pageIndex].size;
-    final w = size.width;
-    final h = size.height;
-    if (w <= 0 || h <= 0) return const [];
+/// Reconstruye líneas y palabras a partir de los arrays paralelos
+/// `fullText` / `charRects` (una caja por carácter en coords PDF).
+///
+/// Función pura para poder probar la agrupación sin depender de PDFium.
+/// Las coordenadas PDF tienen origen abajo-izquierda (Y hacia arriba); aquí se
+/// convierten a coordenadas normalizadas 0–1 con origen arriba-izquierda.
+List<PdfLineBox> linesFromCharRects({
+  required String fullText,
+  required List<PdfRect> charRects,
+  required double pageWidth,
+  required double pageHeight,
+}) {
+  if (pageWidth <= 0 || pageHeight <= 0) return const [];
+  final count = math.min(fullText.length, charRects.length);
+  if (count == 0) return const [];
 
-    final extractor = sf.PdfTextExtractor(doc);
-    final lines = extractor.extractTextLines(
-      startPageIndex: req.pageIndex,
-      endPageIndex: req.pageIndex,
+  final lines = <PdfLineBox>[];
+
+  // Acumuladores de la línea en curso (coords normalizadas arriba-izquierda).
+  final lineWords = <PdfWordBox>[];
+  var lineMinX = double.infinity;
+  var lineMinY = double.infinity;
+  var lineMaxX = double.negativeInfinity;
+  var lineMaxY = double.negativeInfinity;
+
+  // Acumuladores de la palabra en curso.
+  final wordBuf = StringBuffer();
+  var wordMinX = double.infinity;
+  var wordMinY = double.infinity;
+  var wordMaxX = double.negativeInfinity;
+  var wordMaxY = double.negativeInfinity;
+  var wordPrevRight = double.nan;
+  var wordCharH = 0.0;
+
+  bool wordEmpty() => wordBuf.isEmpty;
+  bool lineEmpty() => lineWords.isEmpty && wordEmpty();
+
+  void flushWord() {
+    if (wordBuf.isEmpty) return;
+    final rect = MarkupRect(
+      x: wordMinX.clamp(0.0, 1.0),
+      y: wordMinY.clamp(0.0, 1.0),
+      width: (wordMaxX - wordMinX).clamp(0.0, 1.0),
+      height: (wordMaxY - wordMinY).clamp(0.0, 1.0),
     );
+    lineWords.add(PdfWordBox(text: wordBuf.toString(), rect: rect));
+    lineMinX = math.min(lineMinX, wordMinX);
+    lineMinY = math.min(lineMinY, wordMinY);
+    lineMaxX = math.max(lineMaxX, wordMaxX);
+    lineMaxY = math.max(lineMaxY, wordMaxY);
+    wordBuf.clear();
+    wordMinX = double.infinity;
+    wordMinY = double.infinity;
+    wordMaxX = double.negativeInfinity;
+    wordMaxY = double.negativeInfinity;
+    wordPrevRight = double.nan;
+    wordCharH = 0.0;
+  }
 
-    MarkupRect norm(double left, double top, double width, double height) {
-      final x = (left / w).clamp(0.0, 1.0);
-      final y = (top / h).clamp(0.0, 1.0);
-      final nw = (width / w).clamp(0.0, 1.0);
-      final nh = (height / h).clamp(0.0, 1.0);
-      return MarkupRect(x: x.toDouble(), y: y.toDouble(), width: nw.toDouble(), height: nh.toDouble());
-    }
-
-    final result = <PdfLineBox>[];
-    for (final line in lines) {
-      final text = line.text.trimRight();
-      if (text.isEmpty) continue;
-      final b = line.bounds;
-      final words = <PdfWordBox>[];
-      for (final word in line.wordCollection) {
-        final wt = word.text.trim();
-        if (wt.isEmpty) continue;
-        final wb = word.bounds;
-        words.add(
-          PdfWordBox(
-            text: wt,
-            rect: norm(wb.left, wb.top, wb.width, wb.height),
-          ),
-        );
-      }
-      result.add(
+  void flushLine() {
+    flushWord();
+    if (lineWords.isNotEmpty) {
+      final rect = MarkupRect(
+        x: lineMinX.clamp(0.0, 1.0),
+        y: lineMinY.clamp(0.0, 1.0),
+        width: (lineMaxX - lineMinX).clamp(0.0, 1.0),
+        height: (lineMaxY - lineMinY).clamp(0.0, 1.0),
+      );
+      lines.add(
         PdfLineBox(
-          text: text,
-          rect: norm(b.left, b.top, b.width, b.height),
-          words: words,
+          text: lineWords.map((w) => w.text).join(' '),
+          rect: rect,
+          words: List<PdfWordBox>.of(lineWords),
         ),
       );
     }
-    return result;
-  } catch (_) {
-    return const [];
-  } finally {
-    doc?.dispose();
+    lineWords.clear();
+    lineMinX = double.infinity;
+    lineMinY = double.infinity;
+    lineMaxX = double.negativeInfinity;
+    lineMaxY = double.negativeInfinity;
   }
+
+  for (var i = 0; i < count; i++) {
+    final ch = fullText[i];
+    if (ch == '\n' || ch == '\r' || ch == '\f') {
+      flushLine();
+      continue;
+    }
+    final isSpace = ch.trim().isEmpty;
+
+    final r = charRects[i];
+    final l = r.left / pageWidth;
+    final rr = r.right / pageWidth;
+    final t = (pageHeight - r.top) / pageHeight;
+    final b = (pageHeight - r.bottom) / pageHeight;
+    final top = math.min(t, b);
+    final bottom = math.max(t, b);
+    final charH = bottom - top;
+    final centerY = (top + bottom) / 2;
+
+    if (isSpace) {
+      flushWord();
+      continue;
+    }
+
+    // Salto de línea implícito: el carácter cae fuera de la banda vertical
+    // de la línea en curso (PDFs sin '\n' explícito entre líneas).
+    // La banda incluye la palabra en construcción (aún no volcada a la línea).
+    if (!lineEmpty()) {
+      final effMinY = math.min(lineMinY, wordMinY);
+      final effMaxY = math.max(lineMaxY, wordMaxY);
+      if (effMinY.isFinite && effMaxY.isFinite) {
+        final refH = effMaxY - effMinY;
+        final margin = 0.5 * (refH > 0 ? refH : charH);
+        if (centerY < effMinY - margin || centerY > effMaxY + margin) {
+          flushLine();
+        }
+      }
+    }
+
+    // Separación de palabra por hueco horizontal (PDFs sin espacios reales).
+    if (!wordEmpty() && !wordPrevRight.isNaN) {
+      final gap = l - wordPrevRight;
+      final ref = wordCharH > 0 ? wordCharH : charH;
+      if (gap > 0.6 * ref) {
+        flushWord();
+      }
+    }
+
+    wordBuf.write(ch);
+    wordMinX = math.min(wordMinX, l);
+    wordMinY = math.min(wordMinY, top);
+    wordMaxX = math.max(wordMaxX, rr);
+    wordMaxY = math.max(wordMaxY, bottom);
+    wordPrevRight = rr;
+    wordCharH = math.max(wordCharH, charH);
+  }
+  flushLine();
+
+  return lines;
 }

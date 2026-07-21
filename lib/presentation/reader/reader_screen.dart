@@ -207,6 +207,10 @@ class _ReaderScreenState extends State<ReaderScreen>
     _pageSizeCacheGeneration++;
     _annotations?.removeListener(_onAnnotationsChanged);
     _annotations?.dispose();
+    // Cierra el documento PDFium del servicio de texto (imantado/selección).
+    final pdfText = _pdfText;
+    _pdfText = null;
+    if (pdfText != null) unawaited(pdfText.dispose());
     _signing?.removeListener(_onSigningChanged);
     _signing?.dispose();
     // El guardado fiable ocurre en _onExit / lifecycle; aquí best-effort.
