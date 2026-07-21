@@ -4,6 +4,7 @@
 
 | Archivo | Formato | Versión | applicationId |
 |---------|---------|---------|---------------|
+| `minimalpdf-1.0.0+10-testing.apk` | APK (testing / instalación directa) | 1.0.0 (code 10) | `apps.perezibacache.minimalpdf` |
 | `minimalpdf-1.0.0+9-testing.apk` | APK (testing / instalación directa) | 1.0.0 (code 9) | `apps.perezibacache.minimalpdf` |
 | `minimalpdf-1.0.0+8-testing.apk` | APK (testing / instalación directa) | 1.0.0 (code 8) | `apps.perezibacache.minimalpdf` |
 | `minimalpdf-1.0.0+7-testing.apk` | APK (testing / instalación directa) | 1.0.0 (code 7) | `apps.perezibacache.minimalpdf` |
