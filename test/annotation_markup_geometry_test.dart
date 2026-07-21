@@ -55,9 +55,9 @@ void main() {
       expect(stroke.first[1], closeTo(200 / 800, 0.01));
 
       final rect = boundingRectForStroke(
-        tool: AnnotationTool.highlight,
         canvasSize: page,
         stroke: stroke,
+        strokeWidthPx: kHighlightStrokePx,
       );
       expect(rect, isNotNull);
       expect(rect!.x, lessThan(40 / 400));
@@ -112,9 +112,9 @@ void main() {
       );
       expect(stroke, isNotNull);
       final rect = boundingRectForStroke(
-        tool: AnnotationTool.underline,
         canvasSize: page,
         stroke: stroke!,
+        strokeWidthPx: kUnderlineStrokePx,
       );
       expect(rect, isNotNull);
       expect(rect!.width, greaterThan(0.5));

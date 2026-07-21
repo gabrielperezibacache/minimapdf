@@ -44,9 +44,9 @@ MarkupRect? computeMarkupRect({
   );
   if (stroke == null) return null;
   return boundingRectForStroke(
-    tool: tool,
     canvasSize: canvasSize,
     stroke: stroke,
+    strokeWidthPx: strokeWidthPxForTool(tool),
   );
 }
 

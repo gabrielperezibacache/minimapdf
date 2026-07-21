@@ -167,6 +167,7 @@ void main() {
         width: 0.4,
         height: 0.05,
         inkJson: '[[[0.1,0.22],[0.3,0.23],[0.45,0.21]]]',
+        strokeWidth: 24.0,
         colorValue: 0x99C89A5A,
         createdAt: DateTime.utc(2026, 7, 4),
       );

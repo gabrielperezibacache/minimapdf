@@ -84,6 +84,56 @@ void main() {
     expect(cleared, isTrue);
   });
 
+  testWidgets('muestra color, grosor y deshacer/rehacer con Marcado',
+      (tester) async {
+    Color? picked;
+    var size = -1;
+    var undone = false;
+    var redone = false;
+
+    await tester.pumpWidget(
+      wrap(
+        AnnotationToolbox(
+          visible: true,
+          activeTool: AnnotationTool.highlight,
+          inkColor: const Color(0xFFC89A5A),
+          strokeSizeIndex: 2,
+          canUndo: true,
+          canRedo: true,
+          onSelectTool: (_) {},
+          onInkColorChanged: (c) => picked = c,
+          onStrokeSizeChanged: (i) => size = i,
+          onUndo: () => undone = true,
+          onRedo: () => redone = true,
+          onClose: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('Color'), findsOneWidget);
+    expect(find.text('Grosor'), findsOneWidget);
+    expect(find.byIcon(Icons.undo), findsOneWidget);
+    expect(find.byIcon(Icons.redo), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.undo));
+    await tester.pump();
+    expect(undone, isTrue);
+
+    await tester.tap(find.byIcon(Icons.redo));
+    await tester.pump();
+    expect(redone, isTrue);
+
+    // Segundo tamaño (índice 1).
+    await tester.tap(find.bySemanticsLabel('size 1'));
+    await tester.pump();
+    expect(size, 1);
+
+    // Primer color de la paleta (amarillo).
+    await tester.tap(find.bySemanticsLabel('color').first);
+    await tester.pump();
+    expect(picked, isNotNull);
+  });
+
   testWidgets('oculta interacción cuando visible es false', (tester) async {
     var selected = false;
 

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:ui' show Offset, Size;
+import 'dart:ui' show Color, Offset, Size;
 
 import '../providers/reader_annotations_provider.dart';
 
@@ -26,13 +26,61 @@ const double kStrokeCommitPx = 8.0;
 const double kStrokeSamplePx = 1.5;
 
 /// Grosor visual del resaltador (estilo Samsung Notes).
-const double kHighlightStrokePx = 22.0;
+const double kHighlightStrokePx = 24.0;
 
 /// Grosor visual del subrayado a mano alzada.
 const double kUnderlineStrokePx = 3.5;
 
 /// Máximo de puntos por trazo al persistir.
 const int kMaxInkPoints = 400;
+
+/// Estilos de tinta para la caja de herramientas (Samsung Notes).
+abstract final class MarkupInkStyle {
+  static const int sizeCount = 4;
+
+  static const List<double> highlightWidths = [12.0, 18.0, 24.0, 32.0];
+  static const List<double> underlineWidths = [2.0, 3.5, 5.0, 8.0];
+
+  /// Colores base (opacos); el alpha se aplica según la herramienta.
+  static const List<Color> palette = [
+    Color(0xFFF4D35E), // amarillo
+    Color(0xFFC89A5A), // bronce
+    Color(0xFF66BB6A), // verde
+    Color(0xFF42A5F5), // azul
+    Color(0xFFEF5350), // rojo
+    Color(0xFFFF9800), // naranja
+    Color(0xFF26A69A), // teal
+    Color(0xFF212121), // negro
+  ];
+
+  static const double highlightAlpha = 0.55;
+
+  static double widthFor({
+    required AnnotationTool tool,
+    required int sizeIndex,
+  }) {
+    final index = sizeIndex.clamp(0, sizeCount - 1);
+    if (tool == AnnotationTool.highlight) {
+      return highlightWidths[index];
+    }
+    if (tool == AnnotationTool.underline) {
+      return underlineWidths[index];
+    }
+    return underlineWidths[index];
+  }
+
+  static int defaultSizeIndexFor(AnnotationTool tool) {
+    return tool == AnnotationTool.highlight ? 2 : 1;
+  }
+
+  /// Color listo para pintar/guardar según la herramienta.
+  static Color resolveColor(Color base, AnnotationTool tool) {
+    if (tool == AnnotationTool.highlight) {
+      return base.withValues(alpha: highlightAlpha);
+    }
+    return base.withValues(alpha: 1.0);
+  }
+}
 
 /// Serializa trazos normalizados (0–1) a JSON.
 String encodeAnnotationInk(List<List<List<double>>> strokes) {
@@ -70,11 +118,10 @@ List<List<List<double>>> decodeAnnotationInk(String? raw) {
 }
 
 double strokeWidthPxForTool(AnnotationTool tool) {
-  return switch (tool) {
-    AnnotationTool.highlight => kHighlightStrokePx,
-    AnnotationTool.underline => kUnderlineStrokePx,
-    _ => kUnderlineStrokePx,
-  };
+  return MarkupInkStyle.widthFor(
+    tool: tool,
+    sizeIndex: MarkupInkStyle.defaultSizeIndexFor(tool),
+  );
 }
 
 double pathLengthPx(List<Offset> points) {
@@ -125,11 +172,11 @@ List<List<double>>? normalizePixelStroke({
   return _downsample(sampled, kMaxInkPoints);
 }
 
-/// Bounding box normalizado del trazo, con margen según el grosor de la herramienta.
+/// Bounding box normalizado del trazo, con margen según el grosor.
 MarkupRect? boundingRectForStroke({
-  required AnnotationTool tool,
   required Size canvasSize,
   required List<List<double>> stroke,
+  required double strokeWidthPx,
 }) {
   if (stroke.isEmpty) return null;
   final w = canvasSize.width;
@@ -147,8 +194,8 @@ MarkupRect? boundingRectForStroke({
     if (p[1] > maxY) maxY = p[1];
   }
 
-  final padX = (strokeWidthPxForTool(tool) * 0.55) / w;
-  final padY = (strokeWidthPxForTool(tool) * 0.55) / h;
+  final padX = (strokeWidthPx * 0.55) / w;
+  final padY = (strokeWidthPx * 0.55) / h;
   final left = (minX - padX).clamp(0.0, 1.0);
   final top = (minY - padY).clamp(0.0, 1.0);
   final right = (maxX + padX).clamp(0.0, 1.0);

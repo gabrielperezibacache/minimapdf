@@ -9,6 +9,7 @@ import '../../data/models/bookmark.dart';
 import '../../data/models/page_annotation.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/app_message_keys.dart';
+import '../reader/annotation_ink.dart';
 
 /// Herramienta activa en la caja de anotaciones del lector.
 enum AnnotationTool {
@@ -55,11 +56,25 @@ enum AnnotationTool {
       this == AnnotationTool.highlight || this == AnnotationTool.underline;
 }
 
+enum _AnnotationHistoryKind { created, deleted }
+
+class _AnnotationHistoryEntry {
+  const _AnnotationHistoryEntry({
+    required this.kind,
+    required this.snapshot,
+  });
+
+  final _AnnotationHistoryKind kind;
+  final PageAnnotation snapshot;
+}
+
 /// Marcadores, notas y anotaciones espaciales del lector activo.
 class ReaderAnnotationsProvider extends ChangeNotifier {
   ReaderAnnotationsProvider(this._datasource);
 
   final LibraryLocalDatasource _datasource;
+
+  static const int _maxHistory = 40;
 
   int? _bookId;
   List<Bookmark> _bookmarks = const [];
@@ -73,6 +88,11 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   int _loadGeneration = 0;
   Future<void>? _mutation;
 
+  Color _inkColor = MarkupInkStyle.palette[1]; // bronce
+  int _strokeSizeIndex = 2;
+  final List<_AnnotationHistoryEntry> _undoStack = [];
+  final List<_AnnotationHistoryEntry> _redoStack = [];
+
   List<Bookmark> get bookmarks => _bookmarks;
   List<PageAnnotation> get annotations => _annotations;
   AnnotationTool get activeTool => _activeTool;
@@ -80,6 +100,23 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   bool get loading => _loading;
   String? get error => _error;
   bool get isDrawingToolActive => _activeTool != AnnotationTool.none;
+
+  Color get inkColor => _inkColor;
+  int get strokeSizeIndex => _strokeSizeIndex;
+  bool get canUndo => _undoStack.isNotEmpty;
+  bool get canRedo => _redoStack.isNotEmpty;
+
+  /// Grosor actual en px según herramienta (o default de marcado).
+  double get activeStrokeWidthPx {
+    final tool = _activeTool.isMarkup ? _activeTool : AnnotationTool.highlight;
+    return MarkupInkStyle.widthFor(tool: tool, sizeIndex: _strokeSizeIndex);
+  }
+
+  /// Color listo para pintar el borrador / guardar.
+  Color get activeInkColor {
+    final tool = _activeTool.isMarkup ? _activeTool : AnnotationTool.highlight;
+    return MarkupInkStyle.resolveColor(_inkColor, tool);
+  }
 
   Bookmark? bookmarkForPage(int pageNumber) {
     for (final bookmark in _bookmarks) {
@@ -99,6 +136,19 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   void _safeNotify() {
     if (_disposed) return;
     notifyListeners();
+  }
+
+  void _clearHistory() {
+    _undoStack.clear();
+    _redoStack.clear();
+  }
+
+  void _pushHistory(_AnnotationHistoryEntry entry) {
+    _undoStack.add(entry);
+    if (_undoStack.length > _maxHistory) {
+      _undoStack.removeAt(0);
+    }
+    _redoStack.clear();
   }
 
   /// Serializa mutaciones; no inicia trabajo nuevo tras [dispose].
@@ -133,6 +183,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     _loadingGeneration = generation;
     _loading = true;
     _error = null;
+    _clearHistory();
     _safeNotify();
     try {
       final bookmarks = await _datasource.listBookmarks(bookId);
@@ -204,6 +255,10 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     _activeTool = _activeTool == tool ? AnnotationTool.none : tool;
     if (_activeTool != AnnotationTool.none) {
       _toolboxVisible = true;
+      if (_activeTool.isMarkup) {
+        _strokeSizeIndex =
+            _strokeSizeIndex.clamp(0, MarkupInkStyle.sizeCount - 1);
+      }
     }
     _safeNotify();
   }
@@ -212,6 +267,151 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     if (_disposed || _activeTool == AnnotationTool.none) return;
     _activeTool = AnnotationTool.none;
     _safeNotify();
+  }
+
+  void setInkColor(Color color) {
+    if (_disposed) return;
+    if (_inkColor.toARGB32() == color.toARGB32()) return;
+    _inkColor = color;
+    _safeNotify();
+  }
+
+  void setStrokeSizeIndex(int index) {
+    if (_disposed) return;
+    final next = index.clamp(0, MarkupInkStyle.sizeCount - 1);
+    if (next == _strokeSizeIndex) return;
+    _strokeSizeIndex = next;
+    _safeNotify();
+  }
+
+  Future<bool> undo() async {
+    if (!canUndo) return false;
+    var ok = false;
+    await _enqueue(() async {
+      ok = await _undoBody();
+    });
+    return ok;
+  }
+
+  Future<bool> redo() async {
+    if (!canRedo) return false;
+    var ok = false;
+    await _enqueue(() async {
+      ok = await _redoBody();
+    });
+    return ok;
+  }
+
+  Future<bool> _undoBody() async {
+    final bookId = _bookId;
+    if (_disposed || bookId == null || _undoStack.isEmpty) return false;
+    final entry = _undoStack.removeLast();
+    try {
+      switch (entry.kind) {
+        case _AnnotationHistoryKind.created:
+          final id = entry.snapshot.id;
+          if (id == null) {
+            _undoStack.add(entry);
+            return false;
+          }
+          await _datasource.removePageAnnotation(id);
+          if (_disposed) return false;
+          _annotations = [
+            for (final item in _annotations)
+              if (item.id != id) item,
+          ];
+          _redoStack.add(entry);
+          _error = null;
+          _safeNotify();
+          await _refreshAfterMutation(bookId);
+          return true;
+        case _AnnotationHistoryKind.deleted:
+          final restored = await _datasource.insertPageAnnotation(
+            entry.snapshot.copyWith(clearId: true),
+          );
+          if (_disposed) return false;
+          _annotations = [
+            for (final item in _annotations)
+              if (item.id != restored.id) item,
+            restored,
+          ];
+          _redoStack.add(
+            _AnnotationHistoryEntry(
+              kind: _AnnotationHistoryKind.deleted,
+              snapshot: restored,
+            ),
+          );
+          _error = null;
+          _safeNotify();
+          await _refreshAfterMutation(bookId);
+          return true;
+      }
+    } catch (e) {
+      _undoStack.add(entry);
+      if (_disposed) return false;
+      _error = AppMessageKeys.annotationUpdateFailed;
+      if (kDebugMode) {
+        debugPrint('ReaderAnnotationsProvider.undo: $e');
+      }
+      _safeNotify();
+      return false;
+    }
+  }
+
+  Future<bool> _redoBody() async {
+    final bookId = _bookId;
+    if (_disposed || bookId == null || _redoStack.isEmpty) return false;
+    final entry = _redoStack.removeLast();
+    try {
+      switch (entry.kind) {
+        case _AnnotationHistoryKind.created:
+          final restored = await _datasource.insertPageAnnotation(
+            entry.snapshot.copyWith(clearId: true),
+          );
+          if (_disposed) return false;
+          _annotations = [
+            for (final item in _annotations)
+              if (item.id != restored.id) item,
+            restored,
+          ];
+          _undoStack.add(
+            _AnnotationHistoryEntry(
+              kind: _AnnotationHistoryKind.created,
+              snapshot: restored,
+            ),
+          );
+          _error = null;
+          _safeNotify();
+          await _refreshAfterMutation(bookId);
+          return true;
+        case _AnnotationHistoryKind.deleted:
+          final id = entry.snapshot.id;
+          if (id == null) {
+            _redoStack.add(entry);
+            return false;
+          }
+          await _datasource.removePageAnnotation(id);
+          if (_disposed) return false;
+          _annotations = [
+            for (final item in _annotations)
+              if (item.id != id) item,
+          ];
+          _undoStack.add(entry);
+          _error = null;
+          _safeNotify();
+          await _refreshAfterMutation(bookId);
+          return true;
+      }
+    } catch (e) {
+      _redoStack.add(entry);
+      if (_disposed) return false;
+      _error = AppMessageKeys.annotationUpdateFailed;
+      if (kDebugMode) {
+        debugPrint('ReaderAnnotationsProvider.redo: $e');
+      }
+      _safeNotify();
+      return false;
+    }
   }
 
   /// Marca o desmarca la página actual.
@@ -372,6 +572,8 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     required double height,
     String? text,
     List<List<List<double>>>? strokes,
+    Color? color,
+    double? strokeWidth,
   }) async {
     PageAnnotation? created;
     await _enqueue(() async {
@@ -384,6 +586,8 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
         height: height,
         text: text,
         strokes: strokes,
+        color: color,
+        strokeWidth: strokeWidth,
       );
     });
     return created;
@@ -398,6 +602,8 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     required double height,
     String? text,
     List<List<List<double>>>? strokes,
+    Color? color,
+    double? strokeWidth,
   }) async {
     final bookId = _bookId;
     if (_disposed || bookId == null || pageNumber < 1) return null;
@@ -417,6 +623,26 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
         inkJson = jsonEncode(valid);
       }
     }
+
+    final tool = switch (type) {
+      AnnotationType.highlight => AnnotationTool.highlight,
+      AnnotationType.underline => AnnotationTool.underline,
+      AnnotationType.note => AnnotationTool.note,
+      AnnotationType.comment => AnnotationTool.comment,
+      AnnotationType.annotation => AnnotationTool.annotation,
+    };
+    final resolvedColor = color ??
+        (type.isMarkup
+            ? MarkupInkStyle.resolveColor(_inkColor, tool)
+            : type.defaultColor);
+    final resolvedWidth = strokeWidth ??
+        (type.isMarkup
+            ? MarkupInkStyle.widthFor(
+                tool: tool,
+                sizeIndex: _strokeSizeIndex,
+              )
+            : null);
+
     try {
       final created = await _datasource.insertPageAnnotation(
         PageAnnotation(
@@ -429,7 +655,8 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
           width: clamped.$3,
           height: clamped.$4,
           inkJson: inkJson,
-          colorValue: _colorToArgb(type.defaultColor),
+          strokeWidth: resolvedWidth,
+          colorValue: _colorToArgb(resolvedColor),
           createdAt: DateTime.now(),
         ),
       );
@@ -441,6 +668,12 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
           if (item.id != created.id) item,
         created,
       ];
+      _pushHistory(
+        _AnnotationHistoryEntry(
+          kind: _AnnotationHistoryKind.created,
+          snapshot: created,
+        ),
+      );
       _safeNotify();
       await _refreshAfterMutation(bookId);
       return created;
@@ -513,6 +746,12 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
         for (final item in _annotations)
           if (item.id != id) item,
       ];
+      _pushHistory(
+        _AnnotationHistoryEntry(
+          kind: _AnnotationHistoryKind.deleted,
+          snapshot: annotation,
+        ),
+      );
       _safeNotify();
       await _refreshAfterMutation(bookId);
     } catch (e) {
@@ -560,6 +799,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _loadGeneration++;
+    _clearHistory();
     super.dispose();
   }
 }

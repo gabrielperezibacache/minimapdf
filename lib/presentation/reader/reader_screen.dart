@@ -976,6 +976,10 @@ class _ReaderScreenState extends State<ReaderScreen>
                       isBookmarked: isBookmarked,
                       pageNumber: _currentPage,
                       annotationCount: pageAnnotations.length,
+                      inkColor: annotations?.inkColor,
+                      strokeSizeIndex: annotations?.strokeSizeIndex ?? 2,
+                      canUndo: annotations?.canUndo ?? false,
+                      canRedo: annotations?.canRedo ?? false,
                       onToggleBookmark: () {
                         unawaited(_toggleBookmark());
                       },
@@ -984,6 +988,22 @@ class _ReaderScreenState extends State<ReaderScreen>
                           _signing?.cancelPlacementMode();
                         }
                         annotations?.selectTool(tool);
+                        setState(() {});
+                      },
+                      onInkColorChanged: (color) {
+                        annotations?.setInkColor(color);
+                        setState(() {});
+                      },
+                      onStrokeSizeChanged: (index) {
+                        annotations?.setStrokeSizeIndex(index);
+                        setState(() {});
+                      },
+                      onUndo: () {
+                        unawaited(annotations?.undo());
+                        setState(() {});
+                      },
+                      onRedo: () {
+                        unawaited(annotations?.redo());
                         setState(() {});
                       },
                       onClearTool: () => annotations?.clearTool(),
@@ -1154,6 +1174,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                   annotations?.annotationsForPage(pageNumber) ?? const [],
               activeTool: pageTool,
               annotationsEnabled: annotationsLayerEnabled,
+              inkColor: annotations?.activeInkColor,
+              strokeWidthPx: annotations?.activeStrokeWidthPx,
               ebonyFilter: _ebonyFilter,
               // Solo la página actual acepta toques de colocación (scroll continuo).
               placementMode:

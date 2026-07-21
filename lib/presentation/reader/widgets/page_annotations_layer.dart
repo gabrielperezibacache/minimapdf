@@ -27,6 +27,8 @@ class PageAnnotationsLayer extends StatefulWidget {
     required this.onCreateRect,
     required this.onOpenAnnotation,
     required this.onDeleteAnnotation,
+    this.inkColor,
+    this.strokeWidthPx,
   });
 
   final List<PageAnnotation> annotations;
@@ -42,6 +44,8 @@ class PageAnnotationsLayer extends StatefulWidget {
   }) onCreateRect;
   final ValueChanged<PageAnnotation> onOpenAnnotation;
   final ValueChanged<PageAnnotation> onDeleteAnnotation;
+  final Color? inkColor;
+  final double? strokeWidthPx;
 
   @override
   State<PageAnnotationsLayer> createState() => _PageAnnotationsLayerState();
@@ -61,6 +65,18 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
       (widget.activeTool != AnnotationTool.none || _path.isNotEmpty);
 
   AnnotationTool get _effectiveTool => _gestureTool ?? widget.activeTool;
+
+  Color get _draftColor {
+    final custom = widget.inkColor;
+    if (custom != null) return custom;
+    return (_effectiveTool.annotationType?.defaultColor ?? AppColors.ebonyAccent)
+        .withValues(
+      alpha: _effectiveTool == AnnotationTool.highlight ? 0.55 : 0.95,
+    );
+  }
+
+  double get _draftStrokeWidth =>
+      widget.strokeWidthPx ?? strokeWidthPxForTool(_effectiveTool);
 
   @override
   void didUpdateWidget(covariant PageAnnotationsLayer oldWidget) {
@@ -198,14 +214,8 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
                           for (final p in _path) [p.dx, p.dy],
                         ],
                       ],
-                      color: (_effectiveTool.annotationType?.defaultColor ??
-                              AppColors.ebonyAccent)
-                          .withValues(
-                        alpha: _effectiveTool == AnnotationTool.highlight
-                            ? 0.55
-                            : 0.95,
-                      ),
-                      strokeWidth: strokeWidthPxForTool(_effectiveTool),
+                      color: _draftColor,
+                      strokeWidth: _draftStrokeWidth,
                       normalized: false,
                     ),
                   ),
@@ -236,10 +246,12 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
     } else if (tool.isMarkup) {
       final stroke = normalizePixelStroke(canvasSize: size, points: points);
       if (stroke == null) return;
+      final strokeWidth =
+          widget.strokeWidthPx ?? strokeWidthPxForTool(tool);
       rect = boundingRectForStroke(
-        tool: tool,
         canvasSize: size,
         stroke: stroke,
+        strokeWidthPx: strokeWidth,
       );
       if (rect == null) return;
       strokes = [stroke];
@@ -397,9 +409,7 @@ class _InkMarkupHitTarget extends StatelessWidget {
       8.0,
       canvasSize.height.isFinite ? canvasSize.height : 8.0,
     );
-    final strokePx = annotation.type == AnnotationType.highlight
-        ? kHighlightStrokePx
-        : kUnderlineStrokePx;
+    final strokePx = annotation.effectiveStrokeWidth;
 
     return Stack(
       fit: StackFit.expand,

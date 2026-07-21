@@ -279,6 +279,10 @@ class AppLocalizations {
   String get annotationHintNote => _t('annotationHintNote');
   String get annotationHintComment => _t('annotationHintComment');
   String get annotationHintAnnotation => _t('annotationHintAnnotation');
+  String get annotationUndo => _t('annotationUndo');
+  String get annotationRedo => _t('annotationRedo');
+  String get annotationInkColor => _t('annotationInkColor');
+  String get annotationStrokeSize => _t('annotationStrokeSize');
   String get welcomePage1Title => _t('welcomePage1Title');
   String get welcomePage1Body => _t('welcomePage1Body');
   String get welcomePage1Highlight => _t('welcomePage1Highlight');
@@ -674,6 +678,10 @@ const Map<String, Map<String, String>> _strings = {
     'annotationHintNote': 'Toca la página para colocar una nota.',
     'annotationHintComment': 'Toca la página para dejar un comentario.',
     'annotationHintAnnotation': 'Toca la página para añadir una anotación.',
+    'annotationUndo': 'Deshacer',
+    'annotationRedo': 'Rehacer',
+    'annotationInkColor': 'Color',
+    'annotationStrokeSize': 'Grosor',
 'welcomePage1Title': 'Privacidad de verdad',
     'welcomePage1Body': 'Minimal PDF procesa todo en tu dispositivo. Sin cuentas, sin nube, sin telemetría ni anuncios: un pago único para leer con calma.',
     'welcomePage1Highlight': '100% offline · Cero analíticas',
@@ -935,6 +943,10 @@ const Map<String, Map<String, String>> _strings = {
     'annotationHintNote': 'Tap the page to place a note.',
     'annotationHintComment': 'Tap the page to leave a comment.',
     'annotationHintAnnotation': 'Tap the page to add an annotation.',
+    'annotationUndo': 'Undo',
+    'annotationRedo': 'Redo',
+    'annotationInkColor': 'Color',
+    'annotationStrokeSize': 'Thickness',
 'welcomePage1Title': 'Real privacy',
     'welcomePage1Body': 'Minimal PDF processes everything on your device. No accounts, no cloud, no telemetry or ads: a one-time purchase for calm reading.',
     'welcomePage1Highlight': '100% offline · Zero analytics',
@@ -1195,6 +1207,10 @@ const Map<String, Map<String, String>> _strings = {
     'annotationHintNote': 'Toque na página para colocar uma nota.',
     'annotationHintComment': 'Toque na página para deixar um comentário.',
     'annotationHintAnnotation': 'Toque na página para adicionar uma anotação.',
+    'annotationUndo': 'Desfazer',
+    'annotationRedo': 'Refazer',
+    'annotationInkColor': 'Cor',
+    'annotationStrokeSize': 'Espessura',
 'welcomePage1Title': 'Privacidade a sério',
     'welcomePage1Body': 'O Minimal PDF processa tudo no seu dispositivo. Sem contas, sem nuvem, sem telemetria nem anúncios: uma compra única para ler com calma.',
     'welcomePage1Highlight': '100% offline · Zero análises',
@@ -1455,6 +1471,10 @@ const Map<String, Map<String, String>> _strings = {
     'annotationHintNote': 'Touchez la page pour placer une note.',
     'annotationHintComment': 'Touchez la page pour laisser un commentaire.',
     'annotationHintAnnotation': 'Touchez la page pour ajouter une annotation.',
+    'annotationUndo': 'Annuler',
+    'annotationRedo': 'Rétablir',
+    'annotationInkColor': 'Couleur',
+    'annotationStrokeSize': 'Épaisseur',
 'welcomePage1Title': 'Une vraie confidentialité',
     'welcomePage1Body': 'Minimal PDF traite tout sur votre appareil. Pas de compte, pas de cloud, pas de télémétrie ni de publicité : un achat unique pour lire sereinement.',
     'welcomePage1Highlight': '100 % hors ligne · Zéro analytique',
@@ -1717,6 +1737,10 @@ const Map<String, Map<String, String>> _strings = {
     'annotationHintNote': 'Tippen Sie auf die Seite, um eine Notiz zu setzen.',
     'annotationHintComment': 'Tippen Sie auf die Seite, um einen Kommentar zu hinterlassen.',
     'annotationHintAnnotation': 'Tippen Sie auf die Seite, um eine Anmerkung hinzuzufügen.',
+    'annotationUndo': 'Rückgängig',
+    'annotationRedo': 'Wiederholen',
+    'annotationInkColor': 'Farbe',
+    'annotationStrokeSize': 'Stärke',
 'welcomePage1Title': 'Echte Privatsphäre',
     'welcomePage1Body': 'Minimal PDF verarbeitet alles auf Ihrem Gerät. Keine Konten, keine Cloud, keine Telemetrie oder Werbung: ein einmaliger Kauf für ruhiges Lesen.',
     'welcomePage1Highlight': '100 % offline · Keine Analysen',
@@ -1974,6 +1998,10 @@ const Map<String, Map<String, String>> _strings = {
     'annotationHintNote': '点按页面以放置笔记。',
     'annotationHintComment': '点按页面以留下评论。',
     'annotationHintAnnotation': '点按页面以添加批注。',
+    'annotationUndo': '撤销',
+    'annotationRedo': '重做',
+    'annotationInkColor': '颜色',
+    'annotationStrokeSize': '粗细',
 'welcomePage1Title': '真正的隐私',
     'welcomePage1Body': 'Minimal PDF 在您的设备上完成全部处理。无需账户、无需云端、无遥测与广告：一次购买，安心阅读。',
     'welcomePage1Highlight': '100% 离线 · 零分析',
@@ -2234,6 +2262,10 @@ const Map<String, Map<String, String>> _strings = {
     'annotationHintNote': 'Нажмите на страницу, чтобы поставить заметку.',
     'annotationHintComment': 'Нажмите на страницу, чтобы оставить комментарий.',
     'annotationHintAnnotation': 'Нажмите на страницу, чтобы добавить аннотацию.',
+    'annotationUndo': 'Отменить',
+    'annotationRedo': 'Повторить',
+    'annotationInkColor': 'Цвет',
+    'annotationStrokeSize': 'Толщина',
 'welcomePage1Title': 'Настоящая конфиденциальность',
     'welcomePage1Body': 'Minimal PDF обрабатывает всё на вашем устройстве. Без аккаунтов, облака, телеметрии и рекламы: разовая покупка для спокойного чтения.',
     'welcomePage1Highlight': '100% офлайн · Без аналитики',

@@ -34,6 +34,8 @@ class SignedPdfPage extends StatefulWidget {
     this.annotations = const [],
     this.activeTool = AnnotationTool.none,
     this.annotationsEnabled = true,
+    this.inkColor,
+    this.strokeWidthPx,
     this.onCreateAnnotation,
     this.onOpenAnnotation,
     this.onDeleteAnnotation,
@@ -57,6 +59,8 @@ class SignedPdfPage extends StatefulWidget {
   final List<PageAnnotation> annotations;
   final AnnotationTool activeTool;
   final bool annotationsEnabled;
+  final Color? inkColor;
+  final double? strokeWidthPx;
   final Future<void> Function({
     required int pageNumber,
     required AnnotationTool tool,
@@ -169,6 +173,8 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
               annotations: widget.annotations,
               activeTool: widget.activeTool,
               enabled: widget.annotationsEnabled && !widget.placementMode,
+              inkColor: widget.inkColor,
+              strokeWidthPx: widget.strokeWidthPx,
               onCreateRect: ({
                 required AnnotationTool tool,
                 required double x,
