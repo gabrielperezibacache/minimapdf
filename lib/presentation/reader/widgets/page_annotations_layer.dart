@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
@@ -13,6 +14,21 @@ import '../../providers/reader_annotations_provider.dart';
 import '../../signing/ink_stroke_painter.dart';
 import '../annotation_ink.dart';
 import '../annotation_markup_geometry.dart';
+
+/// Gana la arena de gestos de inmediato para que PdfView/PhotoView no
+/// cancelen el trazo de un solo dedo o S-Pen.
+class _EagerPanGestureRecognizer extends PanGestureRecognizer {
+  _EagerPanGestureRecognizer({super.debugOwner, super.supportedDevices});
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    if (event.kind == PointerDeviceKind.invertedStylus) {
+      return;
+    }
+    super.addAllowedPointer(event);
+    resolve(GestureDisposition.accepted);
+  }
+}
 
 /// Capa de dibujo/visualización de anotaciones sobre la página actual.
 ///
@@ -57,6 +73,7 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
   bool _panMoved = false;
   AnnotationTool? _gestureTool;
   int? _activePointer;
+  PointerDeviceKind? _activeKind;
   int? _stylusPointer;
 
   bool get _captureGestures =>
@@ -81,10 +98,14 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
   @override
   void didUpdateWidget(covariant PageAnnotationsLayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.activeTool != widget.activeTool &&
+    if ((oldWidget.activeTool != widget.activeTool ||
+            oldWidget.enabled != widget.enabled) &&
         _path.isEmpty &&
         !_creating) {
       _gestureTool = null;
+      _activePointer = null;
+      _activeKind = null;
+      _stylusPointer = null;
     }
   }
 
@@ -92,20 +113,50 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
       kind == PointerDeviceKind.stylus ||
       kind == PointerDeviceKind.invertedStylus;
 
-  bool _acceptPointer(PointerEvent event) {
+  bool _isDrawablePointer(PointerEvent event) {
+    if (event.kind == PointerDeviceKind.invertedStylus) return false;
+    return event.kind == PointerDeviceKind.touch ||
+        event.kind == PointerDeviceKind.stylus ||
+        event.kind == PointerDeviceKind.mouse;
+  }
+
+  void _beginStroke(PointerEvent event) {
+    final stylus = _isStylus(event.kind);
+    setState(() {
+      _gestureTool = widget.activeTool;
+      _path
+        ..clear()
+        ..add(event.localPosition);
+      _panMoved = false;
+      _activePointer = event.pointer;
+      _activeKind = event.kind;
+      _stylusPointer = stylus ? event.pointer : null;
+    });
+  }
+
+  bool _acceptPointerDown(PointerEvent event) {
     if (!_captureGestures) return false;
     if (widget.activeTool == AnnotationTool.none && _path.isEmpty) {
       return false;
     }
-    if (_stylusPointer != null &&
-        event.pointer != _stylusPointer &&
-        !_isStylus(event.kind)) {
+    if (!_isDrawablePointer(event)) return false;
+
+    final stylus = _isStylus(event.kind);
+
+    // S-Pen tiene prioridad sobre palma/dedo ya activo.
+    if (stylus &&
+        _activePointer != null &&
+        _activePointer != event.pointer &&
+        _activeKind != PointerDeviceKind.stylus) {
+      return true;
+    }
+
+    // Con S-Pen activo, ignorar toques de palma.
+    if (_stylusPointer != null && event.pointer != _stylusPointer && !stylus) {
       return false;
     }
+
     if (_activePointer != null && event.pointer != _activePointer) {
-      return false;
-    }
-    if (event.kind == PointerDeviceKind.invertedStylus) {
       return false;
     }
     return true;
@@ -116,6 +167,7 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
     _panMoved = false;
     _gestureTool = null;
     _activePointer = null;
+    _activeKind = null;
   }
 
   @override
@@ -128,21 +180,18 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
           fit: StackFit.expand,
           clipBehavior: Clip.none,
           children: [
-            // Chincheta: captura debajo de las marcas para poder abrir/editar.
             if (_captureGestures && widget.activeTool.needsText)
-              Positioned.fill(child: _buildCaptureListener(size)),
+              Positioned.fill(child: _buildCaptureSurface(size)),
             for (final annotation in widget.annotations)
               _AnnotationMark(
                 annotation: annotation,
                 canvasSize: size,
-                // Con marcado armado no interceptan; con chincheta sí.
                 interactive: !_captureGestures || widget.activeTool.needsText,
                 onTap: () => widget.onOpenAnnotation(annotation),
                 onLongPress: () => widget.onDeleteAnnotation(annotation),
               ),
-            // Marcado/subrayado: captura encima para no perder el trazo.
             if (_captureGestures && widget.activeTool.isMarkup)
-              Positioned.fill(child: _buildCaptureListener(size)),
+              Positioned.fill(child: _buildCaptureSurface(size)),
             if (_panMoved && _path.length >= 2)
               Positioned.fill(
                 child: IgnorePointer(
@@ -166,70 +215,112 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
     );
   }
 
-  Widget _buildCaptureListener(Size size) {
-    return Listener(
+  /// Eager pan gana la arena; Listener recoge dedo y S-Pen sin cancelaciones.
+  Widget _buildCaptureSurface(Size size) {
+    return RawGestureDetector(
       behavior: HitTestBehavior.opaque,
-      onPointerDown: (event) {
-        if (!_acceptPointer(event)) return;
-        final stylus = _isStylus(event.kind);
-        setState(() {
-          _gestureTool = widget.activeTool;
-          _path
-            ..clear()
-            ..add(event.localPosition);
-          _panMoved = false;
-          _activePointer = event.pointer;
-          if (stylus) _stylusPointer = event.pointer;
-        });
+      gestures: <Type, GestureRecognizerFactory>{
+        _EagerPanGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<_EagerPanGestureRecognizer>(
+          () => _EagerPanGestureRecognizer(
+            debugOwner: this,
+            supportedDevices: const {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.stylus,
+              PointerDeviceKind.mouse,
+            },
+          ),
+          (_EagerPanGestureRecognizer instance) {
+            instance
+              ..onStart = (_) {}
+              ..onUpdate = (_) {}
+              ..onEnd = (_) {}
+              ..onCancel = () {};
+          },
+        ),
       },
-      onPointerMove: (event) {
-        if (event.pointer != _activePointer || _path.isEmpty) {
-          return;
-        }
-        final last = _path.last;
-        final delta = (event.localPosition - last).distance;
-        if (delta < kStrokeSamplePx && _path.length > 1) return;
-        final moved =
-            (event.localPosition - _path.first).distance > kStrokeCommitPx;
-        setState(() {
-          _path.add(event.localPosition);
-          if (moved) _panMoved = true;
-        });
-      },
-      onPointerUp: (event) async {
-        if (event.pointer != _activePointer) return;
-        final points = List<Offset>.from(_path);
-        if (points.isNotEmpty) {
-          if ((points.last - event.localPosition).distance > 0.5) {
-            points.add(event.localPosition);
-          } else {
-            points[points.length - 1] = event.localPosition;
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (event) {
+          if (!_acceptPointerDown(event)) return;
+
+          final stylus = _isStylus(event.kind);
+          if (stylus &&
+              _activePointer != null &&
+              _activePointer != event.pointer) {
+            _beginStroke(event);
+            return;
           }
-        }
-        final tool = _effectiveTool;
-        final wasStylus = _stylusPointer == event.pointer;
-        setState(() {
-          _clearStroke();
-          if (wasStylus) _stylusPointer = null;
-        });
-        if (points.isEmpty) return;
-        await _finishGesture(
-          size: size,
-          points: points,
-          toolOverride: tool,
-        );
-      },
-      onPointerCancel: (event) {
-        if (event.pointer != _activePointer &&
-            event.pointer != _stylusPointer) {
-          return;
-        }
-        setState(() {
+          if (_activePointer != null && event.pointer != _activePointer) {
+            return;
+          }
+          _beginStroke(event);
+        },
+        onPointerMove: (event) {
+          if (event.pointer != _activePointer || _path.isEmpty) {
+            return;
+          }
+          final last = _path.last;
+          final delta = (event.localPosition - last).distance;
+          if (delta < kStrokeSamplePx && _path.length > 1) return;
+          final moved =
+              (event.localPosition - _path.first).distance > kStrokeCommitPx;
+          setState(() {
+            _path.add(event.localPosition);
+            if (moved) _panMoved = true;
+          });
+        },
+        onPointerUp: (event) {
+          if (event.pointer != _activePointer) return;
+          unawaited(_completeStroke(event.localPosition, size));
+        },
+        onPointerCancel: (event) {
+          if (event.pointer != _activePointer &&
+              event.pointer != _stylusPointer) {
+            return;
+          }
+          // Si el scroll padre canceló un trazo válido, guardarlo igual.
+          final points = List<Offset>.from(_path);
+          final tool = _effectiveTool;
           final wasStylus = _stylusPointer == event.pointer;
-          _clearStroke();
-          if (wasStylus) _stylusPointer = null;
-        });
-      },
+          setState(() {
+            _clearStroke();
+            if (wasStylus) _stylusPointer = null;
+          });
+          if (tool.isMarkup && isStrokeCommitWorthy(points)) {
+            unawaited(
+              _finishGesture(
+                size: size,
+                points: points,
+                toolOverride: tool,
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _completeStroke(Offset lastPoint, Size size) async {
+    final points = List<Offset>.from(_path);
+    if (points.isNotEmpty) {
+      if ((points.last - lastPoint).distance > 0.5) {
+        points.add(lastPoint);
+      } else {
+        points[points.length - 1] = lastPoint;
+      }
+    }
+    final tool = _effectiveTool;
+    final wasStylus = _stylusPointer == _activePointer;
+    setState(() {
+      _clearStroke();
+      if (wasStylus) _stylusPointer = null;
+    });
+    if (points.isEmpty) return;
+    await _finishGesture(
+      size: size,
+      points: points,
+      toolOverride: tool,
     );
   }
 
