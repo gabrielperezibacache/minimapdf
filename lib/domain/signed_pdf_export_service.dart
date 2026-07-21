@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:pdf/pdf.dart' as pw;
 import 'package:pdf/widgets.dart' as pdf;
-import 'package:pdfx/pdfx.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 import '../core/utils/app_paths.dart';
 import '../core/utils/file_name_sanitizer.dart';
@@ -16,6 +16,7 @@ import '../data/models/signature_role.dart';
 import '../data/models/signature_type.dart';
 import '../l10n/app_message_keys.dart';
 import 'document_hash_service.dart';
+import 'pdf_page_rasterizer.dart';
 import 'signature_manifest.dart';
 import 'signature_stamp_geometry.dart';
 
@@ -34,7 +35,7 @@ class SignedPdfExportResult {
 
 /// Exporta una copia del PDF con firmas aplanadas + manifiesto SHA-256.
 ///
-/// Flujo offline: renderiza cada página (pdfx), dibuja los sellos y
+/// Flujo offline: renderiza cada página (pdfrx), dibuja los sellos y
 /// reconstruye un PDF nuevo (paquete `pdf`). No usa PKI.
 class SignedPdfExportService {
   SignedPdfExportService({
@@ -87,7 +88,8 @@ class SignedPdfExportService {
 
     final document = await PdfDocument.openFile(book.filePath);
     try {
-      if (document.pagesCount < 1) {
+      final pageCount = document.pages.length;
+      if (pageCount < 1) {
         throw StateError(AppMessageKeys.exportSignedFailed);
       }
 
@@ -95,7 +97,7 @@ class SignedPdfExportService {
           .where(
             (signature) =>
                 signature.pageNumber < 1 ||
-                signature.pageNumber > document.pagesCount,
+                signature.pageNumber > pageCount,
           )
           .toList(growable: false);
       if (outOfRange.isNotEmpty) {
@@ -108,56 +110,36 @@ class SignedPdfExportService {
         byPage.putIfAbsent(signature.pageNumber, () => []).add(signature);
       }
 
-      for (var pageNumber = 1; pageNumber <= document.pagesCount; pageNumber++) {
-        final page = await document.getPage(pageNumber);
-        try {
-          final pageSize = Size(page.width, page.height);
-          if (!SignatureStampGeometry.isUsablePageSize(pageSize)) {
-            throw StateError(AppMessageKeys.exportSignedFailed);
-          }
-
-          final rendered = await page.render(
-            width: page.width * _renderScale,
-            height: page.height * _renderScale,
-            format: PdfPageImageFormat.png,
-          );
-          if (rendered == null) {
-            throw StateError(AppMessageKeys.exportSignedFailed);
-          }
-
-          final width =
-              rendered.width ?? (page.width * _renderScale).round();
-          final height =
-              rendered.height ?? (page.height * _renderScale).round();
-          if (width < 1 || height < 1) {
-            throw StateError(AppMessageKeys.exportSignedFailed);
-          }
-
-          final stampedBytes = await _stampPageImage(
-            pageBytes: rendered.bytes,
-            width: width,
-            height: height,
-            signatures: byPage[pageNumber] ?? const [],
-            roleLabelOf: resolveRoleLabel,
-          );
-
-          final pageFormat = pw.PdfPageFormat(
-            page.width,
-            page.height,
-            marginAll: 0,
-          );
-          output.addPage(
-            pdf.Page(
-              pageFormat: pageFormat,
-              build: (_) => pdf.Image(
-                pdf.MemoryImage(stampedBytes),
-                fit: pdf.BoxFit.fill,
-              ),
-            ),
-          );
-        } finally {
-          await page.close();
+      for (var pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
+        final page = document.pages[pageNumber - 1];
+        final pageSize = Size(page.width, page.height);
+        if (!SignatureStampGeometry.isUsablePageSize(pageSize)) {
+          throw StateError(AppMessageKeys.exportSignedFailed);
         }
+
+        final rendered = await rasterizePdfPage(page, scale: _renderScale);
+        final stampedBytes = await _stampPageImage(
+          pageBytes: rendered.pngBytes,
+          width: rendered.width,
+          height: rendered.height,
+          signatures: byPage[pageNumber] ?? const [],
+          roleLabelOf: resolveRoleLabel,
+        );
+
+        final pageFormat = pw.PdfPageFormat(
+          page.width,
+          page.height,
+          marginAll: 0,
+        );
+        output.addPage(
+          pdf.Page(
+            pageFormat: pageFormat,
+            build: (_) => pdf.Image(
+              pdf.MemoryImage(stampedBytes),
+              fit: pdf.BoxFit.fill,
+            ),
+          ),
+        );
       }
 
       final pdfBytes = await output.save();
@@ -187,7 +169,7 @@ class SignedPdfExportService {
       await _deleteQuietly(wroteManifest ? manifestPath : null);
       rethrow;
     } finally {
-      await document.close();
+      await document.dispose();
     }
   }
 

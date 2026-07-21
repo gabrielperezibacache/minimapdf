@@ -5,7 +5,9 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:pdfx/pdfx.dart';
+import 'package:pdfrx/pdfrx.dart';
+import 'package:photo_view/photo_view.dart';
+import 'package:photo_view/photo_view_gallery.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -20,6 +22,7 @@ import '../../data/models/document_signature.dart';
 import '../../data/models/page_annotation.dart';
 import '../../data/models/signature_role.dart';
 import '../../domain/annotated_pdf_export_service.dart';
+import '../../domain/pdf_page_rasterizer.dart';
 import '../../domain/pdf_text_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../providers/document_signing_provider.dart';
@@ -35,7 +38,7 @@ import 'widgets/reader_sidebar.dart';
 import 'widgets/save_annotations_sheet.dart';
 import 'widgets/signed_pdf_page.dart';
 
-/// Lector PDF de alto rendimiento (pdfx) con filtro Ébano.
+/// Lector PDF de alto rendimiento (pdfrx + PhotoView) con filtro Ébano.
 class ReaderScreen extends StatefulWidget {
   const ReaderScreen({super.key, required this.book});
 
@@ -47,7 +50,7 @@ class ReaderScreen extends StatefulWidget {
 
 class _ReaderScreenState extends State<ReaderScreen>
     with WidgetsBindingObserver {
-  late final PdfController _controller;
+  late final PageController _pageController;
   /// Zoom/pan de la página actual mientras se dibuja con candado abierto.
   final PhotoViewController _pageZoomController = PhotoViewController();
   /// Extracción de texto del PDF (imantado preciso + selección para copiar).
@@ -73,10 +76,11 @@ class _ReaderScreenState extends State<ReaderScreen>
   String? _error;
   Map<int, Size> _pageSizes = const {};
   PdfDocument? _openedDocument;
-  late Future<PdfDocument> _documentFuture;
-  int _pageSizeCacheGeneration = 0;
+  /// Caché de rasterizaciones PNG por página (invalidada al regenerar el doc).
+  final Map<int, Future<Uint8List>> _pageImageFutures = {};
   int _documentGeneration = 0;
   bool _disposed = false;
+  bool _openingDocument = false;
 
   @override
   void initState() {
@@ -85,16 +89,90 @@ class _ReaderScreenState extends State<ReaderScreen>
 
     final initialPage = math.max(1, widget.book.lastPageRead);
     _currentPage = initialPage;
+    _pageController = PageController(initialPage: initialPage - 1);
 
-    // Conservamos el Future para cerrar el documento aunque el usuario
-    // salga antes de onDocumentLoaded.
-    _documentFuture = PdfDocument.openFile(widget.book.filePath);
-    _controller = PdfController(
-      document: _documentFuture,
-      initialPage: initialPage,
-    );
     final path = widget.book.filePath;
     _pdfText = PdfTextService(() => File(path).readAsBytes());
+    unawaited(_openDocument());
+  }
+
+  Future<void> _openDocument() async {
+    if (_openingDocument || _disposed) return;
+    _openingDocument = true;
+    final l10nReady = mounted;
+    try {
+      final document = await PdfDocument.openFile(widget.book.filePath);
+      if (_disposed) {
+        await document.dispose();
+        return;
+      }
+      final previous = _openedDocument;
+      _openedDocument = document;
+      _pageImageFutures.clear();
+      final count = document.pages.length;
+      final sizes = <int, Size>{};
+      for (var i = 0; i < count; i++) {
+        final page = document.pages[i];
+        if (page.width.isFinite &&
+            page.height.isFinite &&
+            page.width >= 1 &&
+            page.height >= 1) {
+          sizes[i + 1] = Size(page.width, page.height);
+        }
+      }
+      if (!mounted) {
+        await previous?.dispose();
+        return;
+      }
+      setState(() {
+        _pagesCount = count;
+        _pageSizes = sizes;
+        _error = null;
+      });
+      if (previous != null) {
+        try {
+          await previous.dispose();
+        } catch (_) {}
+      }
+      // PDF truncado/reemplazado: no quedarse más allá del final.
+      if (count >= 1 && _currentPage > count) {
+        final clamped = count;
+        _jumpToPage(clamped);
+        _progressSaver?.onPageChanged(clamped);
+      }
+      _maybeShowReaderTip();
+    } catch (error) {
+      if (!mounted || _disposed) return;
+      final detail = kDebugMode ? '$error' : '';
+      final l10n = l10nReady ? AppLocalizations.of(context) : null;
+      final message = l10n == null
+          ? 'Error al abrir el PDF'
+          : (detail.isEmpty
+              ? l10n.openPdfError('').split('\n').first
+              : l10n.openPdfError(detail));
+      setState(() => _error = message);
+    } finally {
+      _openingDocument = false;
+    }
+  }
+
+  /// Rasteriza una página (lazy) y cachea el Future por generación del doc.
+  Future<Uint8List> _pageImageFutureFor(int pageNumber) {
+    final cached = _pageImageFutures[pageNumber];
+    if (cached != null) return cached;
+    final future = () async {
+      final doc = _openedDocument;
+      if (doc == null || pageNumber < 1 || pageNumber > doc.pages.length) {
+        throw StateError('Page $pageNumber unavailable');
+      }
+      final raster = await rasterizePdfPage(
+        doc.pages[pageNumber - 1],
+        scale: 2.0,
+      );
+      return raster.pngBytes;
+    }();
+    _pageImageFutures[pageNumber] = future;
+    return future;
   }
 
   @override
@@ -203,8 +281,6 @@ class _ReaderScreenState extends State<ReaderScreen>
   void dispose() {
     _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
-    // Cancela el barrido de tamaños antes de cerrar el documento nativo.
-    _pageSizeCacheGeneration++;
     _annotations?.removeListener(_onAnnotationsChanged);
     _annotations?.dispose();
     // Cierra el documento PDFium del servicio de texto (imantado/selección).
@@ -221,35 +297,21 @@ class _ReaderScreenState extends State<ReaderScreen>
       unawaited(saver.saveNow(page: _currentPage, forceTouch: true));
       saver.dispose();
     }
-    _controller.dispose();
+    _pageController.dispose();
     _pageZoomController.dispose();
-    // PdfController.dispose() no cierra el PdfDocument nativo (fuga PDFium).
+    _pageImageFutures.clear();
     final document = _openedDocument;
     _openedDocument = null;
-    if (document != null && !document.isClosed) {
+    if (document != null) {
       unawaited(() async {
         try {
-          await document.close();
+          await document.dispose();
         } catch (_) {
           // Best-effort al salir del lector.
         }
       }());
-    } else {
-      // Carga aún pendiente o fallida: cierra al resolver el Future.
-      unawaited(_closeDocumentWhenReady(_documentFuture));
     }
     super.dispose();
-  }
-
-  Future<void> _closeDocumentWhenReady(Future<PdfDocument> future) async {
-    try {
-      final document = await future;
-      if (!document.isClosed) {
-        await document.close();
-      }
-    } catch (_) {
-      // Apertura fallida: nada que cerrar.
-    }
   }
 
   @override
@@ -388,7 +450,11 @@ class _ReaderScreenState extends State<ReaderScreen>
     final target = page > maxPage ? maxPage : page;
     _resetPageZoom();
     // No adelantar _currentPage: lo actualiza _onPageChanged al asentar la vista.
-    _controller.jumpToPage(target);
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(target - 1);
+    } else {
+      setState(() => _currentPage = target);
+    }
     if (_sidebarVisible || _noteDismissed) {
       setState(() {
         _sidebarVisible = false;
@@ -401,7 +467,16 @@ class _ReaderScreenState extends State<ReaderScreen>
     final next = _scrollMode == ReaderScrollMode.verticalContinuous
         ? ReaderScrollMode.horizontalPaged
         : ReaderScrollMode.verticalContinuous;
+    final page = _currentPage;
     setState(() => _scrollMode = next);
+    // Tras recrear la galería (Axis cambia con ValueKey), reasentar la página.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_pageController.hasClients || _pagesCount < 1) return;
+      final target = page.clamp(1, _pagesCount) - 1;
+      if (_pageController.page?.round() != target) {
+        _pageController.jumpToPage(target);
+      }
+    });
     final prefs = _preferences;
     if (prefs == null) return;
     while (mounted) {
@@ -994,38 +1069,6 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
   }
 
-  Future<void> _cachePageSizes(
-    PdfDocument document,
-    int generation,
-  ) async {
-    final sizes = <int, Size>{};
-    try {
-      for (var pageNumber = 1; pageNumber <= document.pagesCount; pageNumber++) {
-        if (!mounted ||
-            generation != _pageSizeCacheGeneration ||
-            document.isClosed) {
-          return;
-        }
-        final page = await document.getPage(pageNumber);
-        try {
-          if (page.width.isFinite &&
-              page.height.isFinite &&
-              page.width >= 1 &&
-              page.height >= 1) {
-            sizes[pageNumber] = Size(page.width, page.height);
-          }
-        } finally {
-          await page.close();
-        }
-      }
-    } catch (_) {
-      // Salida rápida / documento cerrado: cancelación silenciosa.
-      return;
-    }
-    if (!mounted || generation != _pageSizeCacheGeneration) return;
-    setState(() => _pageSizes = sizes);
-  }
-
   Future<void> _shareDocument() async {
     final l10n = AppLocalizations.of(context);
     final path = widget.book.filePath;
@@ -1171,25 +1214,24 @@ class _ReaderScreenState extends State<ReaderScreen>
   Future<void> _prepareDocumentOverwrite() async {
     final opened = _openedDocument;
     _openedDocument = null;
-    if (opened != null && !opened.isClosed) {
+    _pageImageFutures.clear();
+    if (opened != null) {
       try {
-        await opened.close();
+        await opened.dispose();
       } catch (_) {}
-    } else {
-      await _closeDocumentWhenReady(_documentFuture);
     }
   }
 
   Future<void> _reloadDocumentAfterOverwrite() async {
     if (!mounted) return;
-    final page = _currentPage;
     _documentGeneration++;
-    _pageSizeCacheGeneration++;
-    final nextFuture = PdfDocument.openFile(widget.book.filePath);
-    _documentFuture = nextFuture;
-    await _controller.loadDocument(nextFuture, initialPage: page);
+    await _openDocument();
     if (!mounted) return;
-    setState(() {});
+    final page = _currentPage;
+    if (_pageController.hasClients && _pagesCount >= 1) {
+      final target = page.clamp(1, _pagesCount);
+      _pageController.jumpToPage(target - 1);
+    }
   }
 
   Future<void> _confirmDeleteSignature(DocumentSignature signature) async {
@@ -1542,7 +1584,6 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Widget _buildPdfView(AppPalette colors) {
-    final l10n = AppLocalizations.of(context);
     if (_error != null) {
       return Center(
         child: Padding(
@@ -1556,13 +1597,18 @@ class _ReaderScreenState extends State<ReaderScreen>
       );
     }
 
-    final isVertical = _scrollMode.isVertical;
+    if (_openedDocument == null || _pagesCount < 1) {
+      return Center(
+        child: CircularProgressIndicator(color: colors.accent),
+      );
+    }
 
+    final isVertical = _scrollMode.isVertical;
     final signing = _signing;
     final annotations = _annotations;
     final activeTool = annotations?.activeTool ?? AnnotationTool.none;
-    final placementMode = signing?.placementMode ?? false;
-    final annotationsLayerEnabled = !placementMode && !_sidebarVisible;
+    final annotationsLayerEnabled =
+        !(signing?.placementMode ?? false) && !_sidebarVisible;
     final navigationLocked = annotations?.navigationLocked ?? true;
     // Con Marcado/Subrayado el scroll de página SIEMPRE se bloquea:
     // un dedo dibuja; el candado abierto solo habilita zoom/pan con dos dedos.
@@ -1571,160 +1617,112 @@ class _ReaderScreenState extends State<ReaderScreen>
     final scaffoldBg =
         _ebonyFilter ? EbonyPdfFilter.background : colors.background;
 
-    return PdfView(
-      // Sin ValueKey: cambiar scrollDirection no recrea el PdfView
-      // (evita fugas de listeners/caches de pdfx al alternar modo).
-      controller: _controller,
+    return PhotoViewGallery.builder(
+      // Key por dirección de scroll: PageView no cambia Axis en caliente.
+      key: ValueKey<String>('gallery-${_scrollMode.name}-$_documentGeneration'),
+      pageController: _pageController,
+      itemCount: _pagesCount,
       scrollDirection: isVertical ? Axis.vertical : Axis.horizontal,
       pageSnapping: !isVertical,
-      // Un dedo no debe pasar página mientras se dibuja (candado abierto o cerrado).
-      physics: drawingLocksScroll
+      scrollPhysics: drawingLocksScroll
           ? const NeverScrollableScrollPhysics()
           : (isVertical
               ? const BouncingScrollPhysics()
               : const PageScrollPhysics()),
       backgroundDecoration: BoxDecoration(color: scaffoldBg),
-      onPageChanged: _onPageChanged,
-      onDocumentLoaded: (document) {
-        if (!mounted) return;
-        _openedDocument = document;
-        final count = document.pagesCount;
-        setState(() {
-          _pagesCount = count;
-          _error = null;
-        });
-        // PDF truncado/reemplazado: no quedarse más allá del final.
-        if (count >= 1 && _currentPage > count) {
-          final clamped = count;
-          _controller.jumpToPage(clamped);
-          setState(() => _currentPage = clamped);
-          _progressSaver?.onPageChanged(clamped);
-        }
-        final generation = ++_pageSizeCacheGeneration;
-        unawaited(_cachePageSizes(document, generation));
-        _maybeShowReaderTip();
-      },
-      onDocumentError: (error) {
-        if (!mounted) return;
-        // En producción no filtramos el detalle técnico del motor PDF.
-        final detail = kDebugMode ? '$error' : '';
-        final message = detail.isEmpty
-            ? l10n.openPdfError('').split('\n').first
-            : l10n.openPdfError(detail);
-        setState(() => _error = message);
-      },
-      builders: PdfViewBuilders<DefaultBuilderOptions>(
-        options: const DefaultBuilderOptions(),
-        documentLoaderBuilder: (_) => Center(
-          child: CircularProgressIndicator(color: colors.accent),
-        ),
-        pageLoaderBuilder: (_) => Center(
-          child: SizedBox(
-            width: 28,
-            height: 28,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: colors.accent,
-            ),
+      onPageChanged: (index) => _onPageChanged(index + 1),
+      loadingBuilder: (context, event) => Center(
+        child: SizedBox(
+          width: 28,
+          height: 28,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: colors.accent,
           ),
         ),
-        errorBuilder: (_, error) => Center(
-          child: Text(
-            l10n.pageLoadError,
-            style: TextStyle(color: colors.text),
-          ),
-        ),
-        pageBuilder: (context, pageImage, index, document) {
-          final pageNumber = index + 1;
-          final pageSize = _pageSizes[pageNumber] ?? const Size(595, 842);
-          // Con herramienta armada, TODAS las páginas visibles capturan el trazo.
-          // Antes solo _currentPage lo hacía: en scroll continuo el toque a veces
-          // caía en una página vecina (sin captura) y el trazo “fallaba”.
-          final pageTool = annotationsLayerEnabled &&
-                  activeTool != AnnotationTool.none
-              ? activeTool
-              : AnnotationTool.none;
-          final placementOnPage =
-              (signing?.placementMode ?? false) && pageNumber == _currentPage;
-          return PhotoViewGalleryPageOptions.customChild(
-            child: SignedPdfPage(
-              pageImageFuture: pageImage,
-              pageNumber: pageNumber,
-              fallbackSize: pageSize,
-              documentGeneration: _documentGeneration,
-              signatures: signing?.signaturesForPage(pageNumber) ?? const [],
-              annotations:
-                  annotations?.annotationsForPage(pageNumber) ?? const [],
-              activeTool: pageTool,
-              annotationsEnabled: annotationsLayerEnabled,
-              inkColor: annotations?.activeInkColor,
-              strokeWidthPx: annotations?.activeStrokeWidthPx,
-              navigationLocked: navigationLocked,
-              // El zoom manual (2 dedos) solo se aplica a la página actual y
-              // solo con marcado/subrayado (lectura normal usa PhotoView nativo).
-              zoomController: pageTool.isMarkup && pageNumber == _currentPage
-                  ? _pageZoomController
-                  : null,
-              snapToText: annotations?.snapToText ?? false,
-              textLines:
-                  pageNumber == _currentPage ? _currentPageLines : const [],
-              textSelecting: _textSelecting && pageNumber == _currentPage,
-              onTextSelected: (t) {
-                if (_selectedText == t) return;
-                setState(() => _selectedText = t);
-              },
-              ebonyFilter: _ebonyFilter,
-              // Solo la página actual acepta toques de colocación (scroll continuo).
-              placementMode: placementOnPage,
-              onPlaceTap: _openSignatureSheetAt,
-              onCreateAnnotation: _createAnnotationRect,
-              onOpenAnnotation: _openAnnotation,
-              onDeleteAnnotation: _confirmDeleteAnnotation,
-              signaturesInteractive: !(signing?.exporting ?? false) &&
-                  !(signing?.saving ?? false) &&
-                  !(signing?.loading ?? false) &&
-                  activeTool == AnnotationTool.none &&
-                  !(signing?.placementMode ?? false),
-              onMove: (signature, x, y) async {
-                final messenger = ScaffoldMessenger.of(context);
-                final l10n = AppLocalizations.of(context);
-                final moved = await _signing?.moveSignature(
-                  signature: signature,
-                  offsetX: x,
-                  offsetY: y,
-                );
-                if (!(moved ?? false) && mounted) {
-                  final error = _signing?.error;
-                  if (error != null) {
-                    messenger.showSnackBar(
-                      SnackBar(content: Text(l10n.message(error))),
-                    );
-                    _signing?.clearError();
-                  }
-                }
-                return moved ?? false;
-              },
-              onDelete: _confirmDeleteSignature,
-            ),
-            // Debe coincidir con el SizedBox de SignedPdfPage (puntos PDF).
-            childSize: pageSize,
-            // Con herramienta armada, PhotoView no maneja gestos: el trazo se
-            // captura sin conflictos y el zoom (2 dedos, candado abierto) se
-            // aplica manualmente vía _pageZoomController.
-            disableGestures: pageTool.isMarkup ||
-                placementOnPage ||
-                (_textSelecting && pageNumber == _currentPage),
-            controller: pageTool.isMarkup && pageNumber == _currentPage
+      ),
+      builder: (context, index) {
+        final pageNumber = index + 1;
+        final pageSize = _pageSizes[pageNumber] ?? const Size(595, 842);
+        // Con herramienta armada, TODAS las páginas visibles capturan el trazo.
+        final pageTool =
+            annotationsLayerEnabled && activeTool != AnnotationTool.none
+                ? activeTool
+                : AnnotationTool.none;
+        final placementOnPage =
+            (signing?.placementMode ?? false) && pageNumber == _currentPage;
+        return PhotoViewGalleryPageOptions.customChild(
+          child: SignedPdfPage(
+            pageImageFuture: _pageImageFutureFor(pageNumber),
+            pageNumber: pageNumber,
+            fallbackSize: pageSize,
+            documentGeneration: _documentGeneration,
+            signatures: signing?.signaturesForPage(pageNumber) ?? const [],
+            annotations:
+                annotations?.annotationsForPage(pageNumber) ?? const [],
+            activeTool: pageTool,
+            annotationsEnabled: annotationsLayerEnabled,
+            inkColor: annotations?.activeInkColor,
+            strokeWidthPx: annotations?.activeStrokeWidthPx,
+            navigationLocked: navigationLocked,
+            zoomController: pageTool.isMarkup && pageNumber == _currentPage
                 ? _pageZoomController
                 : null,
-            initialScale: PhotoViewComputedScale.contained * 1.0,
-            minScale: PhotoViewComputedScale.contained * 1.0,
-            maxScale: PhotoViewComputedScale.contained * 3.0,
-            heroAttributes:
-                PhotoViewHeroAttributes(tag: '${document.id}-$index'),
-          );
-        },
-      ),
+            snapToText: annotations?.snapToText ?? false,
+            textLines:
+                pageNumber == _currentPage ? _currentPageLines : const [],
+            textSelecting: _textSelecting && pageNumber == _currentPage,
+            onTextSelected: (t) {
+              if (_selectedText == t) return;
+              setState(() => _selectedText = t);
+            },
+            ebonyFilter: _ebonyFilter,
+            placementMode: placementOnPage,
+            onPlaceTap: _openSignatureSheetAt,
+            onCreateAnnotation: _createAnnotationRect,
+            onOpenAnnotation: _openAnnotation,
+            onDeleteAnnotation: _confirmDeleteAnnotation,
+            signaturesInteractive: !(signing?.exporting ?? false) &&
+                !(signing?.saving ?? false) &&
+                !(signing?.loading ?? false) &&
+                activeTool == AnnotationTool.none &&
+                !(signing?.placementMode ?? false),
+            onMove: (signature, x, y) async {
+              final messenger = ScaffoldMessenger.of(context);
+              final l10n = AppLocalizations.of(context);
+              final moved = await _signing?.moveSignature(
+                signature: signature,
+                offsetX: x,
+                offsetY: y,
+              );
+              if (!(moved ?? false) && mounted) {
+                final error = _signing?.error;
+                if (error != null) {
+                  messenger.showSnackBar(
+                    SnackBar(content: Text(l10n.message(error))),
+                  );
+                  _signing?.clearError();
+                }
+              }
+              return moved ?? false;
+            },
+            onDelete: _confirmDeleteSignature,
+          ),
+          childSize: pageSize,
+          disableGestures: pageTool.isMarkup ||
+              placementOnPage ||
+              (_textSelecting && pageNumber == _currentPage),
+          controller: pageTool.isMarkup && pageNumber == _currentPage
+              ? _pageZoomController
+              : null,
+          initialScale: PhotoViewComputedScale.contained * 1.0,
+          minScale: PhotoViewComputedScale.contained * 1.0,
+          maxScale: PhotoViewComputedScale.contained * 3.0,
+          heroAttributes: PhotoViewHeroAttributes(
+            tag: 'pdf-$_documentGeneration-$index',
+          ),
+        );
+      },
     );
   }
 

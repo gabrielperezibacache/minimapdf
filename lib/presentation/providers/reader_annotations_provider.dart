@@ -89,7 +89,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   List<PageAnnotation> _annotations = const [];
   AnnotationTool _activeTool = AnnotationTool.none;
   bool _toolboxVisible = false;
-  /// Con herramienta armada: si true, bloquea scroll del PdfView y zoom PhotoView.
+  /// Con herramienta armada: si true, bloquea scroll de la galería y zoom PhotoView.
   bool _navigationLocked = true;
   /// Imanta marcado/subrayado a las líneas de texto detectadas en la página.
   bool _snapToText = true;

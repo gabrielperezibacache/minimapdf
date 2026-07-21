@@ -19,7 +19,7 @@ Estética **Ébano** · Pago único · Sin IA · Sin analíticas · Privacidad a
 - **Estado:** Provider + ChangeNotifier
 - **Base de datos local:** Sqflite (+ path / path_provider)
 - **Importación:** file_picker → copia a documentos de la app
-- **Lector:** pdfx (carga diferida de páginas)
+- **Lector:** pdfrx + PhotoView (raster diferido por página)
 - **Descargas:** flutter_downloader + HTTP fallback; mini-navegador flutter_inappwebview
 - **Temas:** Claro (Pergamino), Sepia, Oscuro Ébano
 
@@ -46,7 +46,7 @@ flutter run
 1. ✅ Base + temas Ébano + dependencias
 2. ✅ Base de datos y modelos locales (Book, Collection, Bookmark + CRUD Sqflite)
 3. ✅ Interfaz de biblioteca (grid/lista, importación file_picker, metadatos)
-4. ✅ Lector PDF (pdfx, scroll vertical/horizontal, filtro Ébano, progreso)
+4. ✅ Lector PDF (pdfrx, scroll vertical/horizontal, filtro Ébano, progreso)
 5. ✅ Anotaciones y marcadores (bronce, notas flotantes, sidebar TOC)
 6. ✅ Descargas por URL + mini-navegador con Capturar PDF
 7. ✅ Endurecimiento: streaming, cancelación, búsqueda, colecciones, errores claros

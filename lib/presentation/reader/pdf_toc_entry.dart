@@ -1,4 +1,4 @@
-/// Entrada del índice del PDF (outline nativo no expuesto por pdfx).
+/// Entrada del índice del PDF (outline nativo aún no cableado al sidebar).
 ///
 /// Se genera bajo demanda por página para evitar listas enormes en memoria.
 class PdfTocEntry {

@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:pdfx/pdfx.dart';
+import 'package:photo_view/photo_view.dart' show PhotoViewController;
 
 import '../../../core/theme/ebony_pdf_filter.dart';
 import '../../../data/models/document_signature.dart';
@@ -55,7 +55,8 @@ class SignedPdfPage extends StatefulWidget {
     this.fallbackSize = const Size(595, 842),
   });
 
-  final Future<PdfPageImage> pageImageFuture;
+  /// PNG rasterizado de la página (pdfrx).
+  final Future<Uint8List> pageImageFuture;
   final int pageNumber;
   final List<DocumentSignature> signatures;
   final bool ebonyFilter;
@@ -108,7 +109,7 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
   Uint8List? _cachedBytes;
   int? _cachedPageNumber;
   Object? _loadError;
-  Future<PdfPageImage>? _boundFuture;
+  Future<Uint8List>? _boundFuture;
 
   List<TextBand> _textBands = const [];
   int? _bandsPage;
@@ -143,13 +144,13 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
     }
   }
 
-  void _bindFuture(Future<PdfPageImage> future, int pageNumber) {
+  void _bindFuture(Future<Uint8List> future, int pageNumber) {
     _boundFuture = future;
-    future.then((image) {
+    future.then((bytes) {
       if (!mounted || pageNumber != widget.pageNumber) return;
       if (!identical(_boundFuture, future)) return;
       setState(() {
-        _cachedBytes = Uint8List.fromList(image.bytes);
+        _cachedBytes = bytes;
         _cachedPageNumber = pageNumber;
         _loadError = null;
       });

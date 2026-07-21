@@ -7,13 +7,14 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:pdf/pdf.dart' as pw;
 import 'package:pdf/widgets.dart' as pdf;
-import 'package:pdfx/pdfx.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 import '../core/utils/app_paths.dart';
 import '../core/utils/file_name_sanitizer.dart';
 import '../data/models/book.dart';
 import '../data/models/page_annotation.dart';
 import '../l10n/app_message_keys.dart';
+import 'pdf_page_rasterizer.dart';
 
 /// Destino al aplanar anotaciones de la caja de herramientas en el PDF.
 enum AnnotatedPdfSaveTarget {
@@ -39,7 +40,7 @@ class AnnotatedPdfExportResult {
 
 /// Exporta un PDF con marcado/subrayado/notas aplanados (estilo Samsung Notes).
 ///
-/// Mismo enfoque que firmas: renderiza páginas (pdfx), pinta tinta y reconstruye
+/// Mismo enfoque que firmas: renderiza páginas (pdfrx), pinta tinta y reconstruye
 /// con el paquete `pdf`. Rasteriza las páginas.
 class AnnotatedPdfExportService {
   AnnotatedPdfExportService({
@@ -67,12 +68,13 @@ class AnnotatedPdfExportService {
 
     final document = await PdfDocument.openFile(book.filePath);
     try {
-      if (document.pagesCount < 1) {
+      final pageCount = document.pages.length;
+      if (pageCount < 1) {
         throw StateError(AppMessageKeys.exportAnnotatedFailed);
       }
 
       final outOfRange = annotations.any(
-        (a) => a.pageNumber < 1 || a.pageNumber > document.pagesCount,
+        (a) => a.pageNumber < 1 || a.pageNumber > pageCount,
       );
       if (outOfRange) {
         throw StateError(AppMessageKeys.exportAnnotatedFailed);
@@ -84,59 +86,39 @@ class AnnotatedPdfExportService {
         byPage.putIfAbsent(annotation.pageNumber, () => []).add(annotation);
       }
 
-      for (var pageNumber = 1; pageNumber <= document.pagesCount; pageNumber++) {
-        final page = await document.getPage(pageNumber);
-        try {
-          final pageW = page.width;
-          final pageH = page.height;
-          if (!pageW.isFinite ||
-              !pageH.isFinite ||
-              pageW < 1 ||
-              pageH < 1) {
-            throw StateError(AppMessageKeys.exportAnnotatedFailed);
-          }
-
-          final rendered = await page.render(
-            width: pageW * _renderScale,
-            height: pageH * _renderScale,
-            format: PdfPageImageFormat.png,
-          );
-          if (rendered == null) {
-            throw StateError(AppMessageKeys.exportAnnotatedFailed);
-          }
-
-          final width =
-              rendered.width ?? (pageW * _renderScale).round();
-          final height =
-              rendered.height ?? (pageH * _renderScale).round();
-          if (width < 1 || height < 1) {
-            throw StateError(AppMessageKeys.exportAnnotatedFailed);
-          }
-
-          final stampedBytes = await _stampPageImage(
-            pageBytes: rendered.bytes,
-            width: width,
-            height: height,
-            annotations: byPage[pageNumber] ?? const [],
-          );
-
-          output.addPage(
-            pdf.Page(
-              pageFormat: pw.PdfPageFormat(pageW, pageH, marginAll: 0),
-              build: (_) => pdf.Image(
-                pdf.MemoryImage(stampedBytes),
-                fit: pdf.BoxFit.fill,
-              ),
-            ),
-          );
-        } finally {
-          await page.close();
+      for (var pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
+        final page = document.pages[pageNumber - 1];
+        final pageW = page.width;
+        final pageH = page.height;
+        if (!pageW.isFinite ||
+            !pageH.isFinite ||
+            pageW < 1 ||
+            pageH < 1) {
+          throw StateError(AppMessageKeys.exportAnnotatedFailed);
         }
+
+        final rendered = await rasterizePdfPage(page, scale: _renderScale);
+        final stampedBytes = await _stampPageImage(
+          pageBytes: rendered.pngBytes,
+          width: rendered.width,
+          height: rendered.height,
+          annotations: byPage[pageNumber] ?? const [],
+        );
+
+        output.addPage(
+          pdf.Page(
+            pageFormat: pw.PdfPageFormat(pageW, pageH, marginAll: 0),
+            build: (_) => pdf.Image(
+              pdf.MemoryImage(stampedBytes),
+              fit: pdf.BoxFit.fill,
+            ),
+          ),
+        );
       }
 
       return Uint8List.fromList(await output.save());
     } finally {
-      await document.close();
+      await document.dispose();
     }
   }
 
@@ -182,7 +164,7 @@ class AnnotatedPdfExportService {
 
   /// Sobrescribe [book.filePath] con el PDF anotado.
   ///
-  /// El caller debe cerrar cualquier [PdfDocument] abierto sobre ese archivo
+  /// El caller debe cerrar cualquier documento PDF abierto sobre ese archivo
   /// antes de llamar.
   Future<AnnotatedPdfExportResult> overwriteCurrentDocument({
     required Book book,

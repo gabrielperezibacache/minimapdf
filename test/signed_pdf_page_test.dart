@@ -9,26 +9,6 @@ import 'package:minimal_pdf/data/models/document_signature.dart';
 import 'package:minimal_pdf/data/models/signature_type.dart';
 import 'package:minimal_pdf/presentation/reader/widgets/signed_pdf_page.dart';
 import 'package:minimal_pdf/presentation/signing/signature_overlay.dart';
-import 'package:pdfx/pdfx.dart';
-
-class _FakePageImage extends PdfPageImage {
-  _FakePageImage(Uint8List bytes)
-      : super(
-          id: 'fake',
-          pageNumber: 1,
-          width: 200,
-          height: 300,
-          bytes: bytes,
-          format: PdfPageImageFormat.png,
-          quality: 100,
-        );
-
-  @override
-  bool operator ==(Object other) => identical(this, other);
-
-  @override
-  int get hashCode => identityHashCode(this);
-}
 
 void main() {
   testWidgets('SignedPdfPage ancla SignatureLayer a la página', (tester) async {
@@ -59,7 +39,7 @@ void main() {
         theme: AppTheme.of(AppThemeOption.ebony),
         home: Scaffold(
           body: SignedPdfPage(
-            pageImageFuture: Future<_FakePageImage>.value(_FakePageImage(png)),
+            pageImageFuture: Future<Uint8List>.value(png),
             pageNumber: 1,
             signatures: [signature],
             ebonyFilter: false,

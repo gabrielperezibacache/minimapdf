@@ -20,7 +20,7 @@ Para garantizar un desarrollo ágil y multiplataforma con el máximo rendimiento
 * **Motor PDF (Nativo):**  
   * Android: Pdfium (vía wrapper optimizado de Flutter).  
   * iOS: PDFKit (nativo de Apple, integrado en Flutter).  
-  * Paquete recomendado: pdfx o flutter\_pdfview.  
+  * Paquete: pdfrx (PDFium, MIT) + PhotoView.  
 * **Base de Datos Local:** Isar o Sqflite (Base de datos NoSQL/SQL local ultra rápida e integrada).  
 * **Gestor de Descargas:** flutter\_downloader (descargas nativas en segundo plano).  
 * **Navegador Interno (para descargas):** flutter\_inappwebview (ajustado para privacidad, bloqueando rastreadores).
@@ -91,7 +91,7 @@ lib/
 
 ### **Paso 4: El Lector de PDF de Alto Rendimiento**
 
-**Prompt para Cursor:** "Implementa la pantalla del lector de PDF (presentation/reader/). Utiliza un paquete eficiente como pdfx para renderizado ultra rápido. Requisitos críticos:
+**Prompt para Cursor:** "Implementa la pantalla del lector de PDF (presentation/reader/). Utiliza pdfrx para renderizado (PDFium) con PhotoView para zoom/pan. Requisitos críticos:
 
 1. Carga diferida de páginas.  
 2. Implementar Scroll Continuo Vertical y modo Página a Página Horizontal.  
