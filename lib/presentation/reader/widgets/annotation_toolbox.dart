@@ -28,6 +28,9 @@ class AnnotationToolbox extends StatelessWidget {
     this.canRedo = false,
     this.onUndo,
     this.onRedo,
+    this.canSave = false,
+    this.saving = false,
+    this.onSave,
   });
 
   final bool visible;
@@ -47,6 +50,9 @@ class AnnotationToolbox extends StatelessWidget {
   final bool canRedo;
   final VoidCallback? onUndo;
   final VoidCallback? onRedo;
+  final bool canSave;
+  final bool saving;
+  final VoidCallback? onSave;
 
   static const tools = <AnnotationTool>[
     AnnotationTool.highlight,
@@ -147,7 +153,7 @@ class AnnotationToolbox extends StatelessWidget {
                         ),
                         IconButton(
                           tooltip: l10n.annotationRedo,
-                          onPressed: canRedo && onRedo != null
+                          onPressed: canRedo && onRedo != null && !saving
                               ? () {
                                   HapticFeedback.selectionClick();
                                   onRedo!();
@@ -157,18 +163,43 @@ class AnnotationToolbox extends StatelessWidget {
                           icon: Icon(
                             Icons.redo,
                             size: 20,
-                            color: canRedo
+                            color: canRedo && !saving
                                 ? AppColors.ebonyAccent
                                 : colors.textMuted.withValues(alpha: 0.4),
                           ),
                         ),
+                        if (onSave != null)
+                          TextButton(
+                            onPressed: canSave && !saving
+                                ? () {
+                                    HapticFeedback.selectionClick();
+                                    onSave!();
+                                  }
+                                : null,
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.ebonyAccent,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            child: saving
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.ebonyAccent,
+                                    ),
+                                  )
+                                : Text(l10n.saveAnnotations),
+                          ),
                         if (activeTool != AnnotationTool.none &&
                             onClearTool != null)
                           TextButton(
-                            onPressed: () {
-                              HapticFeedback.selectionClick();
-                              onClearTool!();
-                            },
+                            onPressed: saving
+                                ? null
+                                : () {
+                                    HapticFeedback.selectionClick();
+                                    onClearTool!();
+                                  },
                             style: TextButton.styleFrom(
                               foregroundColor: colors.textMuted,
                               visualDensity: VisualDensity.compact,

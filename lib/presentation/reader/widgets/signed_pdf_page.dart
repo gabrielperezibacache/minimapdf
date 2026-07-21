@@ -34,6 +34,7 @@ class SignedPdfPage extends StatefulWidget {
     this.annotations = const [],
     this.activeTool = AnnotationTool.none,
     this.annotationsEnabled = true,
+    this.documentGeneration = 0,
     this.inkColor,
     this.strokeWidthPx,
     this.onCreateAnnotation,
@@ -59,6 +60,8 @@ class SignedPdfPage extends StatefulWidget {
   final List<PageAnnotation> annotations;
   final AnnotationTool activeTool;
   final bool annotationsEnabled;
+  /// Invalida la caché de imagen al reemplazar el PDF en disco.
+  final int documentGeneration;
   final Color? inkColor;
   final double? strokeWidthPx;
   final Future<void> Function({
@@ -93,7 +96,8 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
   @override
   void didUpdateWidget(covariant SignedPdfPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.pageNumber != widget.pageNumber) {
+    if (oldWidget.pageNumber != widget.pageNumber ||
+        oldWidget.documentGeneration != widget.documentGeneration) {
       _cachedBytes = null;
       _cachedPageNumber = null;
       _loadError = null;

@@ -17,6 +17,7 @@ import '../../data/models/bookmark.dart';
 import '../../data/models/document_signature.dart';
 import '../../data/models/page_annotation.dart';
 import '../../data/models/signature_role.dart';
+import '../../domain/annotated_pdf_export_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../providers/document_signing_provider.dart';
 import '../providers/library_provider.dart';
@@ -28,6 +29,7 @@ import 'widgets/annotation_toolbox.dart';
 import 'widgets/floating_page_note.dart';
 import 'widgets/note_edit_sheet.dart';
 import 'widgets/reader_sidebar.dart';
+import 'widgets/save_annotations_sheet.dart';
 import 'widgets/signed_pdf_page.dart';
 
 /// Lector PDF de alto rendimiento (pdfx) con filtro Ébano.
@@ -60,8 +62,9 @@ class _ReaderScreenState extends State<ReaderScreen>
   String? _error;
   Map<int, Size> _pageSizes = const {};
   PdfDocument? _openedDocument;
-  late final Future<PdfDocument> _documentFuture;
+  late Future<PdfDocument> _documentFuture;
   int _pageSizeCacheGeneration = 0;
+  int _documentGeneration = 0;
   bool _disposed = false;
 
   @override
@@ -795,6 +798,101 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
   }
 
+  Future<void> _promptSaveAnnotations() async {
+    final annotations = _annotations;
+    if (annotations == null || !annotations.hasAnnotations) {
+      final l10n = AppLocalizations.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.errorNeedAnnotations)),
+      );
+      return;
+    }
+    if (annotations.savingToPdf || _signing?.exporting == true) {
+      final l10n = AppLocalizations.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.waitForExport)),
+      );
+      return;
+    }
+
+    final target = await showSaveAnnotationsSheet(context);
+    if (!mounted || target == null) return;
+    await _saveAnnotations(target);
+  }
+
+  Future<void> _saveAnnotations(AnnotatedPdfSaveTarget target) async {
+    final annotations = _annotations;
+    if (annotations == null) return;
+    final l10n = AppLocalizations.of(context);
+
+    final result = await annotations.saveAnnotationsToPdf(
+      book: widget.book,
+      target: target,
+      annotatedMarker: 'annotated',
+      prepareOverwrite: target == AnnotatedPdfSaveTarget.currentDocument
+          ? _prepareDocumentOverwrite
+          : null,
+    );
+
+    if (!mounted) return;
+    if (result == null) {
+      final error = annotations.error;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error != null ? _msg(error) : l10n.exportAnnotatedFailed,
+          ),
+        ),
+      );
+      annotations.clearError();
+      return;
+    }
+
+    if (target == AnnotatedPdfSaveTarget.currentDocument) {
+      await _reloadDocumentAfterOverwrite();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.saveAnnotationsSuccessDocument)),
+      );
+      return;
+    }
+
+    try {
+      await context.read<LibraryProvider>().load();
+    } catch (_) {}
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.saveAnnotationsSuccessCopy(result.fileName)),
+      ),
+    );
+  }
+
+  /// Cierra el PDF abierto para poder sobrescribir el archivo en disco.
+  Future<void> _prepareDocumentOverwrite() async {
+    final opened = _openedDocument;
+    _openedDocument = null;
+    if (opened != null && !opened.isClosed) {
+      try {
+        await opened.close();
+      } catch (_) {}
+    } else {
+      await _closeDocumentWhenReady(_documentFuture);
+    }
+  }
+
+  Future<void> _reloadDocumentAfterOverwrite() async {
+    if (!mounted) return;
+    final page = _currentPage;
+    _documentGeneration++;
+    _pageSizeCacheGeneration++;
+    final nextFuture = PdfDocument.openFile(widget.book.filePath);
+    _documentFuture = nextFuture;
+    await _controller.loadDocument(nextFuture, initialPage: page);
+    if (!mounted) return;
+    setState(() {});
+  }
+
   Future<void> _confirmDeleteSignature(DocumentSignature signature) async {
     final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
@@ -980,6 +1078,9 @@ class _ReaderScreenState extends State<ReaderScreen>
                       strokeSizeIndex: annotations?.strokeSizeIndex ?? 2,
                       canUndo: annotations?.canUndo ?? false,
                       canRedo: annotations?.canRedo ?? false,
+                      canSave: (annotations?.hasAnnotations ?? false) &&
+                          !(_signing?.exporting ?? false),
+                      saving: annotations?.savingToPdf ?? false,
                       onToggleBookmark: () {
                         unawaited(_toggleBookmark());
                       },
@@ -1000,11 +1101,12 @@ class _ReaderScreenState extends State<ReaderScreen>
                       },
                       onUndo: () {
                         unawaited(annotations?.undo());
-                        setState(() {});
                       },
                       onRedo: () {
                         unawaited(annotations?.redo());
-                        setState(() {});
+                      },
+                      onSave: () {
+                        unawaited(_promptSaveAnnotations());
                       },
                       onClearTool: () => annotations?.clearTool(),
                       onClose: () => annotations?.setToolboxVisible(false),
@@ -1169,6 +1271,7 @@ class _ReaderScreenState extends State<ReaderScreen>
               pageImageFuture: pageImage,
               pageNumber: pageNumber,
               fallbackSize: pageSize,
+              documentGeneration: _documentGeneration,
               signatures: signing?.signaturesForPage(pageNumber) ?? const [],
               annotations:
                   annotations?.annotationsForPage(pageNumber) ?? const [],

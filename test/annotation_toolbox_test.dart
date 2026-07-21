@@ -134,6 +134,29 @@ void main() {
     expect(picked, isNotNull);
   });
 
+  testWidgets('muestra Guardar cuando hay anotaciones', (tester) async {
+    var saved = false;
+
+    await tester.pumpWidget(
+      wrap(
+        AnnotationToolbox(
+          visible: true,
+          activeTool: AnnotationTool.none,
+          annotationCount: 2,
+          canSave: true,
+          onSelectTool: (_) {},
+          onSave: () => saved = true,
+          onClose: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('Guardar'), findsOneWidget);
+    await tester.tap(find.text('Guardar'));
+    await tester.pump();
+    expect(saved, isTrue);
+  });
+
   testWidgets('oculta interacción cuando visible es false', (tester) async {
     var selected = false;
 

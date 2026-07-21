@@ -49,6 +49,8 @@ abstract final class AppMessageKeys {
   static const annotationUpdateFailed = 'errorAnnotationUpdate';
   static const annotationDeleteFailed = 'errorAnnotationDelete';
   static const annotationGeometryInvalid = 'errorAnnotationGeometry';
+  static const needAnnotations = 'errorNeedAnnotations';
+  static const exportAnnotatedFailed = 'exportAnnotatedFailed';
   static const indicateTemplateName = 'indicateTemplateName';
   static const errorInvalidSignPage = 'errorInvalidSignPage';
   static const errorSignerNameRequired = 'errorSignerNameRequired';
@@ -133,6 +135,8 @@ abstract final class AppMessageKeys {
     annotationUpdateFailed,
     annotationDeleteFailed,
     annotationGeometryInvalid,
+    needAnnotations,
+    exportAnnotatedFailed,
     indicateTemplateName,
     errorInvalidSignPage,
     errorSignerNameRequired,

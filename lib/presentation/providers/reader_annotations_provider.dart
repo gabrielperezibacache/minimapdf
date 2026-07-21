@@ -1,12 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Color;
 
+import '../../core/utils/library_file_coordinator.dart';
 import '../../data/datasources/library_local_datasource.dart';
+import '../../data/models/book.dart';
 import '../../data/models/bookmark.dart';
 import '../../data/models/page_annotation.dart';
+import '../../domain/annotated_pdf_export_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/app_message_keys.dart';
 import '../reader/annotation_ink.dart';
@@ -70,9 +74,13 @@ class _AnnotationHistoryEntry {
 
 /// Marcadores, notas y anotaciones espaciales del lector activo.
 class ReaderAnnotationsProvider extends ChangeNotifier {
-  ReaderAnnotationsProvider(this._datasource);
+  ReaderAnnotationsProvider(
+    this._datasource, {
+    AnnotatedPdfExportService? exportService,
+  }) : _exportService = exportService ?? AnnotatedPdfExportService();
 
   final LibraryLocalDatasource _datasource;
+  final AnnotatedPdfExportService _exportService;
 
   static const int _maxHistory = 40;
 
@@ -92,6 +100,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   int _strokeSizeIndex = 2;
   final List<_AnnotationHistoryEntry> _undoStack = [];
   final List<_AnnotationHistoryEntry> _redoStack = [];
+  bool _savingToPdf = false;
 
   List<Bookmark> get bookmarks => _bookmarks;
   List<PageAnnotation> get annotations => _annotations;
@@ -100,6 +109,8 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   bool get loading => _loading;
   String? get error => _error;
   bool get isDrawingToolActive => _activeTool != AnnotationTool.none;
+  bool get savingToPdf => _savingToPdf;
+  bool get hasAnnotations => _annotations.isNotEmpty;
 
   Color get inkColor => _inkColor;
   int get strokeSizeIndex => _strokeSizeIndex;
@@ -761,6 +772,150 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
         debugPrint('ReaderAnnotationsProvider.deleteAnnotation: $e');
       }
       _safeNotify();
+    }
+  }
+
+  /// Aplana las anotaciones en el PDF: copia en biblioteca o sobrescribe.
+  ///
+  /// Para [AnnotatedPdfSaveTarget.currentDocument], [prepareOverwrite] debe
+  /// cerrar el PdfDocument abierto antes de escribir el archivo.
+  Future<AnnotatedPdfExportResult?> saveAnnotationsToPdf({
+    required Book book,
+    required AnnotatedPdfSaveTarget target,
+    Future<void> Function()? prepareOverwrite,
+    String annotatedMarker = 'annotated',
+  }) async {
+    AnnotatedPdfExportResult? result;
+    await _enqueue(() async {
+      result = await _saveAnnotationsToPdfBody(
+        book: book,
+        target: target,
+        prepareOverwrite: prepareOverwrite,
+        annotatedMarker: annotatedMarker,
+      );
+    });
+    return result;
+  }
+
+  Future<AnnotatedPdfExportResult?> _saveAnnotationsToPdfBody({
+    required Book book,
+    required AnnotatedPdfSaveTarget target,
+    Future<void> Function()? prepareOverwrite,
+    required String annotatedMarker,
+  }) async {
+    if (_disposed) return null;
+    if (_annotations.isEmpty) {
+      _error = AppMessageKeys.needAnnotations;
+      _safeNotify();
+      return null;
+    }
+    if (_savingToPdf) {
+      _error = AppMessageKeys.exportInProgress;
+      _safeNotify();
+      return null;
+    }
+
+    _savingToPdf = true;
+    _error = null;
+    _safeNotify();
+
+    final snapshot = List<PageAnnotation>.from(_annotations);
+    AnnotatedPdfExportResult? written;
+    try {
+      final result = await LibraryFileCoordinator.runExclusive(() async {
+        switch (target) {
+          case AnnotatedPdfSaveTarget.libraryCopy:
+            final reserved =
+                await _datasource.listReservedLibraryBasenames();
+            final marker = annotatedMarker.trim().isEmpty
+                ? 'annotated'
+                : annotatedMarker.trim();
+            final exported = await _exportService.exportAsLibraryCopy(
+              book: book,
+              annotations: snapshot,
+              reservedBasenames: reserved,
+              marker: marker,
+            );
+            written = exported;
+
+            var collectionId = book.collectionId;
+            if (collectionId != null) {
+              final found =
+                  await _datasource.findCollectionById(collectionId);
+              collectionId = found?.id;
+            }
+
+            final baseTitle = book.title
+                .replaceAll(RegExp(r'\s*\(annotated\)\s*$', caseSensitive: false), '')
+                .trim();
+            final tags = {
+              for (final tag in book.tags) tag,
+              marker,
+            }.toList(growable: false);
+
+            await _datasource.insertBook(
+              Book(
+                title: '$baseTitle ($marker)',
+                filePath: exported.pdfPath,
+                fileSize: await File(exported.pdfPath).length(),
+                addedAt: DateTime.now(),
+                collectionId: collectionId,
+                author: book.author,
+                tags: tags,
+              ),
+            );
+            return exported;
+
+          case AnnotatedPdfSaveTarget.currentDocument:
+            if (prepareOverwrite != null) {
+              await prepareOverwrite();
+            }
+            final exported = await _exportService.overwriteCurrentDocument(
+              book: book,
+              annotations: snapshot,
+            );
+            written = exported;
+
+            final bookId = book.id;
+            if (bookId != null) {
+              final size = await File(exported.pdfPath).length();
+              await _datasource.saveBook(book.copyWith(fileSize: size));
+              await _datasource.removePageAnnotationsForBook(bookId);
+            }
+            return exported;
+        }
+      });
+
+      if (_disposed) return result;
+      written = null;
+      if (target == AnnotatedPdfSaveTarget.currentDocument) {
+        _annotations = const [];
+        _clearHistory();
+      }
+      _error = null;
+      _safeNotify();
+      return result;
+    } catch (e) {
+      final orphan = written;
+      if (orphan != null &&
+          orphan.target == AnnotatedPdfSaveTarget.libraryCopy) {
+        try {
+          final file = File(orphan.pdfPath);
+          if (await file.exists()) await file.delete();
+        } catch (_) {}
+      }
+      if (_disposed) return null;
+      _error = AppMessageKeys.exportAnnotatedFailed;
+      if (kDebugMode) {
+        debugPrint('ReaderAnnotationsProvider.saveAnnotationsToPdf: $e');
+      }
+      _safeNotify();
+      return null;
+    } finally {
+      if (!_disposed) {
+        _savingToPdf = false;
+        _safeNotify();
+      }
     }
   }
 
