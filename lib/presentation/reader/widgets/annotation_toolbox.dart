@@ -137,7 +137,8 @@ class AnnotationToolbox extends StatelessWidget {
                                   ),
                             ),
                           ),
-                        if (onToggleNavigationLock != null)
+                        if (onToggleNavigationLock != null &&
+                            activeTool.isMarkup)
                           IconButton(
                             tooltip: navigationLocked
                                 ? l10n.unlockPageNavigation

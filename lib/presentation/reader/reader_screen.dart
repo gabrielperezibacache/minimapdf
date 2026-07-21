@@ -59,6 +59,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   bool _sidebarVisible = false;
   bool _noteDismissed = false;
   bool _exiting = false;
+  bool _didShowMinimizeHint = false;
   int _pagesCount = 0;
   int _currentPage = 1;
   String? _error;
@@ -324,7 +325,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       final annotations = _annotations;
       if (annotations != null && annotations.toolboxVisible) {
         if (annotations.activeTool != AnnotationTool.none) {
-          annotations.minimizeToolbox();
+          _minimizeToolboxKeepingTool();
         } else {
           annotations.setToolboxVisible(false);
         }
@@ -361,16 +362,11 @@ class _ReaderScreenState extends State<ReaderScreen>
     final annotations = _annotations;
     final toolboxVisible = annotations?.toolboxVisible ?? false;
     final activeTool = annotations?.activeTool ?? AnnotationTool.none;
-    if (toolboxVisible && activeTool != AnnotationTool.none) {
-      annotations?.minimizeToolbox();
-      return;
-    }
-    if (toolboxVisible) {
-      annotations?.setToolboxVisible(false);
-      return;
-    }
-    if (activeTool != AnnotationTool.none) {
+    // Una sola pulsación: suelta la herramienta y cierra el panel.
+    if (toolboxVisible || activeTool != AnnotationTool.none) {
       annotations?.clearTool();
+      annotations?.setToolboxVisible(false);
+      setState(() {});
       return;
     }
     if (!_controlsVisible) {
@@ -378,6 +374,49 @@ class _ReaderScreenState extends State<ReaderScreen>
       return;
     }
     await _onExit();
+  }
+
+  void _minimizeToolboxKeepingTool() {
+    final annotations = _annotations;
+    if (annotations == null) return;
+    annotations.minimizeToolbox();
+    if (_didShowMinimizeHint || !mounted) return;
+    if (annotations.activeTool == AnnotationTool.none) return;
+    _didShowMinimizeHint = true;
+    final l10n = AppLocalizations.of(context);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.toolStillArmedHint),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(milliseconds: 2200),
+        ),
+      );
+  }
+
+  Future<void> _undoAnnotation() async {
+    final annotations = _annotations;
+    if (annotations == null) return;
+    final ok = await annotations.undo();
+    if (!mounted) return;
+    if (!ok && annotations.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_msg(annotations.error!))),
+      );
+    }
+  }
+
+  Future<void> _redoAnnotation() async {
+    final annotations = _annotations;
+    if (annotations == null) return;
+    final ok = await annotations.redo();
+    if (!mounted) return;
+    if (!ok && annotations.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_msg(annotations.error!))),
+      );
+    }
   }
 
   Future<void> _toggleBookmark() async {
@@ -477,7 +516,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (annotations.toolboxVisible) {
       // Con herramienta armada, cerrar = minimizar (sigue dibujando).
       if (annotations.activeTool != AnnotationTool.none) {
-        annotations.minimizeToolbox();
+        _minimizeToolboxKeepingTool();
       } else {
         annotations.setToolboxVisible(false);
       }
@@ -529,7 +568,18 @@ class _ReaderScreenState extends State<ReaderScreen>
         hintText: l10n.writeTypeHint(typeLabel.toLowerCase()),
       );
       if (text == null || !mounted) return;
-      if (text.trim().isEmpty) return;
+      if (text.trim().isEmpty) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(l10n.emptyNoteNotSaved),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(milliseconds: 1600),
+            ),
+          );
+        return;
+      }
     }
 
     final created = await provider.addAnnotation(
@@ -551,14 +601,19 @@ class _ReaderScreenState extends State<ReaderScreen>
     }
     if (created == null) return;
 
-    // La herramienta permanece activa para seguir anotando (estilo Notes).
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l10n.annotationSaved(typeLabel, pageNumber)),
-        duration: const Duration(milliseconds: 1400),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    // Marcado/subrayado: solo háptica (evitar spam de SnackBars).
+    // Chincheta/texto: confirmación breve.
+    if (tool.needsText) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.annotationSaved(typeLabel, pageNumber)),
+          duration: const Duration(milliseconds: 1400),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      HapticFeedback.selectionClick();
+    }
   }
 
   Future<void> _openAnnotation(PageAnnotation annotation) async {
@@ -1230,19 +1285,15 @@ class _ReaderScreenState extends State<ReaderScreen>
                         annotations?.setStrokeSizeIndex(index);
                         setState(() {});
                       },
-                      onUndo: () {
-                        unawaited(annotations?.undo());
-                      },
-                      onRedo: () {
-                        unawaited(annotations?.redo());
-                      },
+                      onUndo: () => unawaited(_undoAnnotation()),
+                      onRedo: () => unawaited(_redoAnnotation()),
                       onSave: () {
                         unawaited(_promptSaveAnnotations());
                       },
                       onClearTool: () => annotations?.clearTool(),
                       onClose: () {
                         if (activeTool != AnnotationTool.none) {
-                          annotations?.minimizeToolbox();
+                          _minimizeToolboxKeepingTool();
                         } else {
                           annotations?.setToolboxVisible(false);
                         }
@@ -1256,7 +1307,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     activeTool: activeTool,
                     navigationLocked: annotations?.navigationLocked ?? true,
                     canUndo: annotations?.canUndo ?? false,
-                    onUndo: () => unawaited(annotations?.undo()),
+                    onUndo: () => unawaited(_undoAnnotation()),
                     onToggleNavigationLock: () {
                       annotations?.toggleNavigationLock();
                       setState(() {});
@@ -1496,10 +1547,10 @@ class _ReaderScreenState extends State<ReaderScreen>
             ),
             // Debe coincidir con el SizedBox de SignedPdfPage (puntos PDF).
             childSize: pageSize,
-            // Candado cerrado: sin pan/zoom PhotoView. Abierto: pinch/pan libres.
+            // Solo marcado/subrayado con candado cerrado bloquea PhotoView.
+            // Chincheta permite zoom/pan (el scroll ya no se bloquea).
             disableGestures:
-                (pageTool != AnnotationTool.none && navigationLocked) ||
-                    placementOnPage,
+                (pageTool.isMarkup && navigationLocked) || placementOnPage,
             initialScale: PhotoViewComputedScale.contained * 1.0,
             minScale: PhotoViewComputedScale.contained * 1.0,
             maxScale: PhotoViewComputedScale.contained * 3.0,
@@ -1542,14 +1593,14 @@ class _ReaderScreenState extends State<ReaderScreen>
             child: Row(
               children: [
                 IconButton(
-                  tooltip: l10n.menuToc,
-                  onPressed: _toggleSidebar,
-                  icon: Icon(Icons.menu, color: colors.accent),
-                ),
-                IconButton(
                   tooltip: placement ? l10n.cancelPlacement : l10n.back,
                   onPressed: () => unawaited(_handleReaderBack()),
                   icon: Icon(Icons.arrow_back, color: colors.text),
+                ),
+                IconButton(
+                  tooltip: l10n.menuToc,
+                  onPressed: _toggleSidebar,
+                  icon: Icon(Icons.menu, color: colors.accent),
                 ),
                 Expanded(
                   child: Column(
@@ -1874,9 +1925,8 @@ class _ReaderScreenState extends State<ReaderScreen>
     required VoidCallback onExpand,
   }) {
     final l10n = AppLocalizations.of(context);
-    final lockHint = navigationLocked
-        ? l10n.drawingLocksScrollHint
-        : l10n.drawingAllowsScrollHint;
+    final showLock = activeTool.isMarkup;
+    final showPageNav = activeTool.isMarkup && navigationLocked && _pagesCount > 1;
     return Positioned(
       left: 0,
       right: 0,
@@ -1893,7 +1943,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                 ),
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+            padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1906,56 +1956,11 @@ class _ReaderScreenState extends State<ReaderScreen>
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            activeTool.label(l10n),
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall
-                                ?.copyWith(
-                                  color: AppColors.ebonyAccent,
-                                ),
-                          ),
-                          if (activeTool.isMarkup)
-                            Text(
-                              lockHint,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(
-                                    color: colors.textMuted,
-                                  ),
+                      child: Text(
+                        activeTool.label(l10n),
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: AppColors.ebonyAccent,
                             ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: navigationLocked
-                          ? l10n.unlockPageNavigation
-                          : l10n.lockPageNavigation,
-                      onPressed: onToggleNavigationLock,
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(
-                        navigationLocked ? Icons.lock : Icons.lock_open,
-                        size: 20,
-                        color: AppColors.ebonyAccent,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: l10n.annotationUndo,
-                      onPressed: canUndo ? onUndo : null,
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(
-                        Icons.undo,
-                        size: 20,
-                        color: canUndo
-                            ? AppColors.ebonyAccent
-                            : colors.textMuted.withValues(alpha: 0.4),
                       ),
                     ),
                     TextButton(
@@ -1973,50 +1978,89 @@ class _ReaderScreenState extends State<ReaderScreen>
                       icon: const Icon(
                         Icons.unfold_more,
                         color: AppColors.ebonyAccent,
-                        size: 20,
+                        size: 22,
                       ),
                     ),
                   ],
                 ),
-                if (activeTool.isMarkup && _pagesCount > 1)
+                if (showLock || canUndo || showPageNav) ...[
+                  const SizedBox(height: 2),
                   Row(
                     children: [
+                      if (showLock) ...[
+                        IconButton(
+                          tooltip: navigationLocked
+                              ? l10n.unlockPageNavigation
+                              : l10n.lockPageNavigation,
+                          onPressed: onToggleNavigationLock,
+                          icon: Icon(
+                            navigationLocked ? Icons.lock : Icons.lock_open,
+                            size: 22,
+                            color: AppColors.ebonyAccent,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            navigationLocked
+                                ? l10n.drawingLocksScrollHint
+                                : l10n.drawingAllowsScrollHint,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(color: colors.textMuted),
+                          ),
+                        ),
+                      ] else
+                        const Spacer(),
                       IconButton(
-                        tooltip: l10n.previousPage,
-                        onPressed: _currentPage > 1
-                            ? () => _jumpToPage(_currentPage - 1)
-                            : null,
+                        tooltip: l10n.annotationUndo,
+                        onPressed: canUndo ? onUndo : null,
                         icon: Icon(
-                          Icons.chevron_left,
-                          color: _currentPage > 1
+                          Icons.undo,
+                          size: 22,
+                          color: canUndo
                               ? AppColors.ebonyAccent
-                              : colors.textMuted.withValues(alpha: 0.35),
+                              : colors.textMuted.withValues(alpha: 0.4),
                         ),
                       ),
-                      Expanded(
-                        child: Text(
-                          '$_currentPage / $_pagesCount',
-                          textAlign: TextAlign.center,
-                          style:
-                              Theme.of(context).textTheme.labelLarge?.copyWith(
-                                    color: colors.accent,
-                                  ),
+                      if (showPageNav) ...[
+                        IconButton(
+                          tooltip: l10n.previousPage,
+                          onPressed: _currentPage > 1
+                              ? () => _jumpToPage(_currentPage - 1)
+                              : null,
+                          icon: Icon(
+                            Icons.chevron_left,
+                            color: _currentPage > 1
+                                ? AppColors.ebonyAccent
+                                : colors.textMuted.withValues(alpha: 0.35),
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: l10n.nextPage,
-                        onPressed: _currentPage < _pagesCount
-                            ? () => _jumpToPage(_currentPage + 1)
-                            : null,
-                        icon: Icon(
-                          Icons.chevron_right,
-                          color: _currentPage < _pagesCount
-                              ? AppColors.ebonyAccent
-                              : colors.textMuted.withValues(alpha: 0.35),
+                        Text(
+                          '$_currentPage/$_pagesCount',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelMedium
+                              ?.copyWith(color: colors.accent),
                         ),
-                      ),
+                        IconButton(
+                          tooltip: l10n.nextPage,
+                          onPressed: _currentPage < _pagesCount
+                              ? () => _jumpToPage(_currentPage + 1)
+                              : null,
+                          icon: Icon(
+                            Icons.chevron_right,
+                            color: _currentPage < _pagesCount
+                                ? AppColors.ebonyAccent
+                                : colors.textMuted.withValues(alpha: 0.35),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
+                ],
               ],
             ),
           ),

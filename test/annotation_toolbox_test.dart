@@ -125,10 +125,8 @@ void main() {
 
     expect(find.text('Color'), findsOneWidget);
     expect(find.text('Grosor'), findsOneWidget);
-    expect(
-      find.textContaining('Candado cerrado'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Candado cerrado:'), findsOneWidget);
+    expect(find.byIcon(Icons.lock), findsOneWidget);
     expect(find.byIcon(Icons.undo), findsOneWidget);
     expect(find.byIcon(Icons.redo), findsOneWidget);
 
@@ -147,6 +145,23 @@ void main() {
     await tester.tap(find.bySemanticsLabel('color').first);
     await tester.pump();
     expect(picked, isNotNull);
+  });
+
+  testWidgets('candado solo aparece con Marcado/Subrayado', (tester) async {
+    await tester.pumpWidget(
+      wrap(
+        AnnotationToolbox(
+          visible: true,
+          activeTool: AnnotationTool.note,
+          navigationLocked: true,
+          onToggleNavigationLock: () {},
+          onSelectTool: (_) {},
+          onClose: () {},
+        ),
+      ),
+    );
+    expect(find.byIcon(Icons.lock), findsNothing);
+    expect(find.byIcon(Icons.lock_open), findsNothing);
   });
 
   testWidgets('candado abre y cierra navegación en la caja de herramientas',
@@ -171,13 +186,13 @@ void main() {
     );
 
     expect(find.byIcon(Icons.lock), findsOneWidget);
-    expect(find.textContaining('Candado cerrado'), findsOneWidget);
+    expect(find.textContaining('Candado cerrado:'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.lock));
     await tester.pump();
 
     expect(find.byIcon(Icons.lock_open), findsOneWidget);
-    expect(find.textContaining('Candado abierto'), findsOneWidget);
+    expect(find.textContaining('Candado abierto:'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.lock_open));
     await tester.pump();

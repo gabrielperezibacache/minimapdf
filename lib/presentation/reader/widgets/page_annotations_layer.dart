@@ -42,6 +42,8 @@ class _MarkupArenaRecognizer extends OneSequenceGestureRecognizer {
     }
     _pointers.add(event.pointer);
     if (!lockNavigation && _pointers.length > 1) {
+      // El 2º dedo no se rastrea: solo cedemos los que ya teníamos.
+      _pointers.remove(event.pointer);
       _yieldToNavigation();
       return;
     }
