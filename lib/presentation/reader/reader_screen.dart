@@ -57,6 +57,8 @@ class _ReaderScreenState extends State<ReaderScreen>
   /// Extracción de texto del PDF (imantado preciso + selección para copiar).
   PdfTextService? _pdfText;
   List<PdfLineBox> _currentPageLines = const [];
+  /// Caché de líneas por página (1-based) para selección/imantado.
+  final Map<int, List<PdfLineBox>> _pageLinesCache = {};
   bool _textSelecting = false;
   String _selectedText = '';
   /// Modo buscador de texto del menú ⋯.
@@ -371,10 +373,11 @@ class _ReaderScreenState extends State<ReaderScreen>
     _currentPage = page;
     _progressSaver?.onPageChanged(page);
     _noteDismissed = false;
-    _currentPageLines = const [];
+    _currentPageLines = _pageLinesCache[page] ?? const [];
     _selectedText = '';
     if (mounted) setState(() {});
     _maybeFetchPageText();
+    if (_textSelecting) _prefetchNearbyPageText();
   }
 
   bool get _needsPageText =>
@@ -382,16 +385,24 @@ class _ReaderScreenState extends State<ReaderScreen>
       ((_annotations?.snapToText ?? false) &&
           (_annotations?.activeTool.isMarkup ?? false));
 
+  /// Extrae (perezosamente) el texto de [pageNumber] (1-based).
+  Future<List<PdfLineBox>> _linesForPage(int pageNumber) async {
+    final cached = _pageLinesCache[pageNumber];
+    if (cached != null) return cached;
+    final service = _pdfText;
+    if (service == null || pageNumber < 1) return const [];
+    final lines = await service.linesForPage(pageNumber - 1);
+    _pageLinesCache[pageNumber] = lines;
+    return lines;
+  }
+
   /// Extrae (perezosamente) el texto de la página actual cuando hace falta.
   void _maybeFetchPageText() {
     if (!_needsPageText) return;
-    final service = _pdfText;
-    if (service == null || _pagesCount < 1) return;
+    if (_pagesCount < 1) return;
     final page = _currentPage;
-    final index = page - 1;
-    if (index < 0) return;
     unawaited(() async {
-      final lines = await service.linesForPage(index);
+      final lines = await _linesForPage(page);
       if (!mounted || _currentPage != page) return;
       setState(() => _currentPageLines = lines);
       if (_textSelecting && lines.isEmpty) {
@@ -407,6 +418,24 @@ class _ReaderScreenState extends State<ReaderScreen>
     }());
   }
 
+  /// Precarga texto de páginas vecinas al seleccionar (scroll continuo).
+  void _prefetchNearbyPageText() {
+    if (!_textSelecting || _pagesCount < 1) return;
+    final around = <int>{
+      _currentPage - 1,
+      _currentPage,
+      _currentPage + 1,
+    };
+    for (final page in around) {
+      if (page < 1 || page > _pagesCount) continue;
+      if (_pageLinesCache.containsKey(page)) continue;
+      unawaited(() async {
+        await _linesForPage(page);
+        if (mounted && _textSelecting) setState(() {});
+      }());
+    }
+  }
+
   void _enterTextSelection() {
     if (_signing?.placementMode == true) _signing?.cancelPlacementMode();
     if (_textSearching) _exitTextSearch();
@@ -419,6 +448,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       _controlsVisible = true;
     });
     _maybeFetchPageText();
+    _prefetchNearbyPageText();
   }
 
   void _exitTextSelection() {
@@ -1354,6 +1384,8 @@ class _ReaderScreenState extends State<ReaderScreen>
   Future<void> _reloadDocumentAfterOverwrite() async {
     if (!mounted) return;
     _documentGeneration++;
+    _pageLinesCache.clear();
+    _currentPageLines = const [];
     await _openDocument();
     if (!mounted) return;
     final page = _currentPage;
@@ -1800,13 +1832,18 @@ class _ReaderScreenState extends State<ReaderScreen>
                 ? _pageZoomController
                 : null,
             snapToText: annotations?.snapToText ?? false,
-            textLines:
-                pageNumber == _currentPage ? _currentPageLines : const [],
-            textSelecting: _textSelecting && pageNumber == _currentPage,
-            onTextSelected: (t) {
-              if (_selectedText == t) return;
-              setState(() => _selectedText = t);
-            },
+            textLines: _pageLinesCache[pageNumber] ??
+                (pageNumber == _currentPage ? _currentPageLines : const []),
+            textSelecting: _textSelecting,
+            onTextSelected: !_textSelecting
+                ? null
+                : (t) {
+                    if (pageNumber != _currentPage) {
+                      _jumpToPage(pageNumber);
+                    }
+                    if (_selectedText == t) return;
+                    setState(() => _selectedText = t);
+                  },
             searchHighlights: [
               for (final m in _searchMatches)
                 if (m.pageNumber == pageNumber) m.rect,
@@ -1834,6 +1871,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                 !(signing?.saving ?? false) &&
                 !(signing?.loading ?? false) &&
                 activeTool == AnnotationTool.none &&
+                !_textSelecting &&
                 !(signing?.placementMode ?? false),
             onMove: (signature, x, y) async {
               final messenger = ScaffoldMessenger.of(context);
@@ -1859,7 +1897,7 @@ class _ReaderScreenState extends State<ReaderScreen>
           childSize: pageSize,
           disableGestures: pageTool.isMarkup ||
               placementOnPage ||
-              (_textSelecting && pageNumber == _currentPage),
+              _textSelecting,
           controller: pageTool.isMarkup && pageNumber == _currentPage
               ? _pageZoomController
               : null,

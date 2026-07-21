@@ -16,6 +16,7 @@ import '../../providers/reader_annotations_provider.dart';
 import '../../signing/ink_stroke_painter.dart';
 import '../annotation_ink.dart';
 import '../annotation_markup_geometry.dart';
+import '../eager_gesture_capture.dart';
 
 /// Preview del trazo sin reconstruir el widget en cada move.
 class _DraftStrokeListenable extends ChangeNotifier {
@@ -263,95 +264,99 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
     );
   }
 
-  /// Superficie de captura: un [Listener] recibe todos los punteros porque
-  /// PhotoView/PageView tienen sus gestos desactivados mientras hay herramienta.
+  /// Superficie de captura: [Listener] + recognizers eager para ganar al
+  /// PageView/PhotoView desde el primer toque.
   ///
-  /// - 1 dedo o S-Pen: dibuja (funciona al primer contacto, sin arena).
+  /// - 1 dedo o S-Pen: dibuja (sin arena lenta).
   /// - Candado abierto + 2 dedos: zoom/pan del PDF vía [zoomController].
   Widget _buildCaptureSurface(Size size) {
-    return Listener(
+    return RawGestureDetector(
       behavior: HitTestBehavior.opaque,
-      onPointerDown: (event) {
-        final stylus = _isStylus(event.kind);
-        if (!stylus) {
-          _touchPositions[event.pointer] = event.position;
-        }
+      gestures: eagerCaptureGestures(debugOwner: this),
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (event) {
+          final stylus = _isStylus(event.kind);
+          if (!stylus) {
+            _touchPositions[event.pointer] = event.position;
+          }
 
-        // Candado abierto: al llegar el 2º dedo entramos en zoom/pan.
-        if (!widget.navigationLocked &&
-            !stylus &&
-            _touchPositions.length >= 2) {
-          _abortDraftForNavigation();
-          _beginZoom();
-          return;
-        }
-        if (_zooming) return;
+          // Candado abierto: al llegar el 2º dedo entramos en zoom/pan.
+          if (!widget.navigationLocked &&
+              !stylus &&
+              _touchPositions.length >= 2) {
+            _abortDraftForNavigation();
+            _beginZoom();
+            return;
+          }
+          if (_zooming) return;
 
-        if (!_acceptPointerDown(event)) return;
+          if (!_acceptPointerDown(event)) return;
 
-        if (stylus &&
-            _activePointer != null &&
-            _activePointer != event.pointer) {
+          if (stylus &&
+              _activePointer != null &&
+              _activePointer != event.pointer) {
+            _beginStroke(event);
+            return;
+          }
+          if (_activePointer != null && event.pointer != _activePointer) {
+            return;
+          }
           _beginStroke(event);
-          return;
-        }
-        if (_activePointer != null && event.pointer != _activePointer) {
-          return;
-        }
-        _beginStroke(event);
-      },
-      onPointerMove: (event) {
-        if (!_isStylus(event.kind)) {
-          _touchPositions[event.pointer] = event.position;
-        }
-        if (_zooming) {
-          _updateZoom();
-          return;
-        }
-        if (event.pointer != _activePointer || _draft.points.isEmpty) {
-          return;
-        }
-        final last = _draft.points.last;
-        final delta = (event.localPosition - last).distance;
-        if (delta < kStrokeSamplePx && _draft.points.length > 1) return;
-        final moved = (event.localPosition - _draft.points.first).distance >
-            kStrokeCommitPx;
-        _draft.append(event.localPosition, markMoved: moved);
-      },
-      onPointerUp: (event) {
-        _touchPositions.remove(event.pointer);
-        if (_zooming) {
-          _maybeEndZoom();
-          return;
-        }
-        if (event.pointer != _activePointer) return;
-        unawaited(_completeStroke(event.localPosition, size));
-      },
-      onPointerCancel: (event) {
-        _touchPositions.remove(event.pointer);
-        if (_zooming) {
-          _maybeEndZoom();
-          return;
-        }
-        if (event.pointer != _activePointer &&
-            event.pointer != _stylusPointer) {
-          return;
-        }
-        // Si el sistema canceló un trazo válido, guardarlo igual.
-        final points = List<Offset>.from(_draft.points);
-        final tool = _effectiveTool;
-        _clearStrokePointers();
-        _draft.clear();
-        if (tool.isMarkup && isStrokeCommitWorthy(points)) {
-          unawaited(
-            _finishGesture(
-              size: size,
-              points: points,
-              toolOverride: tool,
-            ),
-          );
-        }
-      },
+        },
+        onPointerMove: (event) {
+          if (!_isStylus(event.kind)) {
+            _touchPositions[event.pointer] = event.position;
+          }
+          if (_zooming) {
+            _updateZoom();
+            return;
+          }
+          if (event.pointer != _activePointer || _draft.points.isEmpty) {
+            return;
+          }
+          final last = _draft.points.last;
+          final delta = (event.localPosition - last).distance;
+          if (delta < kStrokeSamplePx && _draft.points.length > 1) return;
+          final moved = (event.localPosition - _draft.points.first).distance >
+              kStrokeCommitPx;
+          _draft.append(event.localPosition, markMoved: moved);
+        },
+        onPointerUp: (event) {
+          _touchPositions.remove(event.pointer);
+          if (_zooming) {
+            _maybeEndZoom();
+            return;
+          }
+          if (event.pointer != _activePointer) return;
+          unawaited(_completeStroke(event.localPosition, size));
+        },
+        onPointerCancel: (event) {
+          _touchPositions.remove(event.pointer);
+          if (_zooming) {
+            _maybeEndZoom();
+            return;
+          }
+          if (event.pointer != _activePointer &&
+              event.pointer != _stylusPointer) {
+            return;
+          }
+          // Si el sistema canceló un trazo válido, guardarlo igual.
+          final points = List<Offset>.from(_draft.points);
+          final tool = _effectiveTool;
+          _clearStrokePointers();
+          _draft.clear();
+          if (tool.isMarkup && isStrokeCommitWorthy(points)) {
+            unawaited(
+              _finishGesture(
+                size: size,
+                points: points,
+                toolOverride: tool,
+              ),
+            );
+          }
+        },
+      ),
     );
   }
 
@@ -575,29 +580,32 @@ class _AnnotationMark extends StatelessWidget {
       top: hitTop,
       width: width,
       height: hitHeight,
-      child: Semantics(
-        button: interactive,
-        label: '${annotation.type.label(AppLocalizations.of(context))}'
-            '${annotation.hasText ? ': ${annotation.text}' : ''}',
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: interactive ? onTap : null,
-          onLongPress: interactive
-              ? () {
-                  HapticFeedback.mediumImpact();
-                  onLongPress();
-                }
-              : null,
-          child: annotation.type == AnnotationType.underline
-              ? Align(
-                  alignment: Alignment.center,
-                  child: SizedBox(
-                    width: width,
-                    height: height,
-                    child: child,
-                  ),
-                )
-              : child,
+      child: IgnorePointer(
+        ignoring: !interactive,
+        child: Semantics(
+          button: interactive,
+          label: '${annotation.type.label(AppLocalizations.of(context))}'
+              '${annotation.hasText ? ': ${annotation.text}' : ''}',
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: interactive ? onTap : null,
+            onLongPress: interactive
+                ? () {
+                    HapticFeedback.mediumImpact();
+                    onLongPress();
+                  }
+                : null,
+            child: annotation.type == AnnotationType.underline
+                ? Align(
+                    alignment: Alignment.center,
+                    child: SizedBox(
+                      width: width,
+                      height: height,
+                      child: child,
+                    ),
+                  )
+                : child,
+          ),
         ),
       ),
     );
@@ -653,18 +661,21 @@ class _InkMarkupHitTarget extends StatelessWidget {
           top: top,
           width: width,
           height: height,
-          child: Semantics(
-            button: interactive,
-            label: annotation.type.label(AppLocalizations.of(context)),
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: interactive ? onTap : null,
-              onLongPress: interactive
-                  ? () {
-                      HapticFeedback.mediumImpact();
-                      onLongPress();
-                    }
-                  : null,
+          child: IgnorePointer(
+            ignoring: !interactive,
+            child: Semantics(
+              button: interactive,
+              label: annotation.type.label(AppLocalizations.of(context)),
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: interactive ? onTap : null,
+                onLongPress: interactive
+                    ? () {
+                        HapticFeedback.mediumImpact();
+                        onLongPress();
+                      }
+                    : null,
+              ),
             ),
           ),
         ),

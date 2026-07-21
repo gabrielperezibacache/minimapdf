@@ -310,45 +310,55 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
             if (widget.onCreateAnnotation != null &&
                 widget.onOpenAnnotation != null &&
                 widget.onDeleteAnnotation != null)
-              PageAnnotationsLayer(
-                annotations: widget.annotations,
-                activeTool: widget.activeTool,
-                enabled: widget.annotationsEnabled && !widget.placementMode,
-                inkColor: widget.inkColor,
-                strokeWidthPx: widget.strokeWidthPx,
-                navigationLocked: widget.navigationLocked,
-                snapToText: widget.snapToText,
-                textBands: _effectiveBands,
-                onCreateRect: ({
-                  required AnnotationTool tool,
-                  required double x,
-                  required double y,
-                  required double width,
-                  required double height,
-                  List<List<List<double>>>? strokes,
-                }) {
-                  return widget.onCreateAnnotation!(
-                    pageNumber: widget.pageNumber,
-                    tool: tool,
-                    x: x,
-                    y: y,
-                    width: width,
-                    height: height,
-                    strokes: strokes,
-                  );
-                },
-                onOpenAnnotation: widget.onOpenAnnotation!,
-                onDeleteAnnotation: widget.onDeleteAnnotation!,
+              IgnorePointer(
+                ignoring: widget.textSelecting,
+                child: PageAnnotationsLayer(
+                  annotations: widget.annotations,
+                  activeTool: widget.activeTool,
+                  enabled: widget.annotationsEnabled &&
+                      !widget.placementMode &&
+                      !widget.textSelecting,
+                  inkColor: widget.inkColor,
+                  strokeWidthPx: widget.strokeWidthPx,
+                  navigationLocked: widget.navigationLocked,
+                  snapToText: widget.snapToText,
+                  textBands: _effectiveBands,
+                  onCreateRect: ({
+                    required AnnotationTool tool,
+                    required double x,
+                    required double y,
+                    required double width,
+                    required double height,
+                    List<List<List<double>>>? strokes,
+                  }) {
+                    return widget.onCreateAnnotation!(
+                      pageNumber: widget.pageNumber,
+                      tool: tool,
+                      x: x,
+                      y: y,
+                      width: width,
+                      height: height,
+                      strokes: strokes,
+                    );
+                  },
+                  onOpenAnnotation: widget.onOpenAnnotation!,
+                  onDeleteAnnotation: widget.onDeleteAnnotation!,
+                ),
               ),
-            SignatureLayer(
-              signatures: widget.signatures,
-              topReserve: 0,
-              bottomReserve: 0,
-              placementMode: widget.placementMode,
-              signaturesInteractive: widget.signaturesInteractive,
-              onPlaceTap: (x, y) => widget.onPlaceTap(widget.pageNumber, x, y),
-              onMove: widget.onMove,
-              onDelete: widget.onDelete,
+            IgnorePointer(
+              ignoring: widget.textSelecting,
+              child: SignatureLayer(
+                signatures: widget.signatures,
+                topReserve: 0,
+                bottomReserve: 0,
+                placementMode: widget.placementMode,
+                signaturesInteractive: widget.signaturesInteractive &&
+                    !widget.textSelecting,
+                onPlaceTap: (x, y) =>
+                    widget.onPlaceTap(widget.pageNumber, x, y),
+                onMove: widget.onMove,
+                onDelete: widget.onDelete,
+              ),
             ),
           ],
           if (widget.searchHighlights.isNotEmpty)

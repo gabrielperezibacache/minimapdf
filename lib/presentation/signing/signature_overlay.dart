@@ -240,11 +240,13 @@ class SignatureOverlay extends StatelessWidget {
     final scale = width / SignatureStampGeometry.referenceStampWidth;
     final height = width * SignatureStampGeometry.heightOverWidth;
 
-    return GestureDetector(
-      onPanUpdate: canDrag ? (details) => onDragUpdate!(details.delta) : null,
-      onPanEnd: canDrag ? (_) => onDragEnd!() : null,
-      onPanCancel: canDrag ? (onDragCancel ?? onDragEnd) : null,
-      child: Material(
+    return IgnorePointer(
+      ignoring: !canDrag && onDelete == null,
+      child: GestureDetector(
+        onPanUpdate: canDrag ? (details) => onDragUpdate!(details.delta) : null,
+        onPanEnd: canDrag ? (_) => onDragEnd!() : null,
+        onPanCancel: canDrag ? (onDragCancel ?? onDragEnd) : null,
+        child: Material(
         color: colors.panel.withValues(alpha: 0.96),
         elevation: 0,
         child: Container(
@@ -354,6 +356,7 @@ class SignatureOverlay extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

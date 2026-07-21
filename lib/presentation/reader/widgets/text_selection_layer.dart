@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/pdf_text_service.dart';
+import '../eager_gesture_capture.dart';
 import '../pdf_text_selection.dart';
 
 /// Capa de selección de texto: arrastra un rectángulo y resalta las palabras
 /// del PDF cubiertas, notificando el texto seleccionado.
+///
+/// Usa [Listener] + recognizers eager para ganar al [PageView]/PhotoView]
+/// desde el primer toque (sin arena lenta ni “segundo intento”).
 class TextSelectionLayer extends StatefulWidget {
   const TextSelectionLayer({
     super.key,
@@ -24,6 +28,7 @@ class _TextSelectionLayerState extends State<TextSelectionLayer> {
   Offset? _startPx;
   Offset? _currentPx;
   Size _size = Size.zero;
+  int? _activePointer;
 
   Rect? get _selectionNorm {
     final a = _startPx;
@@ -46,9 +51,41 @@ class _TextSelectionLayerState extends State<TextSelectionLayer> {
       widget.onSelectionChanged('');
       return;
     }
+    // Toque casi puntual: seleccionar la palabra bajo el dedo.
+    final tiny = sel.width * _size.width < 8 && sel.height * _size.height < 8;
+    if (tiny) {
+      final point = Offset(
+        (sel.left + sel.right) / 2,
+        (sel.top + sel.bottom) / 2,
+      );
+      final word = _wordAtNormalized(point);
+      widget.onSelectionChanged(word?.text ?? '');
+      return;
+    }
     widget.onSelectionChanged(
       selectedTextFromRect(lines: widget.lines, selection: sel),
     );
+  }
+
+  PdfWordBox? _wordAtNormalized(Offset point) {
+    for (final line in widget.lines) {
+      for (final word in line.words) {
+        final r = word.rect;
+        if (point.dx >= r.x &&
+            point.dx <= r.x + r.width &&
+            point.dy >= r.y &&
+            point.dy <= r.y + r.height) {
+          return word;
+        }
+      }
+    }
+    return null;
+  }
+
+  void _clear() {
+    _activePointer = null;
+    _startPx = null;
+    _currentPx = null;
   }
 
   @override
@@ -56,34 +93,63 @@ class _TextSelectionLayerState extends State<TextSelectionLayer> {
     return LayoutBuilder(
       builder: (context, constraints) {
         _size = Size(constraints.maxWidth, constraints.maxHeight);
-        return GestureDetector(
+        return RawGestureDetector(
           behavior: HitTestBehavior.opaque,
-          onPanStart: (d) => setState(() {
-            _startPx = d.localPosition;
-            _currentPx = d.localPosition;
-          }),
-          onPanUpdate: (d) {
-            setState(() => _currentPx = d.localPosition);
-            _emit();
-          },
-          onPanEnd: (_) => _emit(),
-          onTapUp: (_) {
-            setState(() {
-              _startPx = null;
-              _currentPx = null;
-            });
-            widget.onSelectionChanged('');
-          },
-          child: CustomPaint(
-            painter: _SelectionPainter(
-              lines: widget.lines,
-              selection: _selectionNorm,
+          gestures: eagerCaptureGestures(debugOwner: this),
+          child: Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerDown: (event) {
+              if (_activePointer != null) return;
+              _activePointer = event.pointer;
+              setState(() {
+                _startPx = event.localPosition;
+                _currentPx = event.localPosition;
+              });
+            },
+            onPointerMove: (event) {
+              if (event.pointer != _activePointer) return;
+              setState(() => _currentPx = event.localPosition);
+              _emit();
+            },
+            onPointerUp: (event) {
+              if (event.pointer != _activePointer) return;
+              setState(() => _currentPx = event.localPosition);
+              _emit();
+              _activePointer = null;
+            },
+            onPointerCancel: (event) {
+              if (event.pointer != _activePointer) return;
+              // Conservar la selección si el sistema cancela a mitad de gesto.
+              _emit();
+              _activePointer = null;
+            },
+            child: CustomPaint(
+              size: _size,
+              painter: _SelectionPainter(
+                lines: widget.lines,
+                selection: _selectionNorm,
+              ),
             ),
-            size: Size.infinite,
           ),
         );
       },
     );
+  }
+
+  @override
+  void didUpdateWidget(covariant TextSelectionLayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.lines, widget.lines) &&
+        oldWidget.lines != widget.lines) {
+      // Nueva página / texto: limpiar rectángulo de arrastre.
+      if (_activePointer == null && (_startPx != null || _currentPx != null)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _activePointer != null) return;
+          setState(_clear);
+          widget.onSelectionChanged('');
+        });
+      }
+    }
   }
 }
 
@@ -100,15 +166,17 @@ class _SelectionPainter extends CustomPainter {
       ..color = AppColors.ebonyAccent.withValues(alpha: 0.10)
       ..style = PaintingStyle.fill;
     for (final line in lines) {
-      canvas.drawRect(
-        Rect.fromLTWH(
-          line.rect.x * size.width,
-          line.rect.y * size.height,
-          line.rect.width * size.width,
-          line.rect.height * size.height,
-        ),
-        hint,
-      );
+      for (final word in line.words) {
+        canvas.drawRect(
+          Rect.fromLTWH(
+            word.rect.x * size.width,
+            word.rect.y * size.height,
+            word.rect.width * size.width,
+            word.rect.height * size.height,
+          ),
+          hint,
+        );
+      }
     }
 
     final sel = selection;
@@ -141,10 +209,14 @@ class _SelectionPainter extends CustomPainter {
       sel.right * size.width,
       sel.bottom * size.height,
     );
+    final fill = Paint()
+      ..color = AppColors.ebonyAccent.withValues(alpha: 0.12)
+      ..style = PaintingStyle.fill;
     final border = Paint()
       ..color = AppColors.ebonyAccent
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
+    canvas.drawRect(rectPx, fill);
     canvas.drawRect(rectPx, border);
   }
 
