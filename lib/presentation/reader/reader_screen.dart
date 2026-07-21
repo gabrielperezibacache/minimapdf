@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/preferences/app_preferences.dart';
 import '../../core/theme/app_colors.dart';
@@ -763,6 +765,42 @@ class _ReaderScreenState extends State<ReaderScreen>
     setState(() => _pageSizes = sizes);
   }
 
+  Future<void> _shareDocument() async {
+    final l10n = AppLocalizations.of(context);
+    final path = widget.book.filePath;
+    final title = widget.book.title;
+    final box = context.findRenderObject() as RenderBox?;
+    final origin =
+        box != null ? box.localToGlobal(Offset.zero) & box.size : null;
+
+    final file = File(path);
+    if (!await file.exists()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.shareDocumentFailed)),
+      );
+      return;
+    }
+
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(path, mimeType: 'application/pdf')],
+          subject: title,
+          sharePositionOrigin: origin,
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('ReaderScreen._shareDocument: $e');
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.shareDocumentFailed)),
+      );
+    }
+  }
+
   Future<void> _exportSignedPdf() async {
     if (_signing?.exporting == true) return;
     final l10n = AppLocalizations.of(context);
@@ -1419,19 +1457,29 @@ class _ReaderScreenState extends State<ReaderScreen>
                       return;
                     }
                     _signDocument();
+                  case _ReaderToolAction.share:
+                    unawaited(_shareDocument());
                   case _ReaderToolAction.export:
                     _exportSignedPdf();
+                  case _ReaderToolAction.saveAnnotations:
+                    unawaited(_promptSaveAnnotations());
                 }
               },
               itemBuilder: (context) {
                 final signBusy = signing?.saving == true ||
                     signing?.loading == true ||
                     signing?.exporting == true;
+                final annotationsBusy =
+                    _annotations?.savingToPdf == true;
                 final exportEnabled = signing != null &&
                     signing.hasSignatures &&
                     !signing.exporting &&
                     !signing.saving &&
                     !placement;
+                final saveAnnotationsEnabled =
+                    (_annotations?.hasAnnotations ?? false) &&
+                        !annotationsBusy &&
+                        !(signing?.exporting ?? false);
 
                 return [
                   PopupMenuItem(
@@ -1476,6 +1524,26 @@ class _ReaderScreenState extends State<ReaderScreen>
                   ),
                   const PopupMenuDivider(),
                   PopupMenuItem(
+                    value: _ReaderToolAction.share,
+                    enabled: !annotationsBusy && !signBusy,
+                    child: _ReaderToolMenuRow(
+                      icon: Icons.ios_share_outlined,
+                      label: l10n.shareDocument,
+                      color: AppColors.ebonyAccent,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _ReaderToolAction.saveAnnotations,
+                    enabled: saveAnnotationsEnabled,
+                    child: _ReaderToolMenuRow(
+                      icon: Icons.save_outlined,
+                      label: l10n.saveAnnotations,
+                      color: saveAnnotationsEnabled
+                          ? AppColors.ebonyAccent
+                          : colors.textMuted,
+                    ),
+                  ),
+                  PopupMenuItem(
                     value: _ReaderToolAction.sign,
                     enabled: !signBusy,
                     child: _ReaderToolMenuRow(
@@ -1490,7 +1558,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     value: _ReaderToolAction.export,
                     enabled: exportEnabled,
                     child: _ReaderToolMenuRow(
-                      icon: Icons.ios_share_outlined,
+                      icon: Icons.verified_outlined,
                       label: l10n.exportSignedPdf,
                       color: exportEnabled
                           ? AppColors.ebonyAccent
@@ -1592,6 +1660,8 @@ enum _ReaderToolAction {
   note,
   ebonyFilter,
   hideControls,
+  share,
+  saveAnnotations,
   sign,
   export,
 }

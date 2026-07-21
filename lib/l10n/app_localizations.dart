@@ -176,6 +176,8 @@ class AppLocalizations {
   String exportSignedSuccess(String title) =>
       _t('exportSignedSuccess').replaceAll('{title}', title);
   String get exportAction => _t('exportAction');
+  String get shareDocument => _t('shareDocument');
+  String get shareDocumentFailed => _t('shareDocumentFailed');
   String get deleteSignatureTitle => _t('deleteSignatureTitle');
   String deleteSignatureConfirm(String name, int page) =>
       _t('deleteSignatureConfirm')
@@ -622,6 +624,8 @@ const Map<String, Map<String, String>> _strings = {
     'signedAsRole': 'Firmado como {role} (#{order}). Puedes arrastrar el sello.',
     'exportSignedSuccess': 'PDF firmado exportado con manifiesto SHA-256.\n{title}',
     'exportAction': 'Exportar',
+    'shareDocument': 'Compartir / exportar',
+    'shareDocumentFailed': 'No se pudo compartir el PDF.',
     'deleteSignatureTitle': 'Eliminar firma',
     'deleteSignatureConfirm': '¿Eliminar la firma de {name} en la página {page}?',
     'deleteBookmarkTitle': 'Eliminar marcador',
@@ -898,6 +902,8 @@ const Map<String, Map<String, String>> _strings = {
     'signedAsRole': 'Signed as {role} (#{order}). You can drag the stamp.',
     'exportSignedSuccess': 'Signed PDF exported with SHA-256 manifest.\n{title}',
     'exportAction': 'Export',
+    'shareDocument': 'Share / export',
+    'shareDocumentFailed': 'Could not share the PDF.',
     'deleteSignatureTitle': 'Delete signature',
     'deleteSignatureConfirm': 'Delete {name}’s signature on page {page}?',
     'deleteBookmarkTitle': 'Delete bookmark',
@@ -1175,6 +1181,8 @@ const Map<String, Map<String, String>> _strings = {
     'signedAsRole': 'Assinado como {role} (#{order}). Pode arrastar o selo.',
     'exportSignedSuccess': 'PDF assinado exportado com manifesto SHA-256.\n{title}',
     'exportAction': 'Exportar',
+    'shareDocument': 'Partilhar / exportar',
+    'shareDocumentFailed': 'Não foi possível partilhar o PDF.',
     'deleteSignatureTitle': 'Eliminar assinatura',
     'deleteSignatureConfirm': 'Eliminar a assinatura de {name} na página {page}?',
     'deleteBookmarkTitle': 'Eliminar marcador',
@@ -1450,6 +1458,8 @@ const Map<String, Map<String, String>> _strings = {
     'signedAsRole': 'Signé en tant que {role} (#{order}). Vous pouvez glisser le tampon.',
     'exportSignedSuccess': 'PDF signé exporté avec manifeste SHA-256.\n{title}',
     'exportAction': 'Exporter',
+    'shareDocument': 'Partager / exporter',
+    'shareDocumentFailed': 'Impossible de partager le PDF.',
     'deleteSignatureTitle': 'Supprimer la signature',
     'deleteSignatureConfirm': 'Supprimer la signature de {name} sur la page {page} ?',
     'deleteBookmarkTitle': 'Supprimer le signet',
@@ -1727,6 +1737,8 @@ const Map<String, Map<String, String>> _strings = {
     'signedAsRole': 'Unterschrieben als {role} (#{order}). Sie können den Stempel ziehen.',
     'exportSignedSuccess': 'Signiertes PDF mit SHA-256-Manifest exportiert.\n{title}',
     'exportAction': 'Exportieren',
+    'shareDocument': 'Teilen / exportieren',
+    'shareDocumentFailed': 'PDF konnte nicht geteilt werden.',
     'deleteSignatureTitle': 'Unterschrift löschen',
     'deleteSignatureConfirm': 'Unterschrift von {name} auf Seite {page} löschen?',
     'deleteBookmarkTitle': 'Lesezeichen löschen',
@@ -1999,6 +2011,8 @@ const Map<String, Map<String, String>> _strings = {
     'signedAsRole': '已以 {role} 身份签署（#{order}）。可拖动印章。',
     'exportSignedSuccess': '已导出带 SHA-256 清单的已签名 PDF。\n{title}',
     'exportAction': '导出',
+    'shareDocument': '分享 / 导出',
+    'shareDocumentFailed': '无法分享 PDF。',
     'deleteSignatureTitle': '删除签名',
     'deleteSignatureConfirm': '要删除 {name} 在第 {page} 页的签名吗？',
     'deleteBookmarkTitle': '删除书签',
@@ -2274,6 +2288,8 @@ const Map<String, Map<String, String>> _strings = {
     'signedAsRole': 'Подписано как {role} (#{order}). Можно перетащить печать.',
     'exportSignedSuccess': 'Подписанный PDF экспортирован с манифестом SHA-256.\n{title}',
     'exportAction': 'Экспорт',
+    'shareDocument': 'Поделиться / экспорт',
+    'shareDocumentFailed': 'Не удалось поделиться PDF.',
     'deleteSignatureTitle': 'Удалить подпись',
     'deleteSignatureConfirm': 'Удалить подпись {name} на странице {page}?',
     'deleteBookmarkTitle': 'Удалить закладку',
