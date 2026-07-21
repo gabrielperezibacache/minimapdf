@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:pdfx/pdfx.dart';
 
@@ -9,6 +11,7 @@ import '../../../data/models/page_annotation.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../providers/reader_annotations_provider.dart';
 import '../../signing/signature_overlay.dart';
+import '../text_line_snap.dart';
 import 'page_annotations_layer.dart';
 
 /// Página PDF con sellos de firma y anotaciones anclados al rectángulo de la página.
@@ -39,6 +42,7 @@ class SignedPdfPage extends StatefulWidget {
     this.strokeWidthPx,
     this.navigationLocked = true,
     this.zoomController,
+    this.snapToText = false,
     this.onCreateAnnotation,
     this.onOpenAnnotation,
     this.onDeleteAnnotation,
@@ -70,6 +74,8 @@ class SignedPdfPage extends StatefulWidget {
   final bool navigationLocked;
   /// Controlador de zoom de PhotoView (solo página actual, candado abierto).
   final PhotoViewController? zoomController;
+  /// Imantar marcado/subrayado a las líneas de texto de la página.
+  final bool snapToText;
   final Future<void> Function({
     required int pageNumber,
     required AnnotationTool tool,
@@ -93,6 +99,11 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
   Object? _loadError;
   Future<PdfPageImage>? _boundFuture;
 
+  List<TextBand> _textBands = const [];
+  int? _bandsPage;
+  int _bandsGeneration = -1;
+  bool _detectingBands = false;
+
   @override
   void initState() {
     super.initState();
@@ -107,6 +118,8 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
       _cachedBytes = null;
       _cachedPageNumber = null;
       _loadError = null;
+      _textBands = const [];
+      _bandsPage = null;
       _bindFuture(widget.pageImageFuture, widget.pageNumber);
       return;
     }
@@ -136,6 +149,40 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
     });
   }
 
+  /// Detecta líneas de texto (una vez por página) para imantar el marcado.
+  void _maybeDetectBands(Uint8List bytes) {
+    if (_detectingBands) return;
+    final upToDate = _bandsPage == widget.pageNumber &&
+        _bandsGeneration == widget.documentGeneration;
+    if (upToDate) return;
+    _detectingBands = true;
+    final page = widget.pageNumber;
+    final generation = widget.documentGeneration;
+    () async {
+      List<TextBand> bands = const [];
+      try {
+        final codec = await ui.instantiateImageCodec(bytes);
+        final frame = await codec.getNextFrame();
+        bands = await detectTextBandsFromImage(frame.image);
+        frame.image.dispose();
+      } catch (_) {
+        bands = const [];
+      }
+      if (!mounted) return;
+      if (page != widget.pageNumber ||
+          generation != widget.documentGeneration) {
+        _detectingBands = false;
+        return;
+      }
+      setState(() {
+        _textBands = bands;
+        _bandsPage = page;
+        _bandsGeneration = generation;
+        _detectingBands = false;
+      });
+    }();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loadError != null && _cachedBytes == null) {
@@ -159,6 +206,10 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
           ),
         ),
       );
+    }
+
+    if (widget.snapToText && widget.activeTool.isMarkup) {
+      _maybeDetectBands(bytes);
     }
 
     return SizedBox(
@@ -204,6 +255,8 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
                 strokeWidthPx: widget.strokeWidthPx,
                 navigationLocked: widget.navigationLocked,
                 zoomController: widget.zoomController,
+                snapToText: widget.snapToText,
+                textBands: _textBands,
                 onCreateRect: ({
                   required AnnotationTool tool,
                   required double x,
@@ -236,6 +289,8 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
                 inkColor: widget.inkColor,
                 strokeWidthPx: widget.strokeWidthPx,
                 navigationLocked: widget.navigationLocked,
+                snapToText: widget.snapToText,
+                textBands: _textBands,
                 onCreateRect: ({
                   required AnnotationTool tool,
                   required double x,

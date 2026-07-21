@@ -18,6 +18,8 @@ class AnnotationToolbox extends StatelessWidget {
     this.onToggleBookmark,
     this.onClearTool,
     this.onToggleNavigationLock,
+    this.onToggleSnapToText,
+    this.snapToText = true,
     this.navigationLocked = true,
     this.isBookmarked = false,
     this.pageNumber,
@@ -42,8 +44,11 @@ class AnnotationToolbox extends StatelessWidget {
   final VoidCallback? onToggleBookmark;
   final VoidCallback? onClearTool;
   final VoidCallback? onToggleNavigationLock;
+  final VoidCallback? onToggleSnapToText;
   /// Candado cerrado = sin scroll/zoom; abierto = permitir con dos dedos.
   final bool navigationLocked;
+  /// Imantar marcado/subrayado a las líneas de texto detectadas.
+  final bool snapToText;
   final bool isBookmarked;
   final int? pageNumber;
   final int annotationCount;
@@ -135,6 +140,25 @@ class AnnotationToolbox extends StatelessWidget {
                                   ?.copyWith(
                                     color: colors.textMuted,
                                   ),
+                            ),
+                          ),
+                        if (onToggleSnapToText != null && activeTool.isMarkup)
+                          IconButton(
+                            tooltip: snapToText
+                                ? l10n.snapToTextOn
+                                : l10n.snapToTextOff,
+                            onPressed: () {
+                              HapticFeedback.selectionClick();
+                              onToggleSnapToText!();
+                            },
+                            visualDensity: VisualDensity.compact,
+                            icon: Icon(
+                              // Regla = imantado (recto al texto); trazo = libre.
+                              snapToText ? Icons.straighten : Icons.gesture,
+                              size: 20,
+                              color: snapToText
+                                  ? AppColors.ebonyAccent
+                                  : colors.textMuted,
                             ),
                           ),
                         if (onToggleNavigationLock != null &&
@@ -375,6 +399,16 @@ class AnnotationToolbox extends StatelessWidget {
                               ),
                             ),
                       ),
+                      if (onToggleSnapToText != null && snapToText) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          l10n.snapToTextHint,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: colors.textMuted,
+                                  ),
+                        ),
+                      ],
                     ],
                   ],
                 ),

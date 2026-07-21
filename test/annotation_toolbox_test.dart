@@ -147,6 +147,52 @@ void main() {
     expect(picked, isNotNull);
   });
 
+  testWidgets('imantar al texto alterna entre regla y trazo libre',
+      (tester) async {
+    var snap = true;
+
+    await tester.pumpWidget(
+      wrap(
+        StatefulBuilder(
+          builder: (context, setState) {
+            return AnnotationToolbox(
+              visible: true,
+              activeTool: AnnotationTool.highlight,
+              navigationLocked: true,
+              onToggleNavigationLock: () {},
+              snapToText: snap,
+              onToggleSnapToText: () => setState(() => snap = !snap),
+              onSelectTool: (_) {},
+              onClose: () {},
+            );
+          },
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.straighten), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.straighten));
+    await tester.pump();
+    expect(find.byIcon(Icons.gesture), findsOneWidget);
+  });
+
+  testWidgets('imantar al texto no aparece con Chincheta', (tester) async {
+    await tester.pumpWidget(
+      wrap(
+        AnnotationToolbox(
+          visible: true,
+          activeTool: AnnotationTool.note,
+          snapToText: true,
+          onToggleSnapToText: () {},
+          onSelectTool: (_) {},
+          onClose: () {},
+        ),
+      ),
+    );
+    expect(find.byIcon(Icons.straighten), findsNothing);
+    expect(find.byIcon(Icons.gesture), findsNothing);
+  });
+
   testWidgets('candado solo aparece con Marcado/Subrayado', (tester) async {
     await tester.pumpWidget(
       wrap(

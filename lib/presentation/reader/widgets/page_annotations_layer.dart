@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:photo_view/photo_view.dart' show PhotoViewController;
 
 import '../../../core/theme/app_colors.dart';
+import '../text_line_snap.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/safe_clamp.dart';
 import '../../../data/models/page_annotation.dart';
@@ -62,6 +63,8 @@ class PageAnnotationsLayer extends StatefulWidget {
     this.strokeWidthPx,
     this.navigationLocked = true,
     this.zoomController,
+    this.snapToText = false,
+    this.textBands = const [],
   });
 
   final List<PageAnnotation> annotations;
@@ -84,6 +87,10 @@ class PageAnnotationsLayer extends StatefulWidget {
   final bool navigationLocked;
   /// Controlador de PhotoView de la página actual (solo para zoom con 2 dedos).
   final PhotoViewController? zoomController;
+  /// Imantar marcado/subrayado a las líneas de texto detectadas.
+  final bool snapToText;
+  /// Bandas de texto de la página (normalizadas 0–1), para el imantado.
+  final List<TextBand> textBands;
 
   @override
   State<PageAnnotationsLayer> createState() => _PageAnnotationsLayerState();
@@ -452,15 +459,26 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
           );
         return;
       }
+      // Imantado: ajusta el trazo a la línea de texto detectada (o lo endereza).
+      var finalStroke = stroke;
+      if (widget.snapToText) {
+        final underline = tool == AnnotationTool.underline;
+        finalStroke = snapStrokeToBands(
+              stroke: stroke,
+              bands: widget.textBands,
+              underline: underline,
+            ) ??
+            straightenStroke(stroke: stroke, underline: underline);
+      }
       final strokeWidth =
           widget.strokeWidthPx ?? strokeWidthPxForTool(tool);
       rect = boundingRectForStroke(
         canvasSize: size,
-        stroke: stroke,
+        stroke: finalStroke,
         strokeWidthPx: strokeWidth,
       );
       if (rect == null) return;
-      strokes = [stroke];
+      strokes = [finalStroke];
     } else {
       return;
     }

@@ -132,6 +132,9 @@ class AppLocalizations {
   String get drawingAllowsScrollHint => _t('drawingAllowsScrollHint');
   String get lockPageNavigation => _t('lockPageNavigation');
   String get unlockPageNavigation => _t('unlockPageNavigation');
+  String get snapToTextOn => _t('snapToTextOn');
+  String get snapToTextOff => _t('snapToTextOff');
+  String get snapToTextHint => _t('snapToTextHint');
   String get toolStillArmedHint => _t('toolStillArmedHint');
   String get emptyNoteNotSaved => _t('emptyNoteNotSaved');
   String get strokeTooShortHint => _t('strokeTooShortHint');
@@ -555,6 +558,9 @@ const Map<String, Map<String, String>> _strings = {
     'drawingAllowsScrollHint':
         'Candado abierto: un dedo dibuja; solo dos dedos hacen zoom o mueven la página.',
     'lockPageNavigation': 'Bloquear scroll y zoom',
+    'snapToTextOn': 'Imantar al texto: activado',
+    'snapToTextOff': 'Imantar al texto: desactivado',
+    'snapToTextHint': 'Imantado: el marcado se ajusta a la línea de texto.',
     'unlockPageNavigation': 'Permitir scroll y zoom',
     'toolStillArmedHint': 'La herramienta sigue activa: puedes seguir dibujando.',
     'emptyNoteNotSaved': 'Nota vacía: no se guardó.',
@@ -859,6 +865,9 @@ const Map<String, Map<String, String>> _strings = {
     'drawingAllowsScrollHint':
         'Lock open: one finger draws; only two fingers zoom or move the page.',
     'lockPageNavigation': 'Lock scroll and zoom',
+    'snapToTextOn': 'Snap to text: on',
+    'snapToTextOff': 'Snap to text: off',
+    'snapToTextHint': 'Snap on: marks align to the text line.',
     'unlockPageNavigation': 'Allow scroll and zoom',
     'toolStillArmedHint': 'Tool still armed: you can keep drawing.',
     'emptyNoteNotSaved': 'Empty note: nothing was saved.',
@@ -1162,6 +1171,9 @@ const Map<String, Map<String, String>> _strings = {
     'drawingAllowsScrollHint':
         'Cadeado aberto: um dedo desenha; só dois dedos fazem zoom ou movem a página.',
     'lockPageNavigation': 'Bloquear scroll e zoom',
+    'snapToTextOn': 'Imantar ao texto: ativado',
+    'snapToTextOff': 'Imantar ao texto: desativado',
+    'snapToTextHint': 'Imantado: a marca ajusta-se à linha de texto.',
     'unlockPageNavigation': 'Permitir scroll e zoom',
     'toolStillArmedHint': 'Ferramenta ainda ativa: pode continuar a desenhar.',
     'emptyNoteNotSaved': 'Nota vazia: nada foi guardado.',
@@ -1463,6 +1475,9 @@ const Map<String, Map<String, String>> _strings = {
     'drawingAllowsScrollHint':
         'Cadenas ouvert : un doigt dessine ; seuls deux doigts zoom/déplacent la page.',
     'lockPageNavigation': 'Verrouiller le défilement et le zoom',
+    'snapToTextOn': 'Aimanter au texte : activé',
+    'snapToTextOff': 'Aimanter au texte : désactivé',
+    'snapToTextHint': 'Aimanté : la marque s’aligne sur la ligne de texte.',
     'unlockPageNavigation': 'Autoriser le défilement et le zoom',
     'toolStillArmedHint': 'Outil toujours actif : vous pouvez continuer à dessiner.',
     'emptyNoteNotSaved': 'Note vide : rien n\'a été enregistré.',
@@ -1766,6 +1781,9 @@ const Map<String, Map<String, String>> _strings = {
     'drawingAllowsScrollHint':
         'Schloss offen: ein Finger zeichnet; nur zwei Finger zoomen oder verschieben.',
     'lockPageNavigation': 'Scrollen und Zoomen sperren',
+    'snapToTextOn': 'Am Text ausrichten: an',
+    'snapToTextOff': 'Am Text ausrichten: aus',
+    'snapToTextHint': 'Ausrichten: Markierung folgt der Textzeile.',
     'unlockPageNavigation': 'Scrollen und Zoomen erlauben',
     'toolStillArmedHint': 'Werkzeug bleibt aktiv: Sie können weiterzeichnen.',
     'emptyNoteNotSaved': 'Leere Notiz: nichts gespeichert.',
@@ -2064,6 +2082,9 @@ const Map<String, Map<String, String>> _strings = {
     'drawingLocksScrollHint': '锁已关闭：无法滚动或缩放。用单指或 S-Pen 绘制。',
     'drawingAllowsScrollHint': '锁已打开：单指绘制；仅双指可缩放或移动页面。',
     'lockPageNavigation': '锁定滚动和缩放',
+    'snapToTextOn': '吸附到文字：开',
+    'snapToTextOff': '吸附到文字：关',
+    'snapToTextHint': '吸附开启：标记对齐到文字行。',
     'unlockPageNavigation': '允许滚动和缩放',
     'toolStillArmedHint': '工具仍处于启用状态：可以继续绘制。',
     'emptyNoteNotSaved': '空笔记：未保存。',
@@ -2360,6 +2381,9 @@ const Map<String, Map<String, String>> _strings = {
     'drawingAllowsScrollHint':
         'Замок открыт: один палец рисует; только два пальца зумят или двигают страницу.',
     'lockPageNavigation': 'Заблокировать прокрутку и масштаб',
+    'snapToTextOn': 'Примагничивать к тексту: вкл',
+    'snapToTextOff': 'Примагничивать к тексту: выкл',
+    'snapToTextHint': 'Примагничивание: метка выравнивается по строке.',
     'unlockPageNavigation': 'Разрешить прокрутку и масштаб',
     'toolStillArmedHint': 'Инструмент всё ещё активен: можно продолжать рисовать.',
     'emptyNoteNotSaved': 'Пустая заметка: ничего не сохранено.',

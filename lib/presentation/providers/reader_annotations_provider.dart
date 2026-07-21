@@ -91,6 +91,8 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   bool _toolboxVisible = false;
   /// Con herramienta armada: si true, bloquea scroll del PdfView y zoom PhotoView.
   bool _navigationLocked = true;
+  /// Imanta marcado/subrayado a las líneas de texto detectadas en la página.
+  bool _snapToText = true;
   bool _loading = false;
   int? _loadingGeneration;
   String? _error;
@@ -116,6 +118,8 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   /// Candado cerrado: sin scroll/zoom con la herramienta armada.
   /// Candado abierto: se puede desplazar y hacer zoom (dos dedos).
   bool get navigationLocked => _navigationLocked;
+  /// Imantado del marcado/subrayado a las líneas de texto de la página.
+  bool get snapToText => _snapToText;
 
   Color get inkColor => _inkColor;
   int get strokeSizeIndex => _strokeSizeIndex;
@@ -303,6 +307,17 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     if (_navigationLocked == locked) return;
     _navigationLocked = locked;
     _safeNotify();
+  }
+
+  void toggleSnapToText() {
+    if (_disposed) return;
+    _snapToText = !_snapToText;
+    _safeNotify();
+  }
+
+  /// Inicializa el imantado desde preferencias (sin notificar en construcción).
+  void initSnapToText(bool value) {
+    _snapToText = value;
   }
 
   void setInkColor(Color color) {

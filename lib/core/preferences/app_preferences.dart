@@ -17,6 +17,7 @@ class AppPreferences {
   static const _scrollModeKey = 'reader_scroll_mode';
   static const _hasSeenWelcomeKey = 'has_seen_welcome';
   static const _hasSeenReaderTipKey = 'has_seen_reader_tip';
+  static const _snapToTextKey = 'reader_snap_markup_to_text';
 
   static Future<AppPreferences> open() async {
     final prefs = await SharedPreferences.getInstance();
@@ -87,5 +88,12 @@ class AppPreferences {
 
   Future<void> markReaderTipSeen() async {
     await _prefs.setBool(_hasSeenReaderTipKey, true);
+  }
+
+  /// Imantar marcado/subrayado a las líneas de texto detectadas en la página.
+  bool get snapMarkupToText => _prefs.getBool(_snapToTextKey) ?? true;
+
+  Future<void> setSnapMarkupToText(bool value) async {
+    await _prefs.setBool(_snapToTextKey, value);
   }
 }

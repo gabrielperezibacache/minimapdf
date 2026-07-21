@@ -15,6 +15,9 @@ void main() {
       expect(l10n.readerFirstTip, isNot(equals('readerFirstTip')));
       expect(l10n.previousPage, isNot(equals('previousPage')));
       expect(l10n.nextPage, isNot(equals('nextPage')));
+      expect(l10n.snapToTextOn, isNot(equals('snapToTextOn')));
+      expect(l10n.snapToTextOff, isNot(equals('snapToTextOff')));
+      expect(l10n.snapToTextHint, isNot(equals('snapToTextHint')));
       expect(l10n.toolStillArmedHint, isNot(equals('toolStillArmedHint')));
       expect(l10n.emptyNoteNotSaved, isNot(equals('emptyNoteNotSaved')));
       expect(l10n.strokeTooShortHint, isNot(equals('strokeTooShortHint')));

@@ -119,6 +119,10 @@ class _ReaderScreenState extends State<ReaderScreen>
 
     if (_annotations == null) {
       final annotations = ReaderAnnotationsProvider(datasource);
+      final prefs = _preferences;
+      if (prefs != null) {
+        annotations.initSnapToText(prefs.snapMarkupToText);
+      }
       _annotations = annotations;
       annotations.addListener(_onAnnotationsChanged);
       if (bookId != null) {
@@ -1290,6 +1294,16 @@ class _ReaderScreenState extends State<ReaderScreen>
                         }
                         setState(() {});
                       },
+                      snapToText: annotations?.snapToText ?? true,
+                      onToggleSnapToText: () {
+                        annotations?.toggleSnapToText();
+                        final value = annotations?.snapToText ?? true;
+                        unawaited(
+                          _preferences?.setSnapMarkupToText(value) ??
+                              Future.value(),
+                        );
+                        setState(() {});
+                      },
                       onInkColorChanged: (color) {
                         annotations?.setInkColor(color);
                         setState(() {});
@@ -1322,6 +1336,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     colors,
                     activeTool: activeTool,
                     navigationLocked: annotations?.navigationLocked ?? true,
+                    snapToText: annotations?.snapToText ?? true,
                     canUndo: annotations?.canUndo ?? false,
                     onUndo: () => unawaited(_undoAnnotation()),
                     onToggleNavigationLock: () {
@@ -1329,6 +1344,15 @@ class _ReaderScreenState extends State<ReaderScreen>
                       if (annotations?.navigationLocked ?? true) {
                         _resetPageZoom();
                       }
+                      setState(() {});
+                    },
+                    onToggleSnapToText: () {
+                      annotations?.toggleSnapToText();
+                      final value = annotations?.snapToText ?? true;
+                      unawaited(
+                        _preferences?.setSnapMarkupToText(value) ??
+                            Future.value(),
+                      );
                       setState(() {});
                     },
                     onClear: () {
@@ -1539,6 +1563,7 @@ class _ReaderScreenState extends State<ReaderScreen>
               zoomController: pageTool.isMarkup && pageNumber == _currentPage
                   ? _pageZoomController
                   : null,
+              snapToText: annotations?.snapToText ?? false,
               ebonyFilter: _ebonyFilter,
               // Solo la página actual acepta toques de colocación (scroll continuo).
               placementMode: placementOnPage,
@@ -1948,9 +1973,11 @@ class _ReaderScreenState extends State<ReaderScreen>
     AppPalette colors, {
     required AnnotationTool activeTool,
     required bool navigationLocked,
+    required bool snapToText,
     required bool canUndo,
     required VoidCallback onUndo,
     required VoidCallback onToggleNavigationLock,
+    required VoidCallback onToggleSnapToText,
     required VoidCallback onClear,
     required VoidCallback onExpand,
   }) {
@@ -2019,6 +2046,19 @@ class _ReaderScreenState extends State<ReaderScreen>
                   Row(
                     children: [
                       if (showLock) ...[
+                        IconButton(
+                          tooltip: snapToText
+                              ? l10n.snapToTextOn
+                              : l10n.snapToTextOff,
+                          onPressed: onToggleSnapToText,
+                          icon: Icon(
+                            snapToText ? Icons.straighten : Icons.gesture,
+                            size: 22,
+                            color: snapToText
+                                ? AppColors.ebonyAccent
+                                : colors.textMuted,
+                          ),
+                        ),
                         IconButton(
                           tooltip: navigationLocked
                               ? l10n.unlockPageNavigation
