@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -60,7 +61,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   /// Caché de líneas por página (1-based) para selección/imantado.
   final Map<int, List<PdfLineBox>> _pageLinesCache = {};
   bool _textSelecting = false;
-  String _selectedText = '';
+  final ValueNotifier<String> _selectedText = ValueNotifier<String>('');
   /// Modo buscador de texto del menú ⋯.
   bool _textSearching = false;
   String _searchQuery = '';
@@ -89,11 +90,14 @@ class _ReaderScreenState extends State<ReaderScreen>
   String? _error;
   Map<int, Size> _pageSizes = const {};
   PdfDocument? _openedDocument;
-  /// Caché de rasterizaciones PNG por página (invalidada al regenerar el doc).
-  final Map<int, Future<Uint8List>> _pageImageFutures = {};
+  /// Caché LRU de rasterizaciones PNG por página (invalidada al regenerar el doc).
+  static const int _maxCachedPageImages = 12;
+  final LinkedHashMap<int, Future<Uint8List>> _pageImageFutures =
+      LinkedHashMap<int, Future<Uint8List>>();
   int _documentGeneration = 0;
   bool _disposed = false;
   bool _openingDocument = false;
+  bool _annotationRebuildScheduled = false;
 
   @override
   void initState() {
@@ -169,10 +173,13 @@ class _ReaderScreenState extends State<ReaderScreen>
     }
   }
 
-  /// Rasteriza una página (lazy) y cachea el Future por generación del doc.
+  /// Rasteriza una página (lazy) y cachea el Future con política LRU.
   Future<Uint8List> _pageImageFutureFor(int pageNumber) {
-    final cached = _pageImageFutures[pageNumber];
-    if (cached != null) return cached;
+    final cached = _pageImageFutures.remove(pageNumber);
+    if (cached != null) {
+      _pageImageFutures[pageNumber] = cached;
+      return cached;
+    }
     final future = () async {
       final doc = _openedDocument;
       if (doc == null || pageNumber < 1 || pageNumber > doc.pages.length) {
@@ -185,6 +192,9 @@ class _ReaderScreenState extends State<ReaderScreen>
       return raster.pngBytes;
     }();
     _pageImageFutures[pageNumber] = future;
+    while (_pageImageFutures.length > _maxCachedPageImages) {
+      _pageImageFutures.remove(_pageImageFutures.keys.first);
+    }
     return future;
   }
 
@@ -283,11 +293,21 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   void _onAnnotationsChanged() {
-    if (mounted) setState(() {});
+    if (!mounted || _annotationRebuildScheduled) return;
+    _annotationRebuildScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _annotationRebuildScheduled = false;
+      if (mounted) setState(() {});
+    });
   }
 
   void _onSigningChanged() {
-    if (mounted) setState(() {});
+    if (!mounted || _annotationRebuildScheduled) return;
+    _annotationRebuildScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _annotationRebuildScheduled = false;
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -315,6 +335,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     _searchDebounce?.cancel();
     _searchFieldController.dispose();
     _searchFocusNode.dispose();
+    _selectedText.dispose();
     _pageImageFutures.clear();
     final document = _openedDocument;
     _openedDocument = null;
@@ -374,7 +395,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     _progressSaver?.onPageChanged(page);
     _noteDismissed = false;
     _currentPageLines = _pageLinesCache[page] ?? const [];
-    _selectedText = '';
+    _selectedText.value = '';
     if (mounted) setState(() {});
     _maybeFetchPageText();
     if (_textSelecting) _prefetchNearbyPageText();
@@ -429,10 +450,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     for (final page in around) {
       if (page < 1 || page > _pagesCount) continue;
       if (_pageLinesCache.containsKey(page)) continue;
-      unawaited(() async {
-        await _linesForPage(page);
-        if (mounted && _textSelecting) setState(() {});
-      }());
+      unawaited(_linesForPage(page));
     }
   }
 
@@ -444,7 +462,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     _resetPageZoom();
     setState(() {
       _textSelecting = true;
-      _selectedText = '';
+      _selectedText.value = '';
       _controlsVisible = true;
     });
     _maybeFetchPageText();
@@ -454,7 +472,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   void _exitTextSelection() {
     setState(() {
       _textSelecting = false;
-      _selectedText = '';
+      _selectedText.value = '';
     });
   }
 
@@ -465,7 +483,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     _resetPageZoom();
     setState(() {
       _textSelecting = false;
-      _selectedText = '';
+      _selectedText.value = '';
       _textSearching = true;
       _controlsVisible = true;
       _searchQuery = _searchFieldController.text;
@@ -569,7 +587,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _copySelectedText() async {
-    final text = _selectedText.trim();
+    final text = _selectedText.value.trim();
     if (text.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
@@ -585,7 +603,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> _shareSelectedText() async {
-    final text = _selectedText.trim();
+    final text = _selectedText.value.trim();
     if (text.isEmpty) return;
     try {
       await SharePlus.instance.share(ShareParams(text: text));
@@ -704,12 +722,14 @@ class _ReaderScreenState extends State<ReaderScreen>
     final annotations = _annotations;
     final toolboxVisible = annotations?.toolboxVisible ?? false;
     final activeTool = annotations?.activeTool ?? AnnotationTool.none;
-    // Una sola pulsación: suelta la herramienta y cierra el panel.
+    // Una sola pulsación: suelta la herramienta, cierra el panel y restaura chrome.
     if (toolboxVisible || activeTool != AnnotationTool.none) {
       annotations?.clearTool();
       annotations?.setToolboxVisible(false);
       _resetPageZoom();
-      setState(() {});
+      setState(() {
+        if (!_controlsVisible) _controlsVisible = true;
+      });
       return;
     }
     if (!_controlsVisible) {
@@ -1386,6 +1406,10 @@ class _ReaderScreenState extends State<ReaderScreen>
     _documentGeneration++;
     _pageLinesCache.clear();
     _currentPageLines = const [];
+    // Recrear el servicio de texto: los bytes en caché serían del PDF anterior.
+    final oldText = _pdfText;
+    _pdfText = PdfTextService(() => File(widget.book.filePath).readAsBytes());
+    if (oldText != null) unawaited(oldText.dispose());
     await _openDocument();
     if (!mounted) return;
     final page = _currentPage;
@@ -1587,7 +1611,6 @@ class _ReaderScreenState extends State<ReaderScreen>
                           _signing?.cancelPlacementMode();
                         }
                         annotations?.selectTool(tool);
-                        setState(() {});
                         _maybeFetchPageText();
                       },
                       onToggleNavigationLock: () {
@@ -1595,7 +1618,6 @@ class _ReaderScreenState extends State<ReaderScreen>
                         if (annotations?.navigationLocked ?? true) {
                           _resetPageZoom();
                         }
-                        setState(() {});
                       },
                       snapToText: annotations?.snapToText ?? true,
                       onToggleSnapToText: () {
@@ -1605,16 +1627,13 @@ class _ReaderScreenState extends State<ReaderScreen>
                           _preferences?.setSnapMarkupToText(value) ??
                               Future.value(),
                         );
-                        setState(() {});
                         _maybeFetchPageText();
                       },
                       onInkColorChanged: (color) {
                         annotations?.setInkColor(color);
-                        setState(() {});
                       },
                       onStrokeSizeChanged: (index) {
                         annotations?.setStrokeSizeIndex(index);
-                        setState(() {});
                       },
                       onUndo: () => unawaited(_undoAnnotation()),
                       onRedo: () => unawaited(_redoAnnotation()),
@@ -1650,7 +1669,6 @@ class _ReaderScreenState extends State<ReaderScreen>
                       if (annotations?.navigationLocked ?? true) {
                         _resetPageZoom();
                       }
-                      setState(() {});
                     },
                     onToggleSnapToText: () {
                       annotations?.toggleSnapToText();
@@ -1659,7 +1677,6 @@ class _ReaderScreenState extends State<ReaderScreen>
                         _preferences?.setSnapMarkupToText(value) ??
                             Future.value(),
                       );
-                      setState(() {});
                     },
                     onClear: () {
                       annotations?.clearTool();
@@ -1773,10 +1790,13 @@ class _ReaderScreenState extends State<ReaderScreen>
     final annotationsLayerEnabled =
         !(signing?.placementMode ?? false) && !_sidebarVisible;
     final navigationLocked = annotations?.navigationLocked ?? true;
-    // Con Marcado/Subrayado el scroll de página SIEMPRE se bloquea:
-    // un dedo dibuja; el candado abierto solo habilita zoom/pan con dos dedos.
-    // El modo selección también bloquea el scroll para arrastrar el rectángulo.
-    final drawingLocksScroll = activeTool.isMarkup || _textSelecting;
+    // Con cualquier herramienta armada, selección o búsqueda, el scroll de
+    // galería se bloquea. El candado abierto solo habilita zoom/pan a 2 dedos
+    // (marcado/subrayado en la página actual).
+    final drawingLocksScroll = activeTool != AnnotationTool.none ||
+        _textSelecting ||
+        _textSearching ||
+        (signing?.placementMode ?? false);
     final scaffoldBg =
         _ebonyFilter ? EbonyPdfFilter.background : colors.background;
 
@@ -1834,15 +1854,12 @@ class _ReaderScreenState extends State<ReaderScreen>
             snapToText: annotations?.snapToText ?? false,
             textLines: _pageLinesCache[pageNumber] ??
                 (pageNumber == _currentPage ? _currentPageLines : const []),
-            textSelecting: _textSelecting,
-            onTextSelected: !_textSelecting
+            textSelecting: _textSelecting && pageNumber == _currentPage,
+            onTextSelected: !(_textSelecting && pageNumber == _currentPage)
                 ? null
                 : (t) {
-                    if (pageNumber != _currentPage) {
-                      _jumpToPage(pageNumber);
-                    }
-                    if (_selectedText == t) return;
-                    setState(() => _selectedText = t);
+                    if (_selectedText.value == t) return;
+                    _selectedText.value = t;
                   },
             searchHighlights: [
               for (final m in _searchMatches)
@@ -1895,18 +1912,16 @@ class _ReaderScreenState extends State<ReaderScreen>
             onDelete: _confirmDeleteSignature,
           ),
           childSize: pageSize,
-          disableGestures: pageTool.isMarkup ||
+          disableGestures: pageTool != AnnotationTool.none ||
               placementOnPage ||
-              _textSelecting,
+              _textSelecting ||
+              _textSearching,
           controller: pageTool.isMarkup && pageNumber == _currentPage
               ? _pageZoomController
               : null,
           initialScale: PhotoViewComputedScale.contained * 1.0,
           minScale: PhotoViewComputedScale.contained * 1.0,
           maxScale: PhotoViewComputedScale.contained * 3.0,
-          heroAttributes: PhotoViewHeroAttributes(
-            tag: 'pdf-$_documentGeneration-$index',
-          ),
         );
       },
     );
@@ -2412,7 +2427,6 @@ class _ReaderScreenState extends State<ReaderScreen>
   /// Barra inferior del modo selección de texto: copiar / compartir / cerrar.
   Widget _buildTextSelectionBar(AppPalette colors) {
     final l10n = AppLocalizations.of(context);
-    final hasText = _selectedText.trim().isNotEmpty;
     return Positioned(
       left: 0,
       right: 0,
@@ -2430,69 +2444,80 @@ class _ReaderScreenState extends State<ReaderScreen>
               ),
             ),
             padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-            child: Row(
-              children: [
-                const Icon(Icons.text_fields,
-                    size: 18, color: AppColors.ebonyAccent),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        l10n.selectTextTool,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: AppColors.ebonyAccent,
-                              fontWeight: FontWeight.w600,
-                            ),
+            child: ValueListenableBuilder<String>(
+              valueListenable: _selectedText,
+              builder: (context, selected, _) {
+                final hasText = selected.trim().isNotEmpty;
+                return Row(
+                  children: [
+                    const Icon(Icons.text_fields,
+                        size: 18, color: AppColors.ebonyAccent),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            l10n.selectTextTool,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(
+                                  color: AppColors.ebonyAccent,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                          Text(
+                            hasText
+                                ? l10n.selectedCharacters(selected.length)
+                                : l10n.selectTextHint,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(color: colors.textMuted),
+                          ),
+                        ],
                       ),
-                      Text(
-                        hasText
-                            ? l10n.selectedCharacters(_selectedText.length)
-                            : l10n.selectTextHint,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(color: colors.textMuted),
+                    ),
+                    IconButton(
+                      tooltip: l10n.copyText,
+                      onPressed:
+                          hasText ? () => unawaited(_copySelectedText()) : null,
+                      icon: Icon(
+                        Icons.copy,
+                        size: 20,
+                        color: hasText
+                            ? AppColors.ebonyAccent
+                            : colors.textMuted.withValues(alpha: 0.4),
                       ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  tooltip: l10n.copyText,
-                  onPressed: hasText ? () => unawaited(_copySelectedText()) : null,
-                  icon: Icon(
-                    Icons.copy,
-                    size: 20,
-                    color: hasText
-                        ? AppColors.ebonyAccent
-                        : colors.textMuted.withValues(alpha: 0.4),
-                  ),
-                ),
-                IconButton(
-                  tooltip: l10n.shareDocument,
-                  onPressed:
-                      hasText ? () => unawaited(_shareSelectedText()) : null,
-                  icon: Icon(
-                    Icons.ios_share_outlined,
-                    size: 20,
-                    color: hasText
-                        ? AppColors.ebonyAccent
-                        : colors.textMuted.withValues(alpha: 0.4),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _exitTextSelection,
-                  style: TextButton.styleFrom(
-                    foregroundColor: colors.textMuted,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  child: Text(l10n.done),
-                ),
-              ],
+                    ),
+                    IconButton(
+                      tooltip: l10n.shareDocument,
+                      onPressed: hasText
+                          ? () => unawaited(_shareSelectedText())
+                          : null,
+                      icon: Icon(
+                        Icons.ios_share_outlined,
+                        size: 20,
+                        color: hasText
+                            ? AppColors.ebonyAccent
+                            : colors.textMuted.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _exitTextSelection,
+                      style: TextButton.styleFrom(
+                        foregroundColor: colors.textMuted,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      child: Text(l10n.done),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),

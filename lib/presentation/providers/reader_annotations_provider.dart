@@ -115,8 +115,8 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   bool get isDrawingToolActive => _activeTool != AnnotationTool.none;
   bool get savingToPdf => _savingToPdf;
   bool get hasAnnotations => _annotations.isNotEmpty;
-  /// Candado cerrado: sin scroll/zoom con la herramienta armada.
-  /// Candado abierto: se puede desplazar y hacer zoom (dos dedos).
+  /// Candado cerrado: sin zoom PhotoView con la herramienta armada.
+  /// Candado abierto: zoom/pan con dos dedos (el scroll de galería sigue bloqueado).
   bool get navigationLocked => _navigationLocked;
   /// Imantado del marcado/subrayado a las líneas de texto de la página.
   bool get snapToText => _snapToText;

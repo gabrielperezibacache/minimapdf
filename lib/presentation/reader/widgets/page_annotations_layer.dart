@@ -104,6 +104,8 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
   int? _activePointer;
   PointerDeviceKind? _activeKind;
   int? _stylusPointer;
+  /// Bandas congeladas al inicio del trazo (evita saltos si llegan tarde).
+  List<TextBand> _strokeBands = const [];
 
   /// Punteros de dedo activos (global position) para el zoom con dos dedos.
   final Map<int, Offset> _touchPositions = <int, Offset>{};
@@ -168,6 +170,8 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
     _activePointer = event.pointer;
     _activeKind = event.kind;
     _stylusPointer = stylus ? event.pointer : null;
+    // Congela bandas al primer toque para un imantado estable.
+    _strokeBands = List<TextBand>.of(widget.textBands);
     // Sin setState: evita reconstruir el recognizer a mitad del gesto.
     _draft.begin(event.localPosition);
   }
@@ -222,17 +226,17 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
           fit: StackFit.expand,
           clipBehavior: Clip.none,
           children: [
-            if (_captureGestures && widget.activeTool.needsText)
-              Positioned.fill(child: _buildCaptureSurface(size)),
+            // Marcas debajo de la captura: con herramienta armada no roban el
+            // primer toque (nota/marcado/subrayado).
             for (final annotation in widget.annotations)
               _AnnotationMark(
                 annotation: annotation,
                 canvasSize: size,
-                interactive: !_captureGestures || widget.activeTool.needsText,
+                interactive: !_captureGestures,
                 onTap: () => widget.onOpenAnnotation(annotation),
                 onLongPress: () => widget.onDeleteAnnotation(annotation),
               ),
-            if (_captureGestures && widget.activeTool.isMarkup)
+            if (_captureGestures)
               Positioned.fill(child: _buildCaptureSurface(size)),
             Positioned.fill(
               child: ListenableBuilder(
@@ -282,9 +286,11 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
           }
 
           // Candado abierto: al llegar el 2º dedo entramos en zoom/pan.
+          // Sin zoomController (páginas no actuales) no abortar el trazo.
           if (!widget.navigationLocked &&
               !stylus &&
               _touchPositions.length >= 2) {
+            if (widget.zoomController == null) return;
             _abortDraftForNavigation();
             _beginZoom();
             return;
@@ -464,13 +470,15 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
           );
         return;
       }
-      // Imantado: ajusta el trazo a la línea de texto detectada (o lo endereza).
+      // Imantado: ajusta el trazo a las bandas congeladas al inicio del gesto.
       var finalStroke = stroke;
       if (widget.snapToText) {
         final underline = tool == AnnotationTool.underline;
+        final bands =
+            _strokeBands.isNotEmpty ? _strokeBands : widget.textBands;
         finalStroke = snapStrokeToBands(
               stroke: stroke,
-              bands: widget.textBands,
+              bands: bands,
               underline: underline,
             ) ??
             straightenStroke(stroke: stroke, underline: underline);
