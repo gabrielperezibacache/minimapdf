@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:photo_view/photo_view.dart' show PhotoViewController;
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
@@ -15,131 +16,7 @@ import '../../signing/ink_stroke_painter.dart';
 import '../annotation_ink.dart';
 import '../annotation_markup_geometry.dart';
 
-/// Arena de marcado/subrayado.
-///
-/// - Candado cerrado o S-Pen: acepta al tocar (el primer contacto ya dibuja).
-/// - Candado abierto (dedo): acepta en el primer movimiento o a los ~16 ms si
-///   sigue un solo puntero; con 2º dedo cede para zoom/pan de PhotoView.
-/// - El scroll de página se bloquea aparte (NeverScrollable) con herramienta.
-class _MarkupArenaRecognizer extends OneSequenceGestureRecognizer {
-  _MarkupArenaRecognizer({
-    required this.lockNavigation,
-    super.debugOwner,
-    super.supportedDevices,
-  });
-
-  bool lockNavigation;
-
-  final Set<int> _pointers = <int>{};
-  Offset? _startPosition;
-  bool _resolved = false;
-  Timer? _acceptTimer;
-
-  static const Duration _unlockAcceptDelay = Duration(milliseconds: 16);
-
-  @override
-  void addAllowedPointer(PointerDownEvent event) {
-    if (event.kind == PointerDeviceKind.invertedStylus) {
-      return;
-    }
-    _pointers.add(event.pointer);
-    if (!lockNavigation && _pointers.length > 1) {
-      // El 2º dedo no se rastrea: solo cedemos los que ya teníamos.
-      _pointers.remove(event.pointer);
-      _yieldToNavigation();
-      return;
-    }
-    startTrackingPointer(event.pointer, event.transform);
-    _startPosition ??= event.position;
-
-    final stylus = event.kind == PointerDeviceKind.stylus;
-    if (lockNavigation || stylus) {
-      _acceptNow();
-      return;
-    }
-
-    // Candado abierto + dedo: esperar un instante por un 2º dedo (zoom),
-    // pero aceptar enseguida al menor movimiento para no perder el trazo.
-    _acceptTimer?.cancel();
-    _acceptTimer = Timer(_unlockAcceptDelay, () {
-      if (!_resolved && _pointers.length == 1) {
-        _acceptNow();
-      }
-    });
-  }
-
-  void _acceptNow() {
-    if (_resolved) return;
-    resolve(GestureDisposition.accepted);
-    _resolved = true;
-    _acceptTimer?.cancel();
-    _acceptTimer = null;
-  }
-
-  void _yieldToNavigation() {
-    _acceptTimer?.cancel();
-    _acceptTimer = null;
-    if (!_resolved) {
-      resolve(GestureDisposition.rejected);
-      _resolved = true;
-    }
-    for (final pointer in List<int>.from(_pointers)) {
-      stopTrackingPointer(pointer);
-    }
-    _pointers.clear();
-    _startPosition = null;
-  }
-
-  @override
-  void handleEvent(PointerEvent event) {
-    if (!lockNavigation &&
-        !_resolved &&
-        event is PointerMoveEvent &&
-        _pointers.length == 1) {
-      // Cualquier movimiento con un dedo = dibujar (primer contacto).
-      _acceptNow();
-    }
-    if (event is PointerUpEvent || event is PointerCancelEvent) {
-      _pointers.remove(event.pointer);
-      stopTrackingPointer(event.pointer);
-      if (_pointers.isEmpty) {
-        _acceptTimer?.cancel();
-        _acceptTimer = null;
-        _startPosition = null;
-        _resolved = false;
-      }
-    }
-  }
-
-  @override
-  void acceptGesture(int pointer) {}
-
-  @override
-  void rejectGesture(int pointer) {
-    stopTrackingPointer(pointer);
-    _pointers.remove(pointer);
-    if (_pointers.isEmpty) {
-      _acceptTimer?.cancel();
-      _acceptTimer = null;
-      _startPosition = null;
-      _resolved = false;
-    }
-  }
-
-  @override
-  void dispose() {
-    _acceptTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  void didStopTrackingLastPointer(int pointer) {}
-
-  @override
-  String get debugDescription => 'markupArena';
-}
-
-/// Preview del trazo sin reconstruir el [RawGestureDetector] en cada move.
+/// Preview del trazo sin reconstruir el widget en cada move.
 class _DraftStrokeListenable extends ChangeNotifier {
   final List<Offset> points = <Offset>[];
   bool moved = false;
@@ -184,6 +61,7 @@ class PageAnnotationsLayer extends StatefulWidget {
     this.inkColor,
     this.strokeWidthPx,
     this.navigationLocked = true,
+    this.zoomController,
   });
 
   final List<PageAnnotation> annotations;
@@ -201,8 +79,11 @@ class PageAnnotationsLayer extends StatefulWidget {
   final ValueChanged<PageAnnotation> onDeleteAnnotation;
   final Color? inkColor;
   final double? strokeWidthPx;
-  /// Candado cerrado: el trazo gana la arena. Abierto: cede al zoom/pan.
+  /// Candado cerrado: un dedo dibuja, sin zoom. Abierto: un dedo dibuja y
+  /// dos dedos hacen zoom/pan sobre [zoomController].
   final bool navigationLocked;
+  /// Controlador de PhotoView de la página actual (solo para zoom con 2 dedos).
+  final PhotoViewController? zoomController;
 
   @override
   State<PageAnnotationsLayer> createState() => _PageAnnotationsLayerState();
@@ -215,7 +96,14 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
   int? _activePointer;
   PointerDeviceKind? _activeKind;
   int? _stylusPointer;
-  int _pointersDown = 0;
+
+  /// Punteros de dedo activos (global position) para el zoom con dos dedos.
+  final Map<int, Offset> _touchPositions = <int, Offset>{};
+  bool _zooming = false;
+  double _zoomBaseScale = 0; // escala en reposo (contained) capturada perezosa.
+  double _zoomScaleStart = 0;
+  double _zoomDistStart = 0;
+  Offset _zoomNormalized = Offset.zero;
 
   bool get _captureGestures =>
       widget.enabled &&
@@ -368,95 +256,142 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
     );
   }
 
-  /// Recognizer que gana o cede la arena según el candado; [Listener] recoge el path.
+  /// Superficie de captura: un [Listener] recibe todos los punteros porque
+  /// PhotoView/PageView tienen sus gestos desactivados mientras hay herramienta.
+  ///
+  /// - 1 dedo o S-Pen: dibuja (funciona al primer contacto, sin arena).
+  /// - Candado abierto + 2 dedos: zoom/pan del PDF vía [zoomController].
   Widget _buildCaptureSurface(Size size) {
-    return RawGestureDetector(
+    return Listener(
       behavior: HitTestBehavior.opaque,
-      gestures: <Type, GestureRecognizerFactory>{
-        _MarkupArenaRecognizer:
-            GestureRecognizerFactoryWithHandlers<_MarkupArenaRecognizer>(
-          () => _MarkupArenaRecognizer(
-            lockNavigation: widget.navigationLocked,
-            debugOwner: this,
-            supportedDevices: const {
-              PointerDeviceKind.touch,
-              PointerDeviceKind.stylus,
-              PointerDeviceKind.mouse,
-            },
-          ),
-          (_MarkupArenaRecognizer instance) {
-            instance.lockNavigation = widget.navigationLocked;
-          },
-        ),
-      },
-      child: Listener(
-        behavior: HitTestBehavior.opaque,
-        onPointerDown: (event) {
-          _pointersDown++;
-          // Candado abierto + 2º dedo: ceder zoom/pan, no dibujar.
-          if (!widget.navigationLocked &&
-              _pointersDown > 1 &&
-              !_isStylus(event.kind)) {
-            _abortDraftForNavigation();
-            return;
-          }
-          if (!_acceptPointerDown(event)) return;
+      onPointerDown: (event) {
+        final stylus = _isStylus(event.kind);
+        if (!stylus) {
+          _touchPositions[event.pointer] = event.position;
+        }
 
-          final stylus = _isStylus(event.kind);
-          if (stylus &&
-              _activePointer != null &&
-              _activePointer != event.pointer) {
-            _beginStroke(event);
-            return;
-          }
-          if (_activePointer != null && event.pointer != _activePointer) {
-            return;
-          }
+        // Candado abierto: al llegar el 2º dedo entramos en zoom/pan.
+        if (!widget.navigationLocked &&
+            !stylus &&
+            _touchPositions.length >= 2) {
+          _abortDraftForNavigation();
+          _beginZoom();
+          return;
+        }
+        if (_zooming) return;
+
+        if (!_acceptPointerDown(event)) return;
+
+        if (stylus &&
+            _activePointer != null &&
+            _activePointer != event.pointer) {
           _beginStroke(event);
-        },
-        onPointerMove: (event) {
-          if (event.pointer != _activePointer || _draft.points.isEmpty) {
-            return;
-          }
-          if (!widget.navigationLocked && _pointersDown > 1) {
-            return;
-          }
-          final last = _draft.points.last;
-          final delta = (event.localPosition - last).distance;
-          if (delta < kStrokeSamplePx && _draft.points.length > 1) return;
-          final moved =
-              (event.localPosition - _draft.points.first).distance >
-                  kStrokeCommitPx;
-          _draft.append(event.localPosition, markMoved: moved);
-        },
-        onPointerUp: (event) {
-          _pointersDown = (_pointersDown - 1).clamp(0, 32);
-          if (event.pointer != _activePointer) return;
-          unawaited(_completeStroke(event.localPosition, size));
-        },
-        onPointerCancel: (event) {
-          _pointersDown = (_pointersDown - 1).clamp(0, 32);
-          if (event.pointer != _activePointer &&
-              event.pointer != _stylusPointer) {
-            return;
-          }
-          // Si el sistema/scroll canceló un trazo válido, guardarlo igual.
-          final points = List<Offset>.from(_draft.points);
-          final tool = _effectiveTool;
-          _clearStrokePointers();
-          _draft.clear();
-          if (tool.isMarkup && isStrokeCommitWorthy(points)) {
-            unawaited(
-              _finishGesture(
-                size: size,
-                points: points,
-                toolOverride: tool,
-              ),
-            );
-          }
-        },
-      ),
+          return;
+        }
+        if (_activePointer != null && event.pointer != _activePointer) {
+          return;
+        }
+        _beginStroke(event);
+      },
+      onPointerMove: (event) {
+        if (!_isStylus(event.kind)) {
+          _touchPositions[event.pointer] = event.position;
+        }
+        if (_zooming) {
+          _updateZoom();
+          return;
+        }
+        if (event.pointer != _activePointer || _draft.points.isEmpty) {
+          return;
+        }
+        final last = _draft.points.last;
+        final delta = (event.localPosition - last).distance;
+        if (delta < kStrokeSamplePx && _draft.points.length > 1) return;
+        final moved = (event.localPosition - _draft.points.first).distance >
+            kStrokeCommitPx;
+        _draft.append(event.localPosition, markMoved: moved);
+      },
+      onPointerUp: (event) {
+        _touchPositions.remove(event.pointer);
+        if (_zooming) {
+          _maybeEndZoom();
+          return;
+        }
+        if (event.pointer != _activePointer) return;
+        unawaited(_completeStroke(event.localPosition, size));
+      },
+      onPointerCancel: (event) {
+        _touchPositions.remove(event.pointer);
+        if (_zooming) {
+          _maybeEndZoom();
+          return;
+        }
+        if (event.pointer != _activePointer &&
+            event.pointer != _stylusPointer) {
+          return;
+        }
+        // Si el sistema canceló un trazo válido, guardarlo igual.
+        final points = List<Offset>.from(_draft.points);
+        final tool = _effectiveTool;
+        _clearStrokePointers();
+        _draft.clear();
+        if (tool.isMarkup && isStrokeCommitWorthy(points)) {
+          unawaited(
+            _finishGesture(
+              size: size,
+              points: points,
+              toolOverride: tool,
+            ),
+          );
+        }
+      },
     );
+  }
+
+  // ── Zoom/pan con dos dedos (candado abierto) ────────────────────────────
+
+  List<Offset> get _twoTouches {
+    final list = _touchPositions.values.toList(growable: false);
+    return list.length >= 2 ? [list[0], list[1]] : const [];
+  }
+
+  void _beginZoom() {
+    final controller = widget.zoomController;
+    final touches = _twoTouches;
+    if (controller == null || touches.length < 2) return;
+    final scale = controller.scale;
+    if (scale == null) return; // PhotoView aún no calculó la escala base.
+    if (_zoomBaseScale <= 0) _zoomBaseScale = scale;
+
+    _zooming = true;
+    _zoomScaleStart = scale;
+    _zoomDistStart = (touches[0] - touches[1]).distance;
+    if (_zoomDistStart <= 0) _zoomDistStart = 1;
+    final focalStart = (touches[0] + touches[1]) / 2;
+    _zoomNormalized = focalStart - controller.position;
+  }
+
+  void _updateZoom() {
+    final controller = widget.zoomController;
+    final touches = _twoTouches;
+    if (controller == null || touches.length < 2 || _zoomBaseScale <= 0) return;
+    final distNow = (touches[0] - touches[1]).distance;
+    final factor = distNow / _zoomDistStart;
+    final newScale = (_zoomScaleStart * factor)
+        .clamp(_zoomBaseScale, _zoomBaseScale * 3.0);
+    final focalNow = (touches[0] + touches[1]) / 2;
+    final posFactor = newScale / _zoomScaleStart;
+    final newPosition = (focalNow - _zoomNormalized) * posFactor;
+    controller.updateMultiple(scale: newScale, position: newPosition);
+  }
+
+  void _maybeEndZoom() {
+    if (_touchPositions.length >= 2) {
+      // Aún quedan dos dedos: recalcular base para un gesto continuo.
+      _beginZoom();
+      return;
+    }
+    _zooming = false;
   }
 
   Future<void> _completeStroke(Offset lastPoint, Size size) async {

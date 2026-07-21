@@ -47,6 +47,8 @@ class ReaderScreen extends StatefulWidget {
 class _ReaderScreenState extends State<ReaderScreen>
     with WidgetsBindingObserver {
   late final PdfController _controller;
+  /// Zoom/pan de la página actual mientras se dibuja con candado abierto.
+  final PhotoViewController _pageZoomController = PhotoViewController();
   ReadingProgressSaver? _progressSaver;
   ReaderAnnotationsProvider? _annotations;
   AppPreferences? _preferences;
@@ -204,6 +206,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       saver.dispose();
     }
     _controller.dispose();
+    _pageZoomController.dispose();
     // PdfController.dispose() no cierra el PdfDocument nativo (fuga PDFium).
     final document = _openedDocument;
     _openedDocument = null;
@@ -279,10 +282,16 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (mounted) setState(() {});
   }
 
+  /// Devuelve la página actual a su encuadre (cancela el zoom manual).
+  void _resetPageZoom() {
+    _pageZoomController.reset();
+  }
+
   void _jumpToPage(int page) {
     if (page < 1) return;
     final maxPage = _pagesCount > 0 ? _pagesCount : page;
     final target = page > maxPage ? maxPage : page;
+    _resetPageZoom();
     // No adelantar _currentPage: lo actualiza _onPageChanged al asentar la vista.
     _controller.jumpToPage(target);
     if (_sidebarVisible || _noteDismissed) {
@@ -366,6 +375,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (toolboxVisible || activeTool != AnnotationTool.none) {
       annotations?.clearTool();
       annotations?.setToolboxVisible(false);
+      _resetPageZoom();
       setState(() {});
       return;
     }
@@ -1275,6 +1285,9 @@ class _ReaderScreenState extends State<ReaderScreen>
                       },
                       onToggleNavigationLock: () {
                         annotations?.toggleNavigationLock();
+                        if (annotations?.navigationLocked ?? true) {
+                          _resetPageZoom();
+                        }
                         setState(() {});
                       },
                       onInkColorChanged: (color) {
@@ -1290,7 +1303,10 @@ class _ReaderScreenState extends State<ReaderScreen>
                       onSave: () {
                         unawaited(_promptSaveAnnotations());
                       },
-                      onClearTool: () => annotations?.clearTool(),
+                      onClearTool: () {
+                        annotations?.clearTool();
+                        _resetPageZoom();
+                      },
                       onClose: () {
                         if (activeTool != AnnotationTool.none) {
                           _minimizeToolboxKeepingTool();
@@ -1310,9 +1326,15 @@ class _ReaderScreenState extends State<ReaderScreen>
                     onUndo: () => unawaited(_undoAnnotation()),
                     onToggleNavigationLock: () {
                       annotations?.toggleNavigationLock();
+                      if (annotations?.navigationLocked ?? true) {
+                        _resetPageZoom();
+                      }
                       setState(() {});
                     },
-                    onClear: () => annotations?.clearTool(),
+                    onClear: () {
+                      annotations?.clearTool();
+                      _resetPageZoom();
+                    },
                     onExpand: () {
                       if (!_controlsVisible) {
                         setState(() => _controlsVisible = true);
@@ -1512,6 +1534,11 @@ class _ReaderScreenState extends State<ReaderScreen>
               inkColor: annotations?.activeInkColor,
               strokeWidthPx: annotations?.activeStrokeWidthPx,
               navigationLocked: navigationLocked,
+              // El zoom manual (2 dedos) solo se aplica a la página actual y
+              // solo con marcado/subrayado (lectura normal usa PhotoView nativo).
+              zoomController: pageTool.isMarkup && pageNumber == _currentPage
+                  ? _pageZoomController
+                  : null,
               ebonyFilter: _ebonyFilter,
               // Solo la página actual acepta toques de colocación (scroll continuo).
               placementMode: placementOnPage,
@@ -1547,11 +1574,13 @@ class _ReaderScreenState extends State<ReaderScreen>
             ),
             // Debe coincidir con el SizedBox de SignedPdfPage (puntos PDF).
             childSize: pageSize,
-            // Candado cerrado: sin gestos PhotoView.
-            // Candado abierto: PhotoView activo para zoom/pan con DOS dedos;
-            // el scroll de página ya está bloqueado (NeverScrollable).
-            disableGestures:
-                (pageTool.isMarkup && navigationLocked) || placementOnPage,
+            // Con herramienta armada, PhotoView no maneja gestos: el trazo se
+            // captura sin conflictos y el zoom (2 dedos, candado abierto) se
+            // aplica manualmente vía _pageZoomController.
+            disableGestures: pageTool.isMarkup || placementOnPage,
+            controller: pageTool.isMarkup && pageNumber == _currentPage
+                ? _pageZoomController
+                : null,
             initialScale: PhotoViewComputedScale.contained * 1.0,
             minScale: PhotoViewComputedScale.contained * 1.0,
             maxScale: PhotoViewComputedScale.contained * 3.0,

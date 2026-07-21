@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:photo_view/photo_view.dart' show PhotoViewController;
 import 'support/l10n_test_app.dart';
 import 'package:minimal_pdf/core/theme/app_colors.dart';
 import 'package:minimal_pdf/core/theme/app_theme.dart';
@@ -425,6 +426,70 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(created, isTrue);
+  });
+
+  testWidgets(
+      'candado abierto: dos dedos hacen zoom (cambia la escala del controller)',
+      (tester) async {
+    var created = false;
+    final zoom = PhotoViewController(initialScale: 1.0);
+    addTearDown(zoom.dispose);
+
+    await tester.pumpWidget(
+      l10nTestApp(
+        theme: AppTheme.ebony,
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 400,
+              height: 800,
+              child: PageAnnotationsLayer(
+                annotations: const [],
+                activeTool: AnnotationTool.highlight,
+                enabled: true,
+                navigationLocked: false,
+                zoomController: zoom,
+                onCreateRect: ({
+                  required tool,
+                  required x,
+                  required y,
+                  required width,
+                  required height,
+                  strokes,
+                }) async {
+                  created = true;
+                },
+                onOpenAnnotation: (_) {},
+                onDeleteAnnotation: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final center = tester.getCenter(find.byType(PageAnnotationsLayer));
+    // Dos dedos separándose = zoom in.
+    final f1 = await tester.startGesture(
+      center - const Offset(20, 0),
+      kind: PointerDeviceKind.touch,
+    );
+    final f2 = await tester.startGesture(
+      center + const Offset(20, 0),
+      kind: PointerDeviceKind.touch,
+    );
+    for (var i = 0; i < 8; i++) {
+      await f1.moveBy(const Offset(-10, 0));
+      await f2.moveBy(const Offset(10, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await f1.up();
+    await f2.up();
+    await tester.pumpAndSettle();
+
+    expect(zoom.scale, greaterThan(1.0));
+    // El zoom con dos dedos no debe crear una marca.
+    expect(created, isFalse);
   });
 
   testWidgets(
