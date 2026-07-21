@@ -57,6 +57,7 @@ class SignedPdfPage extends StatefulWidget {
     this.onOpenAnnotation,
     this.onDeleteAnnotation,
     this.fallbackSize = const Size(595, 842),
+    this.externalViewportCapture = false,
   });
 
   /// PNG rasterizado de la página (pdfrx).
@@ -108,6 +109,8 @@ class SignedPdfPage extends StatefulWidget {
   final ValueChanged<PageAnnotation>? onOpenAnnotation;
   final ValueChanged<PageAnnotation>? onDeleteAnnotation;
   final Size fallbackSize;
+  /// La captura de gestos la hace [ReaderViewportCapture] en el viewport.
+  final bool externalViewportCapture;
 
   @override
   State<SignedPdfPage> createState() => _SignedPdfPageState();
@@ -240,6 +243,11 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
       _maybeDetectBands(bytes);
     }
 
+    final externalCapture = widget.externalViewportCapture;
+    final toolOnPage = widget.activeTool != AnnotationTool.none &&
+        !widget.placementMode &&
+        !externalCapture;
+
     return SizedBox(
       width: widget.fallbackSize.width,
       height: widget.fallbackSize.height,
@@ -257,8 +265,7 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
           ),
           // Con herramienta de dibujo: anotaciones encima de firmas para que
           // el Material de los sellos no robe el dedo/S-Pen.
-          if (widget.activeTool != AnnotationTool.none &&
-              !widget.placementMode) ...[
+          if (toolOnPage) ...[
             IgnorePointer(
               ignoring: true,
               child: SignatureLayer(
@@ -311,13 +318,14 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
                 widget.onOpenAnnotation != null &&
                 widget.onDeleteAnnotation != null)
               IgnorePointer(
-                ignoring: widget.textSelecting,
+                ignoring: widget.textSelecting || externalCapture,
                 child: PageAnnotationsLayer(
                   annotations: widget.annotations,
                   activeTool: widget.activeTool,
                   enabled: widget.annotationsEnabled &&
                       !widget.placementMode &&
-                      !widget.textSelecting,
+                      !widget.textSelecting &&
+                      !externalCapture,
                   inkColor: widget.inkColor,
                   strokeWidthPx: widget.strokeWidthPx,
                   navigationLocked: widget.navigationLocked,
@@ -346,12 +354,12 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
                 ),
               ),
             IgnorePointer(
-              ignoring: widget.textSelecting,
+              ignoring: widget.textSelecting || externalCapture,
               child: SignatureLayer(
                 signatures: widget.signatures,
                 topReserve: 0,
                 bottomReserve: 0,
-                placementMode: widget.placementMode,
+                placementMode: widget.placementMode && !externalCapture,
                 signaturesInteractive: widget.signaturesInteractive &&
                     !widget.textSelecting,
                 onPlaceTap: (x, y) =>
@@ -368,7 +376,9 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
                 activeIndex: widget.activeSearchHighlightIndex,
               ),
             ),
-          if (widget.textSelecting && widget.onTextSelected != null)
+          if (widget.textSelecting &&
+              widget.onTextSelected != null &&
+              !externalCapture)
             Positioned.fill(
               child: TextSelectionLayer(
                 lines: widget.textLines,

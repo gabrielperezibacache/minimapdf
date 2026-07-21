@@ -56,68 +56,72 @@ class ReaderSidebar extends StatelessWidget {
     final colors = AppPalette.of(context);
     final width = MediaQuery.sizeOf(context).width * 0.82;
 
-    return Stack(
-      children: [
-        IgnorePointer(
-          ignoring: !visible,
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 180),
-            opacity: visible ? 1 : 0,
-            child: GestureDetector(
-              onTap: onClose,
-              child: Container(color: Colors.black.withValues(alpha: 0.45)),
-            ),
-          ),
-        ),
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          left: visible ? 0 : -width,
-          top: 0,
-          bottom: 0,
-          width: width,
-          child: Material(
-            color: colors.panel,
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: colors.border, width: 1),
+    return Positioned.fill(
+      child: IgnorePointer(
+        ignoring: !visible,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 180),
+                opacity: visible ? 1 : 0,
+                child: GestureDetector(
+                  onTap: onClose,
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.45),
+                  ),
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _SidebarHeader(
-                    currentPage: currentPage,
-                    pagesCount: pagesCount,
-                    onClose: onClose,
+            ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              left: visible ? 0 : -width,
+              top: 0,
+              bottom: 0,
+              width: width,
+              child: Material(
+                color: colors.panel,
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      right: BorderSide(color: colors.border, width: 1),
+                    ),
                   ),
-                  Expanded(
-                    child: DefaultTabController(
-                      length: 4,
-                      child: Column(
-                        children: [
-                          TabBar(
-                            labelColor: colors.accent,
-                            unselectedLabelColor: colors.textMuted,
-                            indicatorColor: colors.accent,
-                            isScrollable: true,
-                            tabAlignment: TabAlignment.start,
-                            tabs: [
-                              Tab(text: AppLocalizations.of(context).tocTab),
-                              Tab(
-                                text:
-                                    AppLocalizations.of(context).bookmarksTab,
-                              ),
-                              Tab(
-                                text: AppLocalizations.of(context)
-                                    .annotationsTab,
-                              ),
-                              Tab(
-                                text:
-                                    AppLocalizations.of(context).signaturesTab,
-                              ),
-                            ],
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _SidebarHeader(
+                        currentPage: currentPage,
+                        pagesCount: pagesCount,
+                        onClose: onClose,
+                      ),
+                      Expanded(
+                        child: DefaultTabController(
+                          length: 4,
+                          child: Column(
+                            children: [
+                              TabBar(
+                                labelColor: colors.accent,
+                                unselectedLabelColor: colors.textMuted,
+                                indicatorColor: colors.accent,
+                                isScrollable: true,
+                                tabAlignment: TabAlignment.start,
+                                tabs: [
+                                  Tab(text: AppLocalizations.of(context).tocTab),
+                                  Tab(
+                                    text:
+                                        AppLocalizations.of(context).bookmarksTab,
+                                  ),
+                                  Tab(
+                                    text: AppLocalizations.of(context)
+                                        .annotationsTab,
+                                  ),
+                                  Tab(
+                                    text:
+                                        AppLocalizations.of(context).signaturesTab,
+                                  ),
+                                ],
                           ),
                           Expanded(
                             child: TabBarView(
@@ -162,7 +166,9 @@ class ReaderSidebar extends StatelessWidget {
             ),
           ),
         ),
-      ],
+          ],
+        ),
+      ),
     );
   }
 }

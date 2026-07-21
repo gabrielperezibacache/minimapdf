@@ -33,10 +33,12 @@ import '../signing/signature_sheet.dart';
 import 'reader_scroll_mode.dart';
 import 'reading_progress_saver.dart';
 import 'pdf_text_search.dart';
+import 'pdf_text_selection.dart';
 import 'widgets/annotation_toolbox.dart';
 import 'widgets/floating_page_note.dart';
 import 'widgets/note_edit_sheet.dart';
 import 'widgets/reader_sidebar.dart';
+import 'widgets/reader_viewport_capture.dart';
 import 'widgets/save_annotations_sheet.dart';
 import 'widgets/signed_pdf_page.dart';
 
@@ -615,6 +617,16 @@ class _ReaderScreenState extends State<ReaderScreen>
   /// Devuelve la página actual a su encuadre (cancela el zoom manual).
   void _resetPageZoom() {
     _pageZoomController.reset();
+  }
+
+  bool _viewportCaptureEnabled({
+    required AnnotationTool activeTool,
+    required bool placementMode,
+  }) {
+    if (_sidebarVisible) return false;
+    return activeTool != AnnotationTool.none ||
+        _textSelecting ||
+        placementMode;
   }
 
   void _jumpToPage(int page) {
@@ -1610,6 +1622,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                         if (_signing?.placementMode == true) {
                           _signing?.cancelPlacementMode();
                         }
+                        _resetPageZoom();
                         annotations?.selectTool(tool);
                         _maybeFetchPageText();
                       },
@@ -1799,8 +1812,22 @@ class _ReaderScreenState extends State<ReaderScreen>
         (signing?.placementMode ?? false);
     final scaffoldBg =
         _ebonyFilter ? EbonyPdfFilter.background : colors.background;
+    final viewportCapture = _viewportCaptureEnabled(
+      activeTool: activeTool,
+      placementMode: signing?.placementMode == true,
+    );
+    final currentPageSize = _pageSizes[_currentPage] ?? const Size(595, 842);
+    final currentPageLines = _pageLinesCache[_currentPage] ?? _currentPageLines;
+    final currentPageAnnotations =
+        annotations?.annotationsForPage(_currentPage) ?? const [];
 
-    return PhotoViewGallery.builder(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewportSize = constraints.biggest;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            PhotoViewGallery.builder(
       // Key por dirección de scroll: PageView no cambia Axis en caliente.
       key: ValueKey<String>('gallery-${_scrollMode.name}-$_documentGeneration'),
       pageController: _pageController,
@@ -1834,12 +1861,15 @@ class _ReaderScreenState extends State<ReaderScreen>
                 : AnnotationTool.none;
         final placementOnPage =
             (signing?.placementMode ?? false) && pageNumber == _currentPage;
+        final externalCapture =
+            viewportCapture && pageNumber == _currentPage;
         return PhotoViewGalleryPageOptions.customChild(
           child: SignedPdfPage(
             pageImageFuture: _pageImageFutureFor(pageNumber),
             pageNumber: pageNumber,
             fallbackSize: pageSize,
             documentGeneration: _documentGeneration,
+            externalViewportCapture: externalCapture,
             signatures: signing?.signaturesForPage(pageNumber) ?? const [],
             annotations:
                 annotations?.annotationsForPage(pageNumber) ?? const [],
@@ -1922,6 +1952,53 @@ class _ReaderScreenState extends State<ReaderScreen>
           initialScale: PhotoViewComputedScale.contained * 1.0,
           minScale: PhotoViewComputedScale.contained * 1.0,
           maxScale: PhotoViewComputedScale.contained * 3.0,
+        );
+      },
+    ),
+            if (viewportCapture)
+              ReaderViewportCapture(
+                viewportSize: viewportSize,
+                pageSize: currentPageSize,
+                zoomController: _pageZoomController,
+                activeTool: activeTool,
+                annotations: currentPageAnnotations,
+                annotationsEnabled: annotationsLayerEnabled,
+                inkColor: annotations?.activeInkColor,
+                strokeWidthPx: annotations?.activeStrokeWidthPx,
+                navigationLocked: navigationLocked,
+                snapToText: annotations?.snapToText ?? false,
+                textBands: bandsFromLines(currentPageLines),
+                onCreateRect: ({
+                  required tool,
+                  required x,
+                  required y,
+                  required width,
+                  required height,
+                  strokes,
+                }) {
+                  return _createAnnotationRect(
+                    pageNumber: _currentPage,
+                    tool: tool,
+                    x: x,
+                    y: y,
+                    width: width,
+                    height: height,
+                    strokes: strokes,
+                  );
+                },
+                onOpenAnnotation: _openAnnotation,
+                onDeleteAnnotation: _confirmDeleteAnnotation,
+                textSelecting: _textSelecting,
+                textLines: currentPageLines,
+                onTextSelected: (t) {
+                  if (_selectedText.value == t) return;
+                  _selectedText.value = t;
+                },
+                placementMode: signing?.placementMode == true,
+                onPlaceTap: (x, y) =>
+                    _openSignatureSheetAt(_currentPage, x, y),
+              ),
+          ],
         );
       },
     );

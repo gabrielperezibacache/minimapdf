@@ -73,4 +73,43 @@ void main() {
     await tester.pump();
     expect(startedSigning, isTrue);
   });
+
+  testWidgets('sidebar oculto no intercepta toques en el borde izquierdo',
+      (tester) async {
+    var tapped = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.ebony,
+        home: Scaffold(
+          body: Stack(
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => tapped = true,
+                  child: const ColoredBox(color: Colors.white),
+                ),
+              ),
+              ReaderSidebar(
+                visible: false,
+                pagesCount: 5,
+                currentPage: 2,
+                bookmarks: const [],
+                annotations: const [],
+                signatures: const [],
+                onClose: () {},
+                onOpenPage: (_) {},
+                onDeleteBookmark: (_) {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.tapAt(const Offset(24, 300));
+    await tester.pump();
+    expect(tapped, isTrue);
+  });
 }

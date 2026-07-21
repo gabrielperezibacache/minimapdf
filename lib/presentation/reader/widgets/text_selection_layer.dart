@@ -15,16 +15,19 @@ class TextSelectionLayer extends StatefulWidget {
     super.key,
     required this.lines,
     required this.onSelectionChanged,
+    this.externalPointerRouting = false,
   });
 
   final List<PdfLineBox> lines;
   final ValueChanged<String> onSelectionChanged;
+  /// Si true, el padre enruta punteros vía [TextSelectionLayerState.handlePointer*].
+  final bool externalPointerRouting;
 
   @override
-  State<TextSelectionLayer> createState() => _TextSelectionLayerState();
+  State<TextSelectionLayer> createState() => TextSelectionLayerState();
 }
 
-class _TextSelectionLayerState extends State<TextSelectionLayer> {
+class TextSelectionLayerState extends State<TextSelectionLayer> {
   Offset? _startPx;
   Offset? _currentPx;
   Size _size = Size.zero;
@@ -88,48 +91,77 @@ class _TextSelectionLayerState extends State<TextSelectionLayer> {
     _currentPx = null;
   }
 
+  void handlePointerDown(PointerDownEvent event, {Offset? localOverride}) {
+    _onPointerDown(event, localOverride ?? event.localPosition);
+  }
+
+  void handlePointerMove(PointerMoveEvent event, {Offset? localOverride}) {
+    _onPointerMove(event, localOverride ?? event.localPosition);
+  }
+
+  void handlePointerUp(PointerUpEvent event, {Offset? localOverride}) {
+    _onPointerUp(event, localOverride ?? event.localPosition);
+  }
+
+  void handlePointerCancel(PointerCancelEvent event, {Offset? localOverride}) {
+    _onPointerCancel(event);
+  }
+
+  void _onPointerDown(PointerDownEvent event, Offset localPosition) {
+    if (_activePointer != null) return;
+    _activePointer = event.pointer;
+    setState(() {
+      _startPx = localPosition;
+      _currentPx = localPosition;
+    });
+  }
+
+  void _onPointerMove(PointerMoveEvent event, Offset localPosition) {
+    if (event.pointer != _activePointer) return;
+    setState(() => _currentPx = localPosition);
+    _emit();
+  }
+
+  void _onPointerUp(PointerUpEvent event, Offset localPosition) {
+    if (event.pointer != _activePointer) return;
+    setState(() => _currentPx = localPosition);
+    _emit();
+    _activePointer = null;
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    if (event.pointer != _activePointer) return;
+    _emit();
+    _activePointer = null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         _size = Size(constraints.maxWidth, constraints.maxHeight);
+        final paintChild = CustomPaint(
+          size: _size,
+          painter: _SelectionPainter(
+            lines: widget.lines,
+            selection: _selectionNorm,
+          ),
+        );
+
+        if (widget.externalPointerRouting) {
+          return paintChild;
+        }
+
         return RawGestureDetector(
           behavior: HitTestBehavior.opaque,
           gestures: eagerCaptureGestures(debugOwner: this),
           child: Listener(
             behavior: HitTestBehavior.opaque,
-            onPointerDown: (event) {
-              if (_activePointer != null) return;
-              _activePointer = event.pointer;
-              setState(() {
-                _startPx = event.localPosition;
-                _currentPx = event.localPosition;
-              });
-            },
-            onPointerMove: (event) {
-              if (event.pointer != _activePointer) return;
-              setState(() => _currentPx = event.localPosition);
-              _emit();
-            },
-            onPointerUp: (event) {
-              if (event.pointer != _activePointer) return;
-              setState(() => _currentPx = event.localPosition);
-              _emit();
-              _activePointer = null;
-            },
-            onPointerCancel: (event) {
-              if (event.pointer != _activePointer) return;
-              // Conservar la selección si el sistema cancela a mitad de gesto.
-              _emit();
-              _activePointer = null;
-            },
-            child: CustomPaint(
-              size: _size,
-              painter: _SelectionPainter(
-                lines: widget.lines,
-                selection: _selectionNorm,
-              ),
-            ),
+            onPointerDown: (event) => _onPointerDown(event, event.localPosition),
+            onPointerMove: (event) => _onPointerMove(event, event.localPosition),
+            onPointerUp: (event) => _onPointerUp(event, event.localPosition),
+            onPointerCancel: _onPointerCancel,
+            child: paintChild,
           ),
         );
       },
