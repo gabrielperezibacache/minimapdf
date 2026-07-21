@@ -51,7 +51,7 @@ void main() {
     expect(find.text('Comentario'), findsOneWidget);
     expect(find.text('Anotación'), findsOneWidget);
     expect(
-      find.text('Elige Marcado o Subrayado y dibuja; o Nota para fijar un texto.'),
+      find.text('Elige Marcado o Subrayado y dibuja; o Nota y toca la página.'),
       findsOneWidget,
     );
 
@@ -79,7 +79,7 @@ void main() {
 
     expect(find.text('Toca la página para colocar una nota.'), findsOneWidget);
     expect(
-      find.text('Herramienta activa: deselecciona para volver a desplazarte.'),
+      find.text('Herramienta activa: deselecciona para desplazarte o editar marcas.'),
       findsOneWidget,
     );
     expect(find.text('Deseleccionar'), findsOneWidget);

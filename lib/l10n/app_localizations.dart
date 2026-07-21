@@ -129,6 +129,9 @@ class AppLocalizations {
   String get emptySignaturesCta => _t('emptySignaturesCta');
   String get currentPageBadge => _t('currentPageBadge');
   String get drawingLocksScrollHint => _t('drawingLocksScrollHint');
+  String get strokeTooShortHint => _t('strokeTooShortHint');
+  String get bookmarkThisPage => _t('bookmarkThisPage');
+  String get pageAlreadyBookmarked => _t('pageAlreadyBookmarked');
   String get filterEbonyOn => _t('filterEbonyOn');
   String get filterEbonyOff => _t('filterEbonyOff');
   String scrollModeTooltip(String mode) =>
@@ -533,11 +536,15 @@ const Map<String, Map<String, String>> _strings = {
     'removeBookmark': 'Quitar marcador',
     'addNote': 'Añadir nota',
     'editPageNote': 'Editar nota de página',
-    'placementModeBanner': 'Toca la página para colocar la firma · Atrás cancela',
+    'placementModeBanner': 'Toca la página para colocar la firma · Desplázate si hace falta · Atrás cancela',
     'emptyAnnotationsCta': 'Abrir herramientas',
     'emptySignaturesCta': 'Firmar documento',
     'currentPageBadge': 'Actual',
-    'drawingLocksScrollHint': 'Herramienta activa: deselecciona para volver a desplazarte.',
+    'drawingLocksScrollHint':
+        'Herramienta activa: deselecciona para desplazarte o editar marcas.',
+    'strokeTooShortHint': 'Arrastra el dedo o el S-Pen para marcar.',
+    'bookmarkThisPage': 'Marcar esta página',
+    'pageAlreadyBookmarked': 'Esta página ya está marcada.',
     'filterEbonyOn': 'Filtro Ébano',
     'filterEbonyOff': 'Desactivar filtro Ébano',
     'scrollModeTooltip': 'Modo: {mode}',
@@ -553,7 +560,7 @@ const Map<String, Map<String, String>> _strings = {
     'pageIndex': 'Todas las páginas',
     'pageNumber': 'Página {page}',
     'noBookmarks':
-        'Sin marcadores.\nUsa ⋯ → Marcar página, o el chip Marcador en las herramientas.',
+        'Aún no hay marcadores.\nPulsa Marcar página para guardar la página actual.',
     'notePage': 'Nota · página {page}',
     'notePageAbbrev': 'Nota · p. {page}',
     'noteHint': 'Escribe una nota…',
@@ -684,8 +691,10 @@ const Map<String, Map<String, String>> _strings = {
     'pageLoadFailedBrowser': 'No se pudo cargar la página.',
     'annotationsTab': 'Anotaciones',
     'signaturesTab': 'Firmas',
-    'noAnnotations': 'Sin anotaciones aún.\nAbre las herramientas (lápiz bronce) para marcar o subrayar.',
-    'noSignatures': 'Sin firmas aún.\nUsa ⋯ → Firmar documento para colocar una firma.',
+    'noAnnotations':
+        'Aún no hay anotaciones.\nPulsa Abrir herramientas y elige Marcado o Subrayado.',
+    'noSignatures':
+        'Aún no hay firmas.\nPulsa Firmar documento y toca la página para colocarla.',
     'deleteSignatureSemantics': 'Eliminar firma',
     'writeTypeHint': 'Escribe {type}…',
     'editTypeHint': 'Editar {type}…',
@@ -700,7 +709,8 @@ const Map<String, Map<String, String>> _strings = {
     'welcomeStart': 'Empezar',
         'welcomeLead': 'Bienvenido a una lectura offline, privada y sin ruido.',
     'welcomeHowItWorks': 'Así funciona Minimal PDF',
-    'annotationHintNone': 'Elige Marcado o Subrayado y dibuja; o Nota para fijar un texto.',
+    'annotationHintNone':
+        'Elige Marcado o Subrayado y dibuja; o Nota y toca la página.',
     'annotationHintHighlight':
         'Dibuja sobre el texto. El scroll se pausa hasta Deseleccionar.',
     'annotationHintUnderline':
@@ -818,11 +828,16 @@ const Map<String, Map<String, String>> _strings = {
     'removeBookmark': 'Remove bookmark',
     'addNote': 'Add note',
     'editPageNote': 'Edit page note',
-    'placementModeBanner': 'Tap the page to place the signature · Back cancels',
+    'placementModeBanner':
+        'Scroll to the page and tap to place the signature · Back cancels',
     'emptyAnnotationsCta': 'Open tools',
     'emptySignaturesCta': 'Sign document',
     'currentPageBadge': 'Current',
-    'drawingLocksScrollHint': 'Tool active: deselect to scroll again.',
+    'drawingLocksScrollHint':
+        'Tool active: deselect to scroll or edit marks.',
+    'strokeTooShortHint': 'Drag your finger or S-Pen to mark.',
+    'bookmarkThisPage': 'Bookmark this page',
+    'pageAlreadyBookmarked': 'This page is already bookmarked.',
     'filterEbonyOn': 'Ébano filter',
     'filterEbonyOff': 'Disable Ébano filter',
     'scrollModeTooltip': 'Mode: {mode}',
@@ -838,7 +853,7 @@ const Map<String, Map<String, String>> _strings = {
     'pageIndex': 'All pages',
     'pageNumber': 'Page {page}',
     'noBookmarks':
-        'No bookmarks.\nUse ⋯ → Bookmark page, or the Bookmark chip in tools.',
+        'No bookmarks yet.\nTap Bookmark page to save the current page.',
     'notePage': 'Note · page {page}',
     'notePageAbbrev': 'Note · p. {page}',
     'noteHint': 'Write a note…',
@@ -968,8 +983,10 @@ const Map<String, Map<String, String>> _strings = {
     'pageLoadFailedBrowser': 'Could not load the page.',
     'annotationsTab': 'Annotations',
     'signaturesTab': 'Signatures',
-    'noAnnotations': 'No annotations yet.\nOpen tools (bronze pen) to highlight or underline.',
-    'noSignatures': 'No signatures yet.\nUse ⋯ → Sign document to place a signature.',
+    'noAnnotations':
+        'No annotations yet.\nTap Open tools and pick Highlight or Underline.',
+    'noSignatures':
+        'No signatures yet.\nTap Sign document, then tap the page to place it.',
     'deleteSignatureSemantics': 'Delete signature',
     'writeTypeHint': 'Write {type}…',
     'editTypeHint': 'Edit {type}…',
@@ -984,7 +1001,8 @@ const Map<String, Map<String, String>> _strings = {
     'welcomeStart': 'Get started',
         'welcomeLead': 'Welcome to offline, private, distraction-free reading.',
     'welcomeHowItWorks': 'How Minimal PDF works',
-    'annotationHintNone': 'Pick Highlight or Underline and draw; or Note to pin text.',
+    'annotationHintNone':
+        'Pick Highlight or Underline and draw; or Note and tap the page.',
     'annotationHintHighlight':
         'Draw over the text. Scrolling pauses until you Deselect.',
     'annotationHintUnderline':
@@ -1102,11 +1120,16 @@ const Map<String, Map<String, String>> _strings = {
     'removeBookmark': 'Remover marcador',
     'addNote': 'Adicionar nota',
     'editPageNote': 'Editar nota da página',
-    'placementModeBanner': 'Toque na página para colocar a assinatura · Voltar cancela',
+    'placementModeBanner':
+        'Desloque até à página e toque para colocar a assinatura · Voltar cancela',
     'emptyAnnotationsCta': 'Abrir ferramentas',
     'emptySignaturesCta': 'Assinar documento',
     'currentPageBadge': 'Atual',
-    'drawingLocksScrollHint': 'Ferramenta ativa: desselecione para voltar a deslocar.',
+    'drawingLocksScrollHint':
+        'Ferramenta ativa: desselecione para deslocar ou editar marcas.',
+    'strokeTooShortHint': 'Arraste o dedo ou o S-Pen para marcar.',
+    'bookmarkThisPage': 'Marcar esta página',
+    'pageAlreadyBookmarked': 'Esta página já está marcada.',
     'filterEbonyOn': 'Filtro Ébano',
     'filterEbonyOff': 'Desativar filtro Ébano',
     'scrollModeTooltip': 'Modo: {mode}',
@@ -1122,7 +1145,7 @@ const Map<String, Map<String, String>> _strings = {
     'pageIndex': 'Todas as páginas',
     'pageNumber': 'Página {page}',
     'noBookmarks':
-        'Sem marcadores.\nUse ⋯ → Marcar página, ou o chip Marcador nas ferramentas.',
+        'Ainda sem marcadores.\nToque em Marcar página para guardar a página atual.',
     'notePage': 'Nota · página {page}',
     'notePageAbbrev': 'Nota · p. {page}',
     'noteHint': 'Escreva uma nota…',
@@ -1254,9 +1277,9 @@ const Map<String, Map<String, String>> _strings = {
     'annotationsTab': 'Anotações',
     'signaturesTab': 'Assinaturas',
     'noAnnotations':
-        'Sem anotações ainda.\nAbra as ferramentas (lápis bronze) para marcar ou sublinhar.',
+        'Ainda sem anotações.\nToque em Abrir ferramentas e escolha Marcado ou Sublinhar.',
     'noSignatures':
-        'Sem assinaturas ainda.\nUse ⋯ → Assinar documento para colocar uma assinatura.',
+        'Ainda sem assinaturas.\nToque em Assinar documento e depois na página.',
     'deleteSignatureSemantics': 'Eliminar assinatura',
     'writeTypeHint': 'Escreva {type}…',
     'editTypeHint': 'Editar {type}…',
@@ -1387,11 +1410,16 @@ const Map<String, Map<String, String>> _strings = {
     'removeBookmark': 'Retirer le signet',
     'addNote': 'Ajouter une note',
     'editPageNote': 'Modifier la note de page',
-    'placementModeBanner': 'Touchez la page pour placer la signature · Retour annule',
+    'placementModeBanner':
+        'Faites défiler jusqu’à la page et touchez pour placer la signature · Retour annule',
     'emptyAnnotationsCta': 'Ouvrir les outils',
     'emptySignaturesCta': 'Signer le document',
     'currentPageBadge': 'Actuelle',
-    'drawingLocksScrollHint': 'Outil actif : désélectionnez pour faire défiler.',
+    'drawingLocksScrollHint':
+        'Outil actif : désélectionnez pour faire défiler ou modifier les marques.',
+    'strokeTooShortHint': 'Glissez le doigt ou le S-Pen pour surligner.',
+    'bookmarkThisPage': 'Marquer cette page',
+    'pageAlreadyBookmarked': 'Cette page est déjà marquée.',
     'filterEbonyOn': 'Filtre Ébano',
     'filterEbonyOff': 'Désactiver le filtre Ébano',
     'scrollModeTooltip': 'Mode : {mode}',
@@ -1407,7 +1435,7 @@ const Map<String, Map<String, String>> _strings = {
     'pageIndex': 'Toutes les pages',
     'pageNumber': 'Page {page}',
     'noBookmarks':
-        'Aucun signet.\nUtilisez ⋯ → Ajouter un signet, ou la puce Signet dans les outils.',
+        'Aucun signet pour l’instant.\nAppuyez sur Ajouter un signet pour la page actuelle.',
     'notePage': 'Note · page {page}',
     'notePageAbbrev': 'Note · p. {page}',
     'noteHint': 'Écrire une note…',
@@ -1538,8 +1566,10 @@ const Map<String, Map<String, String>> _strings = {
     'pageLoadFailedBrowser': 'Impossible de charger la page.',
     'annotationsTab': 'Annotations',
     'signaturesTab': 'Signatures',
-    'noAnnotations': 'Pas encore d’annotations.\nOuvrez les outils (stylo bronze) pour surligner.',
-    'noSignatures': 'Pas encore de signatures.\nUtilisez ⋯ → Signer le document.',
+    'noAnnotations':
+        'Pas encore d’annotations.\nAppuyez sur Ouvrir les outils et choisissez Surligner.',
+    'noSignatures':
+        'Pas encore de signatures.\nAppuyez sur Signer le document, puis touchez la page.',
     'deleteSignatureSemantics': 'Supprimer la signature',
     'writeTypeHint': 'Écrire {type}…',
     'editTypeHint': 'Modifier {type}…',
@@ -1672,11 +1702,16 @@ const Map<String, Map<String, String>> _strings = {
     'removeBookmark': 'Lesezeichen entfernen',
     'addNote': 'Notiz hinzufügen',
     'editPageNote': 'Seitennotiz bearbeiten',
-    'placementModeBanner': 'Tippen Sie auf die Seite, um zu unterschreiben · Zurück bricht ab',
+    'placementModeBanner':
+        'Zur Seite scrollen und tippen, um zu unterschreiben · Zurück bricht ab',
     'emptyAnnotationsCta': 'Werkzeuge öffnen',
     'emptySignaturesCta': 'Dokument unterschreiben',
     'currentPageBadge': 'Aktuell',
-    'drawingLocksScrollHint': 'Werkzeug aktiv: Abwählen, um wieder zu scrollen.',
+    'drawingLocksScrollHint':
+        'Werkzeug aktiv: Abwählen, um zu scrollen oder Markierungen zu bearbeiten.',
+    'strokeTooShortHint': 'Mit Finger oder S-Pen ziehen, um zu markieren.',
+    'bookmarkThisPage': 'Diese Seite markieren',
+    'pageAlreadyBookmarked': 'Diese Seite ist bereits markiert.',
     'filterEbonyOn': 'Ébano-Filter',
     'filterEbonyOff': 'Ébano-Filter deaktivieren',
     'scrollModeTooltip': 'Modus: {mode}',
@@ -1692,7 +1727,7 @@ const Map<String, Map<String, String>> _strings = {
     'pageIndex': 'Alle Seiten',
     'pageNumber': 'Seite {page}',
     'noBookmarks':
-        'Keine Lesezeichen.\nNutzen Sie ⋯ → Lesezeichen, oder den Chip in den Werkzeugen.',
+        'Noch keine Lesezeichen.\nTippen Sie auf Lesezeichen, um die aktuelle Seite zu speichern.',
     'notePage': 'Notiz · Seite {page}',
     'notePageAbbrev': 'Notiz · S. {page}',
     'noteHint': 'Notiz schreiben…',
@@ -1823,8 +1858,10 @@ const Map<String, Map<String, String>> _strings = {
     'pageLoadFailedBrowser': 'Seite konnte nicht geladen werden.',
     'annotationsTab': 'Annotationen',
     'signaturesTab': 'Unterschriften',
-    'noAnnotations': 'Noch keine Anmerkungen.\nÖffnen Sie die Werkzeuge (Bronzestift) zum Markieren.',
-    'noSignatures': 'Noch keine Unterschriften.\nNutzen Sie ⋯ → Dokument unterschreiben.',
+    'noAnnotations':
+        'Noch keine Anmerkungen.\nTippen Sie auf Werkzeuge öffnen und wählen Sie Markieren.',
+    'noSignatures':
+        'Noch keine Unterschriften.\nTippen Sie auf Dokument unterschreiben und dann auf die Seite.',
     'deleteSignatureSemantics': 'Unterschrift löschen',
     'writeTypeHint': '{type} schreiben…',
     'editTypeHint': '{type} bearbeiten…',
@@ -1955,11 +1992,14 @@ const Map<String, Map<String, String>> _strings = {
     'removeBookmark': '移除书签',
     'addNote': '添加笔记',
     'editPageNote': '编辑页面笔记',
-    'placementModeBanner': '点按页面以放置签名 · 返回取消',
+    'placementModeBanner': '滚动到页面后点按以放置签名 · 返回取消',
     'emptyAnnotationsCta': '打开工具',
     'emptySignaturesCta': '签署文档',
     'currentPageBadge': '当前',
-    'drawingLocksScrollHint': '工具已启用：取消选择后即可滚动。',
+    'drawingLocksScrollHint': '工具已启用：取消选择后即可滚动或编辑标记。',
+    'strokeTooShortHint': '拖动手指或 S-Pen 进行标记。',
+    'bookmarkThisPage': '标记此页',
+    'pageAlreadyBookmarked': '此页已标记。',
     'filterEbonyOn': 'Ébano 滤镜',
     'filterEbonyOff': '关闭 Ébano 滤镜',
     'scrollModeTooltip': '模式：{mode}',
@@ -1974,7 +2014,7 @@ const Map<String, Map<String, String>> _strings = {
     'go': '前往',
     'pageIndex': '全部页面',
     'pageNumber': '第 {page} 页',
-    'noBookmarks': '暂无书签。\n用 ⋯ → 添加书签，或工具中的书签选项。',
+    'noBookmarks': '暂无书签。\n点按「添加书签」保存当前页。',
     'notePage': '笔记 · 第 {page} 页',
     'notePageAbbrev': '笔记 · 第 {page} 页',
     'noteHint': '写一条笔记…',
@@ -2103,8 +2143,8 @@ const Map<String, Map<String, String>> _strings = {
     'pageLoadFailedBrowser': '无法加载页面。',
     'annotationsTab': '批注',
     'signaturesTab': '签名',
-    'noAnnotations': '尚无批注。\n打开工具（铜色笔）进行高亮或下划线。',
-    'noSignatures': '尚无签名。\n使用 ⋯ → 签署文档。',
+    'noAnnotations': '尚无批注。\n点按「打开工具」并选择高亮或下划线。',
+    'noSignatures': '尚无签名。\n点按「签署文档」，然后点按页面放置。',
     'deleteSignatureSemantics': '删除签名',
     'writeTypeHint': '输入{type}…',
     'editTypeHint': '编辑{type}…',
@@ -2235,11 +2275,16 @@ const Map<String, Map<String, String>> _strings = {
     'removeBookmark': 'Убрать закладку',
     'addNote': 'Добавить заметку',
     'editPageNote': 'Изменить заметку страницы',
-    'placementModeBanner': 'Нажмите на страницу, чтобы поставить подпись · Назад отменяет',
+    'placementModeBanner':
+        'Пролистайте до страницы и нажмите, чтобы поставить подпись · Назад отменяет',
     'emptyAnnotationsCta': 'Открыть инструменты',
     'emptySignaturesCta': 'Подписать документ',
     'currentPageBadge': 'Текущая',
-    'drawingLocksScrollHint': 'Инструмент активен: снимите выбор, чтобы листать.',
+    'drawingLocksScrollHint':
+        'Инструмент активен: снимите выбор, чтобы листать или править метки.',
+    'strokeTooShortHint': 'Проведите пальцем или S-Pen, чтобы выделить.',
+    'bookmarkThisPage': 'Добавить закладку на эту страницу',
+    'pageAlreadyBookmarked': 'Эта страница уже в закладках.',
     'filterEbonyOn': 'Фильтр Ébano',
     'filterEbonyOff': 'Отключить фильтр Ébano',
     'scrollModeTooltip': 'Режим: {mode}',
@@ -2255,7 +2300,7 @@ const Map<String, Map<String, String>> _strings = {
     'pageIndex': 'Все страницы',
     'pageNumber': 'Страница {page}',
     'noBookmarks':
-        'Нет закладок.\nИспользуйте ⋯ → Закладка или чип в инструментах.',
+        'Пока нет закладок.\nНажмите «Закладка», чтобы сохранить текущую страницу.',
     'notePage': 'Заметка · страница {page}',
     'notePageAbbrev': 'Заметка · с. {page}',
     'noteHint': 'Напишите заметку…',
@@ -2386,8 +2431,10 @@ const Map<String, Map<String, String>> _strings = {
     'pageLoadFailedBrowser': 'Не удалось загрузить страницу.',
     'annotationsTab': 'Аннотации',
     'signaturesTab': 'Подписи',
-    'noAnnotations': 'Пока нет аннотаций.\nОткройте инструменты (бронзовый карандаш) для выделения.',
-    'noSignatures': 'Пока нет подписей.\nИспользуйте ⋯ → Подписать документ.',
+    'noAnnotations':
+        'Пока нет аннотаций.\nНажмите «Открыть инструменты» и выберите выделение.',
+    'noSignatures':
+        'Пока нет подписей.\nНажмите «Подписать документ», затем коснитесь страницы.',
     'deleteSignatureSemantics': 'Удалить подпись',
     'writeTypeHint': 'Напишите {type}…',
     'editTypeHint': 'Изменить {type}…',

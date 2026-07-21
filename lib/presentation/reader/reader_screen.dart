@@ -317,6 +317,11 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   void _toggleControls() {
+    if (_controlsVisible) {
+      // Modo inmersivo: salir de modos modales para no dejar el lector «atascado».
+      _annotations?.setToolboxVisible(false);
+      _signing?.cancelPlacementMode();
+    }
     setState(() => _controlsVisible = !_controlsVisible);
   }
 
@@ -369,6 +374,23 @@ class _ReaderScreenState extends State<ReaderScreen>
         );
       }
     }
+  }
+
+  Future<void> _addBookmarkIfNeeded() async {
+    final annotations = _annotations;
+    if (annotations == null) return;
+    if (annotations.isPageBookmarked(_currentPage)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).pageAlreadyBookmarked),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(milliseconds: 1400),
+        ),
+      );
+      return;
+    }
+    await _toggleBookmark();
   }
 
   Future<void> _editNote() async {
@@ -450,11 +472,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     }
     if (created == null) return;
 
-    // Las herramientas de texto se sueltan; el marcado queda activo para seguir.
-    if (tool.needsText) {
-      provider.clearTool();
-    }
-
+    // La herramienta permanece activa para seguir anotando (estilo Notes).
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(l10n.annotationSaved(typeLabel, pageNumber)),
@@ -1060,6 +1078,14 @@ class _ReaderScreenState extends State<ReaderScreen>
           annotations?.setToolboxVisible(false);
           return;
         }
+        if (activeTool != AnnotationTool.none) {
+          annotations?.clearTool();
+          return;
+        }
+        if (!_controlsVisible) {
+          setState(() => _controlsVisible = true);
+          return;
+        }
         await _onExit();
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
@@ -1095,9 +1121,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                     hasNote: hasNote,
                     toolboxVisible: toolboxVisible,
                   ),
-                if (_controlsVisible &&
-                    signing?.placementMode == true &&
-                    !toolboxVisible)
+                // Banner de colocación siempre visible (también en modo inmersivo).
+                if (signing?.placementMode == true && !toolboxVisible)
                   _buildPlacementBanner(),
                 if (_controlsVisible && !toolboxVisible)
                   _buildBottomBar(
@@ -1217,8 +1242,9 @@ class _ReaderScreenState extends State<ReaderScreen>
                   },
                   onAddBookmark: () {
                     setState(() => _sidebarVisible = false);
-                    unawaited(_toggleBookmark());
+                    unawaited(_addBookmarkIfNeeded());
                   },
+                  currentPageBookmarked: isBookmarked,
                 ),
               ],
             ),
@@ -1250,8 +1276,9 @@ class _ReaderScreenState extends State<ReaderScreen>
     final activeTool = annotations?.activeTool ?? AnnotationTool.none;
     final placementMode = signing?.placementMode ?? false;
     final annotationsLayerEnabled = !placementMode && !_sidebarVisible;
-    final drawingLocksNavigation =
-        placementMode || activeTool != AnnotationTool.none;
+    // Solo el dibujo de anotación bloquea el scroll; en colocación de firma
+    // se puede desplazar hasta la página correcta y luego tocar.
+    final drawingLocksNavigation = activeTool != AnnotationTool.none;
     final scaffoldBg =
         _ebonyFilter ? EbonyPdfFilter.background : colors.background;
 
@@ -1614,39 +1641,84 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Widget _buildPlacementBanner() {
     final l10n = AppLocalizations.of(context);
+    final canPrev = _currentPage > 1;
+    final canNext = _pagesCount > 0 && _currentPage < _pagesCount;
     return Positioned(
-      top: 64,
+      top: _controlsVisible ? 64 : 12,
       left: 12,
       right: 12,
       child: Material(
         color: AppColors.ebonyAccent.withValues(alpha: 0.95),
         elevation: 2,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.touch_app, size: 18, color: Colors.white),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  l10n.placementModeBanner,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
+              Row(
+                children: [
+                  const Icon(Icons.touch_app, size: 18, color: Colors.white),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      l10n.placementModeBanner,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      _signing?.cancelPlacementMode();
+                      setState(() {});
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: Text(l10n.cancelPlacement),
+                  ),
+                ],
+              ),
+              if (_pagesCount > 1)
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: l10n.back,
+                      onPressed: canPrev
+                          ? () => _jumpToPage(_currentPage - 1)
+                          : null,
+                      icon: Icon(
+                        Icons.chevron_left,
+                        color: canPrev
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.35),
                       ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        '$_currentPage / $_pagesCount',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: Colors.white,
+                            ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: l10n.go,
+                      onPressed: canNext
+                          ? () => _jumpToPage(_currentPage + 1)
+                          : null,
+                      icon: Icon(
+                        Icons.chevron_right,
+                        color: canNext
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.35),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              TextButton(
-                onPressed: () {
-                  _signing?.cancelPlacementMode();
-                  setState(() {});
-                },
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  visualDensity: VisualDensity.compact,
-                ),
-                child: Text(l10n.cancelPlacement),
-              ),
             ],
           ),
         ),

@@ -53,6 +53,7 @@ void main() {
 
     await tester.tap(find.text('Marcadores'));
     await tester.pumpAndSettle();
+    expect(find.textContaining('Aún no hay marcadores'), findsOneWidget);
     expect(find.text('Marcar página'), findsOneWidget);
     await tester.tap(find.text('Marcar página'));
     await tester.pump();

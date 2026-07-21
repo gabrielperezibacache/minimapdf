@@ -245,7 +245,21 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
       rect = computePinRect(canvasSize: size, point: points.first);
     } else if (tool.isMarkup) {
       final stroke = normalizePixelStroke(canvasSize: size, points: points);
-      if (stroke == null) return;
+      if (stroke == null) {
+        if (!mounted) return;
+        HapticFeedback.lightImpact();
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        messenger
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context).strokeTooShortHint),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(milliseconds: 1600),
+            ),
+          );
+        return;
+      }
       final strokeWidth =
           widget.strokeWidthPx ?? strokeWidthPxForTool(tool);
       rect = boundingRectForStroke(

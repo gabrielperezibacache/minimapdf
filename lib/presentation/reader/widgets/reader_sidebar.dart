@@ -31,6 +31,7 @@ class ReaderSidebar extends StatelessWidget {
     this.onOpenAnnotationTools,
     this.onStartSigning,
     this.onAddBookmark,
+    this.currentPageBookmarked = false,
   });
 
   final bool visible;
@@ -48,6 +49,7 @@ class ReaderSidebar extends StatelessWidget {
   final VoidCallback? onOpenAnnotationTools;
   final VoidCallback? onStartSigning;
   final VoidCallback? onAddBookmark;
+  final bool currentPageBookmarked;
 
   @override
   Widget build(BuildContext context) {
@@ -128,6 +130,7 @@ class ReaderSidebar extends StatelessWidget {
                                 _BookmarksPane(
                                   bookmarks: bookmarks,
                                   currentPage: currentPage,
+                                  currentPageBookmarked: currentPageBookmarked,
                                   onOpenPage: onOpenPage,
                                   onDelete: onDeleteBookmark,
                                   onAddBookmark: onAddBookmark,
@@ -476,6 +479,7 @@ class _BookmarksPane extends StatelessWidget {
   const _BookmarksPane({
     required this.bookmarks,
     required this.currentPage,
+    required this.currentPageBookmarked,
     required this.onOpenPage,
     required this.onDelete,
     this.onAddBookmark,
@@ -483,6 +487,7 @@ class _BookmarksPane extends StatelessWidget {
 
   final List<Bookmark> bookmarks;
   final int currentPage;
+  final bool currentPageBookmarked;
   final ValueChanged<int> onOpenPage;
   final ValueChanged<Bookmark> onDelete;
   final VoidCallback? onAddBookmark;
@@ -501,46 +506,78 @@ class _BookmarksPane extends StatelessWidget {
       );
     }
 
-    return ListView.separated(
-      itemCount: bookmarks.length,
-      separatorBuilder: (_, _) => Divider(height: 1, color: colors.border),
-      itemBuilder: (context, index) {
-        final bookmark = bookmarks[index];
-        final selected = bookmark.pageNumber == currentPage;
-        final hasNote =
-            bookmark.noteText != null && bookmark.noteText!.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (onAddBookmark != null && !currentPageBookmarked)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+            child: OutlinedButton.icon(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                onAddBookmark!();
+              },
+              icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+              label: Text(l10n.bookmarkThisPage),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.ebonyAccent,
+                side: BorderSide(
+                  color: AppColors.ebonyAccent.withValues(alpha: 0.45),
+                ),
+              ),
+            ),
+          ),
+        Expanded(
+          child: ListView.separated(
+            itemCount: bookmarks.length,
+            separatorBuilder: (_, _) =>
+                Divider(height: 1, color: colors.border),
+            itemBuilder: (context, index) {
+              final bookmark = bookmarks[index];
+              final selected = bookmark.pageNumber == currentPage;
+              final hasNote = bookmark.noteText != null &&
+                  bookmark.noteText!.isNotEmpty;
 
-        return ListTile(
-          selected: selected,
-          selectedColor: colors.accent,
-          leading: Icon(
-            hasNote ? Icons.sticky_note_2 : Icons.bookmark,
-            color: colors.accent,
+              return ListTile(
+                selected: selected,
+                selectedColor: colors.accent,
+                leading: Icon(
+                  hasNote ? Icons.sticky_note_2 : Icons.bookmark,
+                  color: colors.accent,
+                ),
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: Text(l10n.pageNumber(bookmark.pageNumber)),
+                    ),
+                    if (selected) ...[
+                      const SizedBox(width: 8),
+                      const _CurrentBadge(),
+                    ],
+                  ],
+                ),
+                subtitle: hasNote
+                    ? Text(
+                        bookmark.noteText!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : null,
+                onTap: () => onOpenPage(bookmark.pageNumber),
+                trailing: IconButton(
+                  tooltip: l10n.delete,
+                  onPressed: () => onDelete(bookmark),
+                  icon: Icon(
+                    Icons.delete_outline,
+                    color: colors.textMuted,
+                    size: 20,
+                  ),
+                ),
+              );
+            },
           ),
-          title: Row(
-            children: [
-              Expanded(child: Text(l10n.pageNumber(bookmark.pageNumber))),
-              if (selected) ...[
-                const SizedBox(width: 8),
-                const _CurrentBadge(),
-              ],
-            ],
-          ),
-          subtitle: hasNote
-              ? Text(
-                  bookmark.noteText!,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                )
-              : null,
-          onTap: () => onOpenPage(bookmark.pageNumber),
-          trailing: IconButton(
-            tooltip: l10n.delete,
-            onPressed: () => onDelete(bookmark),
-            icon: Icon(Icons.delete_outline, color: colors.textMuted, size: 20),
-          ),
-        );
-      },
+        ),
+      ],
     );
   }
 }
