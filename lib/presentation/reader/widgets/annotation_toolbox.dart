@@ -5,8 +5,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../providers/reader_annotations_provider.dart';
+import '../annotation_ink.dart';
 
-/// Caja de herramientas de anotación (acento bronce Ébano).
+/// Caja de herramientas de anotación (estilo Samsung Notes / acento Ébano).
 class AnnotationToolbox extends StatelessWidget {
   const AnnotationToolbox({
     super.key,
@@ -19,6 +20,17 @@ class AnnotationToolbox extends StatelessWidget {
     this.isBookmarked = false,
     this.pageNumber,
     this.annotationCount = 0,
+    this.inkColor,
+    this.onInkColorChanged,
+    this.strokeSizeIndex = 2,
+    this.onStrokeSizeChanged,
+    this.canUndo = false,
+    this.canRedo = false,
+    this.onUndo,
+    this.onRedo,
+    this.canSave = false,
+    this.saving = false,
+    this.onSave,
   });
 
   final bool visible;
@@ -30,19 +42,34 @@ class AnnotationToolbox extends StatelessWidget {
   final bool isBookmarked;
   final int? pageNumber;
   final int annotationCount;
+  final Color? inkColor;
+  final ValueChanged<Color>? onInkColorChanged;
+  final int strokeSizeIndex;
+  final ValueChanged<int>? onStrokeSizeChanged;
+  final bool canUndo;
+  final bool canRedo;
+  final VoidCallback? onUndo;
+  final VoidCallback? onRedo;
+  final bool canSave;
+  final bool saving;
+  final VoidCallback? onSave;
 
   static const tools = <AnnotationTool>[
     AnnotationTool.highlight,
     AnnotationTool.underline,
     AnnotationTool.note,
-    AnnotationTool.comment,
-    AnnotationTool.annotation,
   ];
+
+  bool get _showInkControls =>
+      activeTool.isMarkup &&
+      onInkColorChanged != null &&
+      onStrokeSizeChanged != null;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
     final l10n = AppLocalizations.of(context);
+    final selectedInk = inkColor ?? MarkupInkStyle.palette[1];
 
     return IgnorePointer(
       ignoring: !visible,
@@ -105,31 +132,104 @@ class AnnotationToolbox extends StatelessWidget {
                                   ),
                             ),
                           ),
-                        if (activeTool != AnnotationTool.none &&
-                            onClearTool != null)
-                          TextButton(
-                            onPressed: () {
-                              HapticFeedback.selectionClick();
-                              onClearTool!();
-                            },
-                            style: TextButton.styleFrom(
-                              foregroundColor: colors.textMuted,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            child: Text(l10n.releaseTool),
-                          ),
                         IconButton(
-                          tooltip: l10n.closeToolbox,
+                          tooltip: l10n.annotationUndo,
+                          onPressed: canUndo && onUndo != null
+                              ? () {
+                                  HapticFeedback.selectionClick();
+                                  onUndo!();
+                                }
+                              : null,
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(
+                            Icons.undo,
+                            size: 20,
+                            color: canUndo
+                                ? AppColors.ebonyAccent
+                                : colors.textMuted.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: l10n.annotationRedo,
+                          onPressed: canRedo && onRedo != null && !saving
+                              ? () {
+                                  HapticFeedback.selectionClick();
+                                  onRedo!();
+                                }
+                              : null,
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(
+                            Icons.redo,
+                            size: 20,
+                            color: canRedo && !saving
+                                ? AppColors.ebonyAccent
+                                : colors.textMuted.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: activeTool != AnnotationTool.none
+                              ? l10n.minimizeAnnotationTools
+                              : l10n.closeToolbox,
                           onPressed: onClose,
                           visualDensity: VisualDensity.compact,
                           icon: Icon(
-                            Icons.close,
+                            activeTool != AnnotationTool.none
+                                ? Icons.keyboard_arrow_down
+                                : Icons.close,
                             color: colors.textMuted,
                             size: 20,
                           ),
                         ),
                       ],
                     ),
+                    if (onSave != null ||
+                        (activeTool != AnnotationTool.none &&
+                            onClearTool != null)) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          if (onSave != null)
+                            TextButton(
+                              onPressed: canSave && !saving
+                                  ? () {
+                                      HapticFeedback.selectionClick();
+                                      onSave!();
+                                    }
+                                  : null,
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.ebonyAccent,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: saving
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.ebonyAccent,
+                                      ),
+                                    )
+                                  : Text(l10n.saveAnnotations),
+                            ),
+                          const Spacer(),
+                          if (activeTool != AnnotationTool.none &&
+                              onClearTool != null)
+                            TextButton(
+                              onPressed: saving
+                                  ? null
+                                  : () {
+                                      HapticFeedback.selectionClick();
+                                      onClearTool!();
+                                    },
+                              style: TextButton.styleFrom(
+                                foregroundColor: colors.textMuted,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: Text(l10n.releaseTool),
+                            ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -154,6 +254,9 @@ class AnnotationToolbox extends StatelessWidget {
                               selected: activeTool == tool,
                               label: tool.label(l10n),
                               icon: tool.annotationType!.icon,
+                              inkPreview: tool.isMarkup,
+                              thickInk: tool == AnnotationTool.highlight,
+                              previewColor: tool.isMarkup ? selectedInk : null,
                               onTap: () {
                                 HapticFeedback.selectionClick();
                                 onSelectTool(tool);
@@ -164,6 +267,71 @@ class AnnotationToolbox extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (_showInkControls) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Text(
+                            l10n.annotationInkColor,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(color: colors.textMuted),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  for (final color
+                                      in MarkupInkStyle.palette) ...[
+                                    _ColorDot(
+                                      color: color,
+                                      selected:
+                                          selectedInk.toARGB32() ==
+                                          color.toARGB32(),
+                                      onTap: () {
+                                        HapticFeedback.selectionClick();
+                                        onInkColorChanged!(color);
+                                      },
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Text(
+                            l10n.annotationStrokeSize,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(color: colors.textMuted),
+                          ),
+                          const SizedBox(width: 10),
+                          for (var i = 0; i < MarkupInkStyle.sizeCount; i++) ...[
+                            _StrokeSizeDot(
+                              sizeIndex: i,
+                              selected: strokeSizeIndex == i,
+                              tool: activeTool,
+                              color: selectedInk,
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                onStrokeSizeChanged!(i);
+                              },
+                            ),
+                            if (i < MarkupInkStyle.sizeCount - 1)
+                              const SizedBox(width: 8),
+                          ],
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     Text(
                       _hintFor(context, activeTool),
@@ -171,6 +339,17 @@ class AnnotationToolbox extends StatelessWidget {
                             color: colors.textMuted,
                           ),
                     ),
+                    if (activeTool.isMarkup) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        AppLocalizations.of(context).drawingLocksScrollHint,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.ebonyAccent.withValues(
+                                alpha: 0.9,
+                              ),
+                            ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -188,9 +367,108 @@ class AnnotationToolbox extends StatelessWidget {
       AnnotationTool.highlight => l10n.annotationHintHighlight,
       AnnotationTool.underline => l10n.annotationHintUnderline,
       AnnotationTool.note => l10n.annotationHintNote,
+      // Comentario/anotación genérica ya no están en la caja; se mantienen por datos antiguos.
       AnnotationTool.comment => l10n.annotationHintComment,
       AnnotationTool.annotation => l10n.annotationHintAnnotation,
     };
+  }
+}
+
+class _ColorDot extends StatelessWidget {
+  const _ColorDot({
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppPalette.of(context);
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: 'color',
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color,
+            border: Border.all(
+              color: selected ? AppColors.ebonyAccent : colors.border,
+              width: selected ? 2.5 : 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StrokeSizeDot extends StatelessWidget {
+  const _StrokeSizeDot({
+    required this.sizeIndex,
+    required this.selected,
+    required this.tool,
+    required this.color,
+    required this.onTap,
+  });
+
+  final int sizeIndex;
+  final bool selected;
+  final AnnotationTool tool;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppPalette.of(context);
+    final previewH = tool == AnnotationTool.highlight
+        ? (8.0 + sizeIndex * 3.5).clamp(8.0, 20.0)
+        : (2.0 + sizeIndex * 1.6).clamp(2.0, 8.0);
+    final paintColor = MarkupInkStyle.resolveColor(color, tool);
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: 'size $sizeIndex',
+      child: InkWell(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.ebonyAccent.withValues(alpha: 0.18)
+                : colors.surface,
+            border: Border.all(
+              color: selected ? AppColors.ebonyAccent : colors.border,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Container(
+            width: 22,
+            height: previewH,
+            decoration: BoxDecoration(
+              color: paintColor,
+              borderRadius: BorderRadius.circular(
+                tool == AnnotationTool.highlight ? 4 : 1,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -200,18 +478,25 @@ class _ToolChip extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.onTap,
+    this.inkPreview = false,
+    this.thickInk = false,
+    this.previewColor,
   });
 
   final bool selected;
   final String label;
   final IconData icon;
   final VoidCallback onTap;
+  final bool inkPreview;
+  final bool thickInk;
+  final Color? previewColor;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
     final fg = selected ? AppColors.ebonyBackground : colors.text;
     final bg = selected ? AppColors.ebonyAccent : colors.surface;
+    final swatch = previewColor ?? AppColors.ebonyAccent;
 
     return Semantics(
       button: true,
@@ -248,6 +533,19 @@ class _ToolChip extends StatelessWidget {
                         fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                       ),
                 ),
+                if (inkPreview) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 18,
+                    height: thickInk ? 10 : 2.5,
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? fg.withValues(alpha: thickInk ? 0.55 : 0.9)
+                          : swatch.withValues(alpha: thickInk ? 0.55 : 0.9),
+                      borderRadius: BorderRadius.circular(thickInk ? 4 : 1),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

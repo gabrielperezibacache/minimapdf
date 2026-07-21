@@ -136,4 +136,7 @@ class LibraryLocalDatasource {
       _db.updatePageAnnotation(annotation);
 
   Future<int> removePageAnnotation(int id) => _db.deletePageAnnotation(id);
+
+  Future<int> removePageAnnotationsForBook(int bookId) =>
+      _db.deletePageAnnotationsForBook(bookId);
 }

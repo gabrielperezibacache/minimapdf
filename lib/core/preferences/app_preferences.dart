@@ -16,6 +16,7 @@ class AppPreferences {
   static const _legacyEbonyFilterKey = 'reader_obsidian_filter';
   static const _scrollModeKey = 'reader_scroll_mode';
   static const _hasSeenWelcomeKey = 'has_seen_welcome';
+  static const _hasSeenReaderTipKey = 'has_seen_reader_tip';
 
   static Future<AppPreferences> open() async {
     final prefs = await SharedPreferences.getInstance();
@@ -79,5 +80,12 @@ class AppPreferences {
 
   Future<void> markWelcomeSeen() async {
     await _prefs.setBool(_hasSeenWelcomeKey, true);
+  }
+
+  /// Tip de primera apertura del lector (lápiz bronce / anotar).
+  bool get hasSeenReaderTip => _prefs.getBool(_hasSeenReaderTipKey) ?? false;
+
+  Future<void> markReaderTipSeen() async {
+    await _prefs.setBool(_hasSeenReaderTipKey, true);
   }
 }

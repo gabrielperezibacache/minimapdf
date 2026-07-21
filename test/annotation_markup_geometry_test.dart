@@ -2,51 +2,71 @@ import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:minimal_pdf/presentation/providers/reader_annotations_provider.dart';
+import 'package:minimal_pdf/presentation/reader/annotation_ink.dart';
 import 'package:minimal_pdf/presentation/reader/annotation_markup_geometry.dart';
 
 void main() {
   const page = Size(400, 800);
 
-  group('computeMarkupRect highlight', () {
+  group('normalizePixelStroke / boundingRect', () {
     test('toque sin arrastre no crea marca', () {
-      final rect = computeMarkupRect(
-        tool: AnnotationTool.highlight,
-        canvasSize: page,
-        points: const [Offset(200, 400)],
+      expect(
+        normalizePixelStroke(
+          canvasSize: page,
+          points: const [Offset(200, 400)],
+        ),
+        isNull,
       );
-      expect(rect, isNull);
+      expect(
+        computeMarkupRect(
+          tool: AnnotationTool.highlight,
+          canvasSize: page,
+          points: const [Offset(200, 400)],
+        ),
+        isNull,
+      );
     });
 
     test('microgesto no crea marca', () {
-      final rect = computeMarkupRect(
-        tool: AnnotationTool.highlight,
-        canvasSize: page,
-        points: const [Offset(200, 400), Offset(203, 401)],
+      expect(
+        computeMarkupRect(
+          tool: AnnotationTool.highlight,
+          canvasSize: page,
+          points: const [Offset(200, 400), Offset(203, 401)],
+        ),
+        isNull,
       );
-      expect(rect, isNull);
     });
 
-    test('arrastre horizontal sigue el trazo en X y una sola línea en Y', () {
-      final rect = computeMarkupRect(
-        tool: AnnotationTool.highlight,
-        canvasSize: page,
-        points: const [
-          Offset(40, 200),
-          Offset(120, 202),
-          Offset(200, 199),
-          Offset(280, 203),
-        ],
-      );
+    test('arrastre horizontal sigue el path exacto (sin forzar altura de línea)',
+        () {
+      final points = const [
+        Offset(40, 200),
+        Offset(120, 202),
+        Offset(200, 199),
+        Offset(280, 203),
+      ];
+      final stroke = normalizePixelStroke(canvasSize: page, points: points);
+      expect(stroke, isNotNull);
+      expect(stroke!.length, greaterThanOrEqualTo(2));
+      expect(stroke.first[0], closeTo(40 / 400, 0.01));
+      expect(stroke.last[0], closeTo(280 / 400, 0.01));
+      // Y del path ~200/800, no reubicado a “línea de texto”.
+      expect(stroke.first[1], closeTo(200 / 800, 0.01));
 
+      final rect = boundingRectForStroke(
+        canvasSize: page,
+        stroke: stroke,
+        strokeWidthPx: kHighlightStrokePx,
+      );
       expect(rect, isNotNull);
-      expect(rect!.x, closeTo(40 / 400, 0.01));
-      expect(rect.width, closeTo(240 / 400, 0.02));
-      expect(rect.height, lessThanOrEqualTo(0.04));
-      // Centrado cerca del ancla del trazo (~200 px).
-      expect(rect.y + rect.height / 2, closeTo(200 / 800, 0.03));
+      expect(rect!.x, lessThan(40 / 400));
+      expect(rect.x + rect.width, greaterThan(280 / 400));
+      // Altura = span del trazo + padding del resaltador, no una caja inventada.
+      expect(rect.height, lessThan(0.08));
     });
 
-    test('arrastre vertical amplio cubre el área arrastrada', () {
+    test('arrastre diagonal respeta el área recorrida', () {
       final rect = computeMarkupRect(
         tool: AnnotationTool.highlight,
         canvasSize: page,
@@ -58,10 +78,9 @@ void main() {
       );
 
       expect(rect, isNotNull);
-      expect(rect!.x, closeTo(50 / 400, 0.01));
-      expect(rect.width, closeTo(250 / 400, 0.02));
+      expect(rect!.width, greaterThan(0.5));
       expect(rect.height, greaterThan(0.15));
-      expect(rect.y, lessThan(100 / 800 + 0.02));
+      expect(rect.y, lessThan(100 / 800 + 0.05));
     });
 
     test('resultado queda dentro de la página', () {
@@ -81,10 +100,9 @@ void main() {
     });
   });
 
-  group('computeMarkupRect underline', () {
-    test('arrastre produce trazo fino bajo la línea', () {
-      final rect = computeMarkupRect(
-        tool: AnnotationTool.underline,
+  group('underline stroke', () {
+    test('arrastre produce bbox del path (no rect bajo la línea)', () {
+      final stroke = normalizePixelStroke(
         canvasSize: page,
         points: const [
           Offset(60, 300),
@@ -92,11 +110,16 @@ void main() {
           Offset(300, 301),
         ],
       );
-
+      expect(stroke, isNotNull);
+      final rect = boundingRectForStroke(
+        canvasSize: page,
+        stroke: stroke!,
+        strokeWidthPx: kUnderlineStrokePx,
+      );
       expect(rect, isNotNull);
-      expect(rect!.width, closeTo(240 / 400, 0.02));
-      expect(rect.height, lessThan(0.02));
-      expect(rect.y, greaterThan(300 / 800));
+      expect(rect!.width, greaterThan(0.5));
+      // Centrado cerca del path (~300 px), no desplazado bajo la “línea”.
+      expect(rect.y + rect.height / 2, closeTo(301 / 800, 0.03));
     });
 
     test('toque no crea subrayado', () {
@@ -107,6 +130,21 @@ void main() {
       );
       expect(rect, isNull);
     });
+  });
+
+  test('encode/decode ink round-trip', () {
+    const strokes = [
+      [
+        [0.1, 0.2],
+        [0.3, 0.25],
+        [0.5, 0.22],
+      ],
+    ];
+    final json = encodeAnnotationInk(strokes);
+    final decoded = decodeAnnotationInk(json);
+    expect(decoded, hasLength(1));
+    expect(decoded.first, hasLength(3));
+    expect(decoded.first[1][0], closeTo(0.3, 1e-9));
   });
 
   test('computePinRect centra el pin en el toque', () {

@@ -75,6 +75,12 @@ class AppDatabase {
           if (oldVersion < 4) {
             await _createPageAnnotationsTable(database);
           }
+          if (oldVersion < 5) {
+            await _upgradePageAnnotationsToV5(database);
+          }
+          if (oldVersion < 6) {
+            await _upgradePageAnnotationsToV6(database);
+          }
         },
       ),
     );
@@ -272,6 +278,8 @@ class AppDatabase {
         y REAL NOT NULL,
         width REAL NOT NULL,
         height REAL NOT NULL,
+        ink_json TEXT,
+        stroke_width REAL,
         color_value INTEGER NOT NULL,
         created_at TEXT NOT NULL,
         FOREIGN KEY (book_id)
@@ -287,5 +295,33 @@ class AppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_page_annotations_book_page '
       'ON ${DatabaseConfig.tablePageAnnotations} (book_id, page_number)',
     );
+  }
+
+  Future<void> _upgradePageAnnotationsToV5(Database db) async {
+    await _createPageAnnotationsTable(db);
+    final columns = await db.rawQuery(
+      'PRAGMA table_info(${DatabaseConfig.tablePageAnnotations})',
+    );
+    final names = columns.map((row) => row['name'] as String).toSet();
+    if (!names.contains('ink_json')) {
+      await db.execute(
+        'ALTER TABLE ${DatabaseConfig.tablePageAnnotations} '
+        'ADD COLUMN ink_json TEXT',
+      );
+    }
+  }
+
+  Future<void> _upgradePageAnnotationsToV6(Database db) async {
+    await _createPageAnnotationsTable(db);
+    final columns = await db.rawQuery(
+      'PRAGMA table_info(${DatabaseConfig.tablePageAnnotations})',
+    );
+    final names = columns.map((row) => row['name'] as String).toSet();
+    if (!names.contains('stroke_width')) {
+      await db.execute(
+        'ALTER TABLE ${DatabaseConfig.tablePageAnnotations} '
+        'ADD COLUMN stroke_width REAL',
+      );
+    }
   }
 }

@@ -10,12 +10,14 @@ import '../../../core/utils/safe_clamp.dart';
 import '../../../data/models/page_annotation.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../providers/reader_annotations_provider.dart';
+import '../../signing/ink_stroke_painter.dart';
+import '../annotation_ink.dart';
 import '../annotation_markup_geometry.dart';
 
 /// Capa de dibujo/visualización de anotaciones sobre la página actual.
 ///
-/// Usa [Listener] para soportar S-Pen / lápices capacitivos con rechazo de
-/// palma, muestreo del trazo y geometría de línea precisa.
+/// Marcado y subrayado son trazos a mano alzada (estilo Samsung Notes):
+/// el path se pinta tal cual, sin redimensionar a cajas de texto.
 class PageAnnotationsLayer extends StatefulWidget {
   const PageAnnotationsLayer({
     super.key,
@@ -25,6 +27,8 @@ class PageAnnotationsLayer extends StatefulWidget {
     required this.onCreateRect,
     required this.onOpenAnnotation,
     required this.onDeleteAnnotation,
+    this.inkColor,
+    this.strokeWidthPx,
   });
 
   final List<PageAnnotation> annotations;
@@ -36,9 +40,12 @@ class PageAnnotationsLayer extends StatefulWidget {
     required double y,
     required double width,
     required double height,
+    List<List<List<double>>>? strokes,
   }) onCreateRect;
   final ValueChanged<PageAnnotation> onOpenAnnotation;
   final ValueChanged<PageAnnotation> onDeleteAnnotation;
+  final Color? inkColor;
+  final double? strokeWidthPx;
 
   @override
   State<PageAnnotationsLayer> createState() => _PageAnnotationsLayerState();
@@ -59,8 +66,17 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
 
   AnnotationTool get _effectiveTool => _gestureTool ?? widget.activeTool;
 
-  Offset? get _dragStart => _path.isEmpty ? null : _path.first;
-  Offset? get _dragCurrent => _path.isEmpty ? null : _path.last;
+  Color get _draftColor {
+    final custom = widget.inkColor;
+    if (custom != null) return custom;
+    return (_effectiveTool.annotationType?.defaultColor ?? AppColors.ebonyAccent)
+        .withValues(
+      alpha: _effectiveTool == AnnotationTool.highlight ? 0.55 : 0.95,
+    );
+  }
+
+  double get _draftStrokeWidth =>
+      widget.strokeWidthPx ?? strokeWidthPxForTool(_effectiveTool);
 
   @override
   void didUpdateWidget(covariant PageAnnotationsLayer oldWidget) {
@@ -143,11 +159,10 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
                     }
                     final last = _path.last;
                     final delta = (event.localPosition - last).distance;
-                    // Muestrea el trazo sin saturar (cada ~1.5 px).
-                    if (delta < 1.5 && _path.length > 1) return;
+                    if (delta < kStrokeSamplePx && _path.length > 1) return;
                     final moved =
                         (event.localPosition - _path.first).distance >
-                            kDragCommitPx;
+                            kStrokeCommitPx;
                     setState(() {
                       _path.add(event.localPosition);
                       if (moved) _panMoved = true;
@@ -189,11 +204,22 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
                   },
                 ),
               ),
-            if (_panMoved && _dragStart != null && _dragCurrent != null)
-              _DraftRect(
-                points: List<Offset>.unmodifiable(_path),
-                size: size,
-                tool: _effectiveTool,
+            if (_panMoved && _path.length >= 2)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: InkStrokePainter(
+                      strokes: [
+                        [
+                          for (final p in _path) [p.dx, p.dy],
+                        ],
+                      ],
+                      color: _draftColor,
+                      strokeWidth: _draftStrokeWidth,
+                      normalized: false,
+                    ),
+                  ),
+                ),
               ),
           ],
         );
@@ -212,17 +238,37 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
     final tool = toolOverride ?? widget.activeTool;
     if (tool == AnnotationTool.none) return;
 
-    final MarkupRect? rect;
+    MarkupRect? rect;
+    List<List<List<double>>>? strokes;
+
     if (tool.needsText) {
       rect = computePinRect(canvasSize: size, point: points.first);
     } else if (tool.isMarkup) {
-      rect = computeMarkupRect(
-        tool: tool,
+      final stroke = normalizePixelStroke(canvasSize: size, points: points);
+      if (stroke == null) {
+        if (!mounted) return;
+        HapticFeedback.lightImpact();
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        messenger
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context).strokeTooShortHint),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(milliseconds: 1600),
+            ),
+          );
+        return;
+      }
+      final strokeWidth =
+          widget.strokeWidthPx ?? strokeWidthPxForTool(tool);
+      rect = boundingRectForStroke(
         canvasSize: size,
-        points: points,
+        stroke: stroke,
+        strokeWidthPx: strokeWidth,
       );
-      // Gesto demasiado corto → no crear marca accidental.
       if (rect == null) return;
+      strokes = [stroke];
     } else {
       return;
     }
@@ -237,59 +283,11 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
         y: rect.y,
         width: rect.width,
         height: rect.height,
+        strokes: strokes,
       );
     } finally {
       if (mounted) setState(() => _creating = false);
     }
-  }
-}
-
-class _DraftRect extends StatelessWidget {
-  const _DraftRect({
-    required this.points,
-    required this.size,
-    required this.tool,
-  });
-
-  final List<Offset> points;
-  final Size size;
-  final AnnotationTool tool;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!tool.isMarkup || points.isEmpty) return const SizedBox.shrink();
-
-    final rect = computeMarkupRect(
-      tool: tool,
-      canvasSize: size,
-      points: points,
-    );
-    if (rect == null) return const SizedBox.shrink();
-
-    final left = rect.x * size.width;
-    final top = rect.y * size.height;
-    final width = safeClamp(rect.width * size.width, 2.0, size.width);
-    final height = safeClamp(rect.height * size.height, 2.0, size.height);
-    final color = tool.annotationType?.defaultColor ?? AppColors.ebonyAccent;
-
-    return Positioned(
-      left: left,
-      top: top,
-      width: width,
-      height: height,
-      child: IgnorePointer(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: tool == AnnotationTool.highlight
-                ? color.withValues(alpha: 0.55)
-                : color.withValues(alpha: 0.9),
-            borderRadius: tool == AnnotationTool.underline
-                ? BorderRadius.circular(1)
-                : BorderRadius.zero,
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -311,6 +309,19 @@ class _AnnotationMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
+
+    if (annotation.type.isMarkup && annotation.hasInk) {
+      return Positioned.fill(
+        child: _InkMarkupHitTarget(
+          annotation: annotation,
+          canvasSize: canvasSize,
+          interactive: interactive,
+          onTap: onTap,
+          onLongPress: onLongPress,
+        ),
+      );
+    }
+
     final left = annotation.x * canvasSize.width;
     final top = annotation.y * canvasSize.height;
     final width = safeClamp(
@@ -342,7 +353,6 @@ class _AnnotationMark extends StatelessWidget {
         _PinnedMark(annotation: annotation, colors: colors),
     };
 
-    // Zona táctil mínima para subrayados finos.
     final hitHeight = annotation.type == AnnotationType.underline
         ? math.max(height, 14.0)
         : height;
@@ -380,6 +390,75 @@ class _AnnotationMark extends StatelessWidget {
               : child,
         ),
       ),
+    );
+  }
+}
+
+class _InkMarkupHitTarget extends StatelessWidget {
+  const _InkMarkupHitTarget({
+    required this.annotation,
+    required this.canvasSize,
+    required this.interactive,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final PageAnnotation annotation;
+  final Size canvasSize;
+  final bool interactive;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final left = annotation.x * canvasSize.width;
+    final top = annotation.y * canvasSize.height;
+    final width = safeClamp(
+      annotation.width * canvasSize.width,
+      8.0,
+      canvasSize.width.isFinite ? canvasSize.width : 8.0,
+    );
+    final height = safeClamp(
+      annotation.height * canvasSize.height,
+      8.0,
+      canvasSize.height.isFinite ? canvasSize.height : 8.0,
+    );
+    final strokePx = annotation.effectiveStrokeWidth;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        IgnorePointer(
+          child: CustomPaint(
+            painter: InkStrokePainter(
+              strokes: annotation.inkStrokes,
+              color: annotation.color,
+              strokeWidth: strokePx,
+              normalized: true,
+            ),
+          ),
+        ),
+        Positioned(
+          left: left,
+          top: top,
+          width: width,
+          height: height,
+          child: Semantics(
+            button: interactive,
+            label: annotation.type.label(AppLocalizations.of(context)),
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: interactive ? onTap : null,
+              onLongPress: interactive
+                  ? () {
+                      HapticFeedback.mediumImpact();
+                      onLongPress();
+                    }
+                  : null,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

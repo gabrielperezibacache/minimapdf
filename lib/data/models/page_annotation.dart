@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
@@ -75,6 +77,8 @@ class PageAnnotation {
     required this.y,
     required this.width,
     required this.height,
+    this.inkJson,
+    this.strokeWidth,
     required this.colorValue,
     required this.createdAt,
   });
@@ -86,16 +90,67 @@ class PageAnnotation {
   final String? text;
 
   /// Coordenadas normalizadas (0–1) respecto al área visible de la página.
+  ///
+  /// Para marcado/subrayado con tinta, es el bounding box del trazo (hit-test).
   final double x;
   final double y;
   final double width;
   final double height;
+
+  /// Trazos a mano alzada normalizados (JSON), estilo Samsung Notes.
+  ///
+  /// Filas antiguas (sin tinta) se pintan como rectángulo axis-aligned.
+  final String? inkJson;
+
+  /// Grosor del trazo en píxeles de pantalla (marcado/subrayado).
+  ///
+  /// Null en filas antiguas → se usa el grosor por defecto del tipo.
+  final double? strokeWidth;
   final int colorValue;
   final DateTime createdAt;
 
   Color get color => Color(colorValue);
 
   bool get hasText => text != null && text!.trim().isNotEmpty;
+
+  bool get hasInk => inkStrokes.isNotEmpty;
+
+  /// Grosor efectivo para pintar (persisted o default por tipo).
+  double get effectiveStrokeWidth {
+    final stored = strokeWidth;
+    if (stored != null && stored.isFinite && stored > 0) return stored;
+    return type == AnnotationType.highlight ? 24.0 : 3.5;
+  }
+
+  List<List<List<double>>> get inkStrokes {
+    final raw = inkJson;
+    if (raw == null || raw.isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return decoded
+          .map<List<List<double>>>((stroke) {
+            if (stroke is! List) return <List<double>>[];
+            final points = <List<double>>[];
+            for (final point in stroke) {
+              if (point is! List || point.length < 2) continue;
+              if (point[0] is! num || point[1] is! num) continue;
+              final x = (point[0] as num).toDouble();
+              final y = (point[1] as num).toDouble();
+              if (!x.isFinite || !y.isFinite) continue;
+              points.add([
+                x.clamp(0.0, 1.0).toDouble(),
+                y.clamp(0.0, 1.0).toDouble(),
+              ]);
+            }
+            return points;
+          })
+          .where((stroke) => stroke.length >= 2)
+          .toList(growable: false);
+    } catch (_) {
+      return const [];
+    }
+  }
 
   PageAnnotation copyWith({
     int? id,
@@ -107,12 +162,17 @@ class PageAnnotation {
     double? y,
     double? width,
     double? height,
+    String? inkJson,
+    double? strokeWidth,
     int? colorValue,
     DateTime? createdAt,
     bool clearText = false,
+    bool clearInkJson = false,
+    bool clearStrokeWidth = false,
+    bool clearId = false,
   }) {
     return PageAnnotation(
-      id: id ?? this.id,
+      id: clearId ? null : (id ?? this.id),
       bookId: bookId ?? this.bookId,
       pageNumber: pageNumber ?? this.pageNumber,
       type: type ?? this.type,
@@ -121,6 +181,8 @@ class PageAnnotation {
       y: y ?? this.y,
       width: width ?? this.width,
       height: height ?? this.height,
+      inkJson: clearInkJson ? null : (inkJson ?? this.inkJson),
+      strokeWidth: clearStrokeWidth ? null : (strokeWidth ?? this.strokeWidth),
       colorValue: colorValue ?? this.colorValue,
       createdAt: createdAt ?? this.createdAt,
     );
@@ -137,6 +199,8 @@ class PageAnnotation {
       'y': y,
       'width': width,
       'height': height,
+      'ink_json': inkJson,
+      'stroke_width': strokeWidth,
       'color_value': colorValue,
       'created_at': createdAt.toIso8601String(),
     };
@@ -188,6 +252,8 @@ class PageAnnotation {
         y: y,
         width: width,
         height: height,
+        inkJson: _asNullableString(map['ink_json']),
+        strokeWidth: _asDouble(map['stroke_width']),
         colorValue: colorValue,
         createdAt: createdAt,
       );
@@ -239,6 +305,8 @@ class PageAnnotation {
         other.y == y &&
         other.width == width &&
         other.height == height &&
+        other.inkJson == inkJson &&
+        other.strokeWidth == strokeWidth &&
         other.colorValue == colorValue &&
         other.createdAt == createdAt;
   }
@@ -254,6 +322,8 @@ class PageAnnotation {
         y,
         width,
         height,
+        inkJson,
+        strokeWidth,
         colorValue,
         createdAt,
       );

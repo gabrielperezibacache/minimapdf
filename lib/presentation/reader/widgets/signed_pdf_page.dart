@@ -34,6 +34,9 @@ class SignedPdfPage extends StatefulWidget {
     this.annotations = const [],
     this.activeTool = AnnotationTool.none,
     this.annotationsEnabled = true,
+    this.documentGeneration = 0,
+    this.inkColor,
+    this.strokeWidthPx,
     this.onCreateAnnotation,
     this.onOpenAnnotation,
     this.onDeleteAnnotation,
@@ -57,6 +60,10 @@ class SignedPdfPage extends StatefulWidget {
   final List<PageAnnotation> annotations;
   final AnnotationTool activeTool;
   final bool annotationsEnabled;
+  /// Invalida la caché de imagen al reemplazar el PDF en disco.
+  final int documentGeneration;
+  final Color? inkColor;
+  final double? strokeWidthPx;
   final Future<void> Function({
     required int pageNumber,
     required AnnotationTool tool,
@@ -64,6 +71,7 @@ class SignedPdfPage extends StatefulWidget {
     required double y,
     required double width,
     required double height,
+    List<List<List<double>>>? strokes,
   })? onCreateAnnotation;
   final ValueChanged<PageAnnotation>? onOpenAnnotation;
   final ValueChanged<PageAnnotation>? onDeleteAnnotation;
@@ -88,7 +96,8 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
   @override
   void didUpdateWidget(covariant SignedPdfPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.pageNumber != widget.pageNumber) {
+    if (oldWidget.pageNumber != widget.pageNumber ||
+        oldWidget.documentGeneration != widget.documentGeneration) {
       _cachedBytes = null;
       _cachedPageNumber = null;
       _loadError = null;
@@ -168,12 +177,15 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
               annotations: widget.annotations,
               activeTool: widget.activeTool,
               enabled: widget.annotationsEnabled && !widget.placementMode,
+              inkColor: widget.inkColor,
+              strokeWidthPx: widget.strokeWidthPx,
               onCreateRect: ({
                 required AnnotationTool tool,
                 required double x,
                 required double y,
                 required double width,
                 required double height,
+                List<List<List<double>>>? strokes,
               }) {
                 return widget.onCreateAnnotation!(
                   pageNumber: widget.pageNumber,
@@ -182,6 +194,7 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
                   y: y,
                   width: width,
                   height: height,
+                  strokes: strokes,
                 );
               },
               onOpenAnnotation: widget.onOpenAnnotation!,

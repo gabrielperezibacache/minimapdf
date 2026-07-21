@@ -567,4 +567,12 @@ class LibraryDatabase {
       whereArgs: [id],
     );
   }
+
+  Future<int> deletePageAnnotationsForBook(int bookId) async {
+    return _db.delete(
+      DatabaseConfig.tablePageAnnotations,
+      where: 'book_id = ?',
+      whereArgs: [bookId],
+    );
+  }
 }

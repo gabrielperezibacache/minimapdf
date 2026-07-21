@@ -97,21 +97,9 @@ class SignatureLayer extends StatelessWidget {
                         maxTop <= 0 ? 0.0 : (dy / maxTop).clamp(0.0, 1.0);
                     onPlaceTap!(x.toDouble(), y.toDouble());
                   },
+                  // Solo tinte: el banner superior lleva el texto de ayuda.
                   child: ColoredBox(
                     color: AppColors.ebonyAccent.withValues(alpha: 0.08),
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: Padding(
-                        padding: EdgeInsets.only(top: effectiveTopReserve + 12),
-                        child: Text(
-                          AppLocalizations.of(context).placeSignatureHint,
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelLarge
-                              ?.copyWith(color: AppColors.ebonyAccent),
-                        ),
-                      ),
-                    ),
                   ),
                 ),
               ),

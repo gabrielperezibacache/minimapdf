@@ -33,6 +33,7 @@ void main() {
                   required y,
                   required width,
                   required height,
+                  strokes,
                 }) async {
                   created = true;
                   gotTool = tool;
@@ -57,10 +58,10 @@ void main() {
     expect(gotY, closeTo(0.5 - 0.0275, 0.08));
   });
 
-  testWidgets('arrastre con Marcado invoca onCreateRect', (tester) async {
+  testWidgets('arrastre con Marcado guarda trazo libre', (tester) async {
     var created = false;
     var gotWidth = 0.0;
-    var gotHeight = 0.0;
+    List<List<List<double>>>? gotStrokes;
 
     await tester.pumpWidget(
       l10nTestApp(
@@ -80,10 +81,11 @@ void main() {
                   required y,
                   required width,
                   required height,
+                  strokes,
                 }) async {
                   created = true;
                   gotWidth = width;
-                  gotHeight = height;
+                  gotStrokes = strokes;
                 },
                 onOpenAnnotation: (_) {},
                 onDeleteAnnotation: (_) {},
@@ -104,13 +106,15 @@ void main() {
 
     expect(created, isTrue);
     expect(gotWidth, greaterThan(0.25));
-    expect(gotHeight, lessThan(0.05));
+    expect(gotStrokes, isNotNull);
+    expect(gotStrokes!, hasLength(1));
+    expect(gotStrokes!.first.length, greaterThanOrEqualTo(2));
   });
 
-  testWidgets('arrastre con Subrayado crea trazo fino', (tester) async {
+  testWidgets('arrastre con Subrayado guarda trazo fino', (tester) async {
     var created = false;
-    var gotHeight = 0.0;
     var gotWidth = 0.0;
+    List<List<List<double>>>? gotStrokes;
 
     await tester.pumpWidget(
       l10nTestApp(
@@ -130,10 +134,11 @@ void main() {
                   required y,
                   required width,
                   required height,
+                  strokes,
                 }) async {
                   created = true;
                   gotWidth = width;
-                  gotHeight = height;
+                  gotStrokes = strokes;
                 },
                 onOpenAnnotation: (_) {},
                 onDeleteAnnotation: (_) {},
@@ -154,7 +159,8 @@ void main() {
 
     expect(created, isTrue);
     expect(gotWidth, greaterThan(0.2));
-    expect(gotHeight, lessThan(0.02));
+    expect(gotStrokes, isNotNull);
+    expect(gotStrokes!.first.length, greaterThanOrEqualTo(2));
   });
 
   testWidgets('toque con Marcado no crea marca accidental', (tester) async {
@@ -178,6 +184,7 @@ void main() {
                   required y,
                   required width,
                   required height,
+                  strokes,
                 }) async {
                   created = true;
                 },
@@ -200,6 +207,7 @@ void main() {
     var created = false;
     var gotWidth = 0.0;
     AnnotationTool? gotTool;
+    List<List<List<double>>>? gotStrokes;
 
     await tester.pumpWidget(
       l10nTestApp(
@@ -219,10 +227,12 @@ void main() {
                   required y,
                   required width,
                   required height,
+                  strokes,
                 }) async {
                   created = true;
                   gotTool = tool;
                   gotWidth = width;
+                  gotStrokes = strokes;
                 },
                 onOpenAnnotation: (_) {},
                 onDeleteAnnotation: (_) {},
@@ -246,6 +256,7 @@ void main() {
     expect(created, isTrue);
     expect(gotTool, AnnotationTool.highlight);
     expect(gotWidth, greaterThan(0.3));
+    expect(gotStrokes, isNotNull);
   });
 
   testWidgets('muestra anotación existente y permite abrirla', (tester) async {
@@ -282,6 +293,7 @@ void main() {
                   required y,
                   required width,
                   required height,
+                  strokes,
                 }) async {},
                 onOpenAnnotation: (_) => opened = true,
                 onDeleteAnnotation: (_) {},
