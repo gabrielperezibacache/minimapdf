@@ -259,6 +259,114 @@ void main() {
     expect(gotStrokes, isNotNull);
   });
 
+  testWidgets('S-Pen gana frente a un toque de palma previo', (tester) async {
+    var created = false;
+    AnnotationTool? gotTool;
+
+    await tester.pumpWidget(
+      l10nTestApp(
+        theme: AppTheme.ebony,
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 400,
+              height: 800,
+              child: PageAnnotationsLayer(
+                annotations: const [],
+                activeTool: AnnotationTool.underline,
+                enabled: true,
+                onCreateRect: ({
+                  required tool,
+                  required x,
+                  required y,
+                  required width,
+                  required height,
+                  strokes,
+                }) async {
+                  created = true;
+                  gotTool = tool;
+                },
+                onOpenAnnotation: (_) {},
+                onDeleteAnnotation: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final center = tester.getCenter(find.byType(PageAnnotationsLayer));
+    // Palma/dedo empieza un trazo corto.
+    final palm = await tester.startGesture(
+      center - const Offset(40, 0),
+      kind: PointerDeviceKind.touch,
+    );
+    await palm.moveBy(const Offset(10, 0));
+    // S-Pen toma el control.
+    final stylus = await tester.startGesture(
+      center - const Offset(60, 2),
+      kind: PointerDeviceKind.stylus,
+    );
+    await stylus.moveBy(const Offset(160, 3));
+    await stylus.up();
+    await palm.up();
+    await tester.pumpAndSettle();
+
+    expect(created, isTrue);
+    expect(gotTool, AnnotationTool.underline);
+  });
+
+  testWidgets('un solo dedo crea marcado (sin necesitar dos dedos)',
+      (tester) async {
+    var created = false;
+
+    await tester.pumpWidget(
+      l10nTestApp(
+        theme: AppTheme.ebony,
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 400,
+              height: 800,
+              child: PageAnnotationsLayer(
+                annotations: const [],
+                activeTool: AnnotationTool.highlight,
+                enabled: true,
+                onCreateRect: ({
+                  required tool,
+                  required x,
+                  required y,
+                  required width,
+                  required height,
+                  strokes,
+                }) async {
+                  created = true;
+                },
+                onOpenAnnotation: (_) {},
+                onDeleteAnnotation: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final start =
+        tester.getCenter(find.byType(PageAnnotationsLayer)) - const Offset(90, 0);
+    final finger = await tester.startGesture(
+      start,
+      kind: PointerDeviceKind.touch,
+    );
+    for (var i = 0; i < 12; i++) {
+      await finger.moveBy(const Offset(12, 1));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await finger.up();
+    await tester.pumpAndSettle();
+
+    expect(created, isTrue);
+  });
+
   testWidgets('muestra anotación existente y permite abrirla', (tester) async {
     var opened = false;
     final annotation = PageAnnotation(
