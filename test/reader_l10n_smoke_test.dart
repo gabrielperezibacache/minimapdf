@@ -19,6 +19,8 @@ void main() {
       expect(l10n.snapToTextOff, isNot(equals('snapToTextOff')));
       expect(l10n.snapToTextHint, isNot(equals('snapToTextHint')));
       expect(l10n.selectTextTool, isNot(equals('selectTextTool')));
+      expect(l10n.searchTextTool, isNot(equals('searchTextTool')));
+      expect(l10n.searchTextNoResults, isNot(equals('searchTextNoResults')));
       expect(l10n.selectTextHint, isNot(equals('selectTextHint')));
       expect(l10n.noSelectableText, isNot(equals('noSelectableText')));
       expect(l10n.copyText, isNot(equals('copyText')));

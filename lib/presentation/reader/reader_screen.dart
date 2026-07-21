@@ -31,6 +31,7 @@ import '../providers/reader_annotations_provider.dart';
 import '../signing/signature_sheet.dart';
 import 'reader_scroll_mode.dart';
 import 'reading_progress_saver.dart';
+import 'pdf_text_search.dart';
 import 'widgets/annotation_toolbox.dart';
 import 'widgets/floating_page_note.dart';
 import 'widgets/note_edit_sheet.dart';
@@ -58,6 +59,16 @@ class _ReaderScreenState extends State<ReaderScreen>
   List<PdfLineBox> _currentPageLines = const [];
   bool _textSelecting = false;
   String _selectedText = '';
+  /// Modo buscador de texto del menú ⋯.
+  bool _textSearching = false;
+  String _searchQuery = '';
+  List<PdfTextMatch> _searchMatches = const [];
+  int _searchMatchIndex = 0;
+  bool _searchBusy = false;
+  int _searchGeneration = 0;
+  final TextEditingController _searchFieldController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  Timer? _searchDebounce;
   ReadingProgressSaver? _progressSaver;
   ReaderAnnotationsProvider? _annotations;
   AppPreferences? _preferences;
@@ -299,6 +310,9 @@ class _ReaderScreenState extends State<ReaderScreen>
     }
     _pageController.dispose();
     _pageZoomController.dispose();
+    _searchDebounce?.cancel();
+    _searchFieldController.dispose();
+    _searchFocusNode.dispose();
     _pageImageFutures.clear();
     final document = _openedDocument;
     _openedDocument = null;
@@ -395,6 +409,7 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   void _enterTextSelection() {
     if (_signing?.placementMode == true) _signing?.cancelPlacementMode();
+    if (_textSearching) _exitTextSearch();
     _annotations?.clearTool();
     _annotations?.setToolboxVisible(false);
     _resetPageZoom();
@@ -411,6 +426,116 @@ class _ReaderScreenState extends State<ReaderScreen>
       _textSelecting = false;
       _selectedText = '';
     });
+  }
+
+  void _enterTextSearch() {
+    if (_signing?.placementMode == true) _signing?.cancelPlacementMode();
+    _annotations?.clearTool();
+    _annotations?.setToolboxVisible(false);
+    _resetPageZoom();
+    setState(() {
+      _textSelecting = false;
+      _selectedText = '';
+      _textSearching = true;
+      _controlsVisible = true;
+      _searchQuery = _searchFieldController.text;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocusNode.requestFocus();
+    });
+    if (_searchQuery.trim().isNotEmpty) {
+      unawaited(_runTextSearch(_searchQuery));
+    }
+  }
+
+  void _exitTextSearch() {
+    _searchDebounce?.cancel();
+    _searchGeneration++;
+    setState(() {
+      _textSearching = false;
+      _searchMatches = const [];
+      _searchMatchIndex = 0;
+      _searchBusy = false;
+    });
+  }
+
+  void _onSearchQueryChanged(String value) {
+    setState(() => _searchQuery = value);
+    _searchDebounce?.cancel();
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      _searchGeneration++;
+      setState(() {
+        _searchMatches = const [];
+        _searchMatchIndex = 0;
+        _searchBusy = false;
+      });
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 320), () {
+      unawaited(_runTextSearch(trimmed));
+    });
+  }
+
+  Future<void> _runTextSearch(String query) async {
+    final service = _pdfText;
+    final pageCount = _pagesCount;
+    if (service == null || pageCount < 1) {
+      setState(() {
+        _searchMatches = const [];
+        _searchMatchIndex = 0;
+        _searchBusy = false;
+      });
+      return;
+    }
+    final generation = ++_searchGeneration;
+    setState(() => _searchBusy = true);
+    final matches = <PdfTextMatch>[];
+    for (var i = 0; i < pageCount; i++) {
+      if (!mounted || generation != _searchGeneration) return;
+      final lines = await service.linesForPage(i);
+      if (!mounted || generation != _searchGeneration) return;
+      matches.addAll(
+        findMatchesInLines(
+          lines: lines,
+          query: query,
+          pageNumber: i + 1,
+        ),
+      );
+    }
+    if (!mounted || generation != _searchGeneration) return;
+    setState(() {
+      _searchMatches = matches;
+      _searchMatchIndex = 0;
+      _searchBusy = false;
+    });
+    if (matches.isNotEmpty) {
+      _revealSearchMatch(0);
+    }
+  }
+
+  void _revealSearchMatch(int index) {
+    if (_searchMatches.isEmpty) return;
+    final safe = index.clamp(0, _searchMatches.length - 1);
+    final match = _searchMatches[safe];
+    setState(() => _searchMatchIndex = safe);
+    if (match.pageNumber != _currentPage) {
+      _jumpToPage(match.pageNumber);
+    }
+  }
+
+  void _goToPreviousSearchMatch() {
+    if (_searchMatches.isEmpty) return;
+    final next = (_searchMatchIndex - 1) < 0
+        ? _searchMatches.length - 1
+        : _searchMatchIndex - 1;
+    _revealSearchMatch(next);
+  }
+
+  void _goToNextSearchMatch() {
+    if (_searchMatches.isEmpty) return;
+    final next = (_searchMatchIndex + 1) % _searchMatches.length;
+    _revealSearchMatch(next);
   }
 
   Future<void> _copySelectedText() async {
@@ -540,6 +665,10 @@ class _ReaderScreenState extends State<ReaderScreen>
     }
     if (_textSelecting) {
       _exitTextSelection();
+      return;
+    }
+    if (_textSearching) {
+      _exitTextSearch();
       return;
     }
     final annotations = _annotations;
@@ -1389,6 +1518,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                 if (_controlsVisible &&
                     !toolboxVisible &&
                     !_textSelecting &&
+                    !_textSearching &&
                     activeTool == AnnotationTool.none)
                   _buildBottomBar(
                     colors,
@@ -1397,7 +1527,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                     annotationCount: pageAnnotations.length,
                   ),
                 if (_textSelecting) _buildTextSelectionBar(colors),
-                if (_controlsVisible && !_textSelecting)
+                if (_textSearching) _buildTextSearchBar(colors),
+                if (_controlsVisible && !_textSelecting && !_textSearching)
                   Positioned(
                     left: 0,
                     right: 0,
@@ -1676,6 +1807,23 @@ class _ReaderScreenState extends State<ReaderScreen>
               if (_selectedText == t) return;
               setState(() => _selectedText = t);
             },
+            searchHighlights: [
+              for (final m in _searchMatches)
+                if (m.pageNumber == pageNumber) m.rect,
+            ],
+            activeSearchHighlightIndex: () {
+              if (_searchMatches.isEmpty) return null;
+              if (_searchMatches[_searchMatchIndex].pageNumber != pageNumber) {
+                return null;
+              }
+              var i = 0;
+              for (var j = 0; j < _searchMatches.length; j++) {
+                if (_searchMatches[j].pageNumber != pageNumber) continue;
+                if (j == _searchMatchIndex) return i;
+                i++;
+              }
+              return null;
+            }(),
             ebonyFilter: _ebonyFilter,
             placementMode: placementOnPage,
             onPlaceTap: _openSignatureSheetAt,
@@ -1848,6 +1996,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                         _editNote();
                       case _ReaderToolAction.selectText:
                         _enterTextSelection();
+                      case _ReaderToolAction.searchText:
+                        _enterTextSearch();
                       case _ReaderToolAction.ebonyFilter:
                         _toggleFilter();
                       case _ReaderToolAction.hideControls:
@@ -1910,6 +2060,14 @@ class _ReaderScreenState extends State<ReaderScreen>
                         child: _ReaderToolMenuRow(
                           icon: Icons.text_fields,
                           label: l10n.selectTextTool,
+                          color: AppColors.ebonyAccent,
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: _ReaderToolAction.searchText,
+                        child: _ReaderToolMenuRow(
+                          icon: Icons.search,
+                          label: l10n.searchTextTool,
                           color: AppColors.ebonyAccent,
                         ),
                       ),
@@ -2081,6 +2239,132 @@ class _ReaderScreenState extends State<ReaderScreen>
                   ],
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Barra inferior del buscador de texto.
+  Widget _buildTextSearchBar(AppPalette colors) {
+    final l10n = AppLocalizations.of(context);
+    final total = _searchMatches.length;
+    final hasMatches = total > 0;
+    final status = _searchBusy
+        ? l10n.searchTextSearching
+        : (_searchQuery.trim().isEmpty
+            ? l10n.searchTextHint
+            : (hasMatches
+                ? l10n.searchTextMatchOf(_searchMatchIndex + 1, total)
+                : l10n.searchTextNoResults));
+
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: Material(
+        color: colors.panel.withValues(alpha: 0.98),
+        child: SafeArea(
+          top: false,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: AppColors.ebonyAccent.withValues(alpha: 0.45),
+                ),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.search,
+                        size: 20, color: AppColors.ebonyAccent),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchFieldController,
+                        focusNode: _searchFocusNode,
+                        autofocus: true,
+                        textInputAction: TextInputAction.search,
+                        onChanged: _onSearchQueryChanged,
+                        onSubmitted: (value) {
+                          if (value.trim().isEmpty) return;
+                          unawaited(_runTextSearch(value.trim()));
+                        },
+                        style: TextStyle(color: colors.text, fontSize: 15),
+                        cursorColor: AppColors.ebonyAccent,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: l10n.searchTextHint,
+                          hintStyle: TextStyle(color: colors.textMuted),
+                          border: InputBorder.none,
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                      ),
+                    ),
+                    if (_searchQuery.isNotEmpty)
+                      IconButton(
+                        tooltip: l10n.close,
+                        onPressed: () {
+                          _searchFieldController.clear();
+                          _onSearchQueryChanged('');
+                          _searchFocusNode.requestFocus();
+                        },
+                        icon: Icon(Icons.close, size: 18, color: colors.textMuted),
+                      ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        status,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: hasMatches
+                                  ? AppColors.ebonyAccent
+                                  : colors.textMuted,
+                              fontWeight: hasMatches
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: l10n.searchTextPrevious,
+                      onPressed: hasMatches ? _goToPreviousSearchMatch : null,
+                      icon: Icon(
+                        Icons.keyboard_arrow_up,
+                        color: hasMatches
+                            ? AppColors.ebonyAccent
+                            : colors.textMuted.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: l10n.searchTextNext,
+                      onPressed: hasMatches ? _goToNextSearchMatch : null,
+                      icon: Icon(
+                        Icons.keyboard_arrow_down,
+                        color: hasMatches
+                            ? AppColors.ebonyAccent
+                            : colors.textMuted.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: l10n.done,
+                      onPressed: _exitTextSearch,
+                      icon: const Icon(Icons.check,
+                          size: 20, color: AppColors.ebonyAccent),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -2435,6 +2719,7 @@ enum _ReaderToolAction {
   bookmark,
   note,
   selectText,
+  searchText,
   ebonyFilter,
   hideControls,
   share,

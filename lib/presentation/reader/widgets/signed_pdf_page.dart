@@ -12,9 +12,11 @@ import '../../../l10n/app_localizations.dart';
 import '../../../domain/pdf_text_service.dart';
 import '../../providers/reader_annotations_provider.dart';
 import '../../signing/signature_overlay.dart';
+import '../annotation_ink.dart' show MarkupRect;
 import '../pdf_text_selection.dart';
 import '../text_line_snap.dart';
 import 'page_annotations_layer.dart';
+import 'text_search_highlight_layer.dart';
 import 'text_selection_layer.dart';
 
 /// Página PDF con sellos de firma y anotaciones anclados al rectángulo de la página.
@@ -49,6 +51,8 @@ class SignedPdfPage extends StatefulWidget {
     this.textLines = const [],
     this.textSelecting = false,
     this.onTextSelected,
+    this.searchHighlights = const [],
+    this.activeSearchHighlightIndex,
     this.onCreateAnnotation,
     this.onOpenAnnotation,
     this.onDeleteAnnotation,
@@ -88,6 +92,10 @@ class SignedPdfPage extends StatefulWidget {
   /// Modo selección de texto activo (solo página actual).
   final bool textSelecting;
   final ValueChanged<String>? onTextSelected;
+  /// Resaltados de búsqueda en esta página (coords normalizadas).
+  final List<MarkupRect> searchHighlights;
+  /// Índice del resaltado activo dentro de [searchHighlights].
+  final int? activeSearchHighlightIndex;
   final Future<void> Function({
     required int pageNumber,
     required AnnotationTool tool,
@@ -343,6 +351,13 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
               onDelete: widget.onDelete,
             ),
           ],
+          if (widget.searchHighlights.isNotEmpty)
+            Positioned.fill(
+              child: TextSearchHighlightLayer(
+                highlights: widget.searchHighlights,
+                activeIndex: widget.activeSearchHighlightIndex,
+              ),
+            ),
           if (widget.textSelecting && widget.onTextSelected != null)
             Positioned.fill(
               child: TextSelectionLayer(
