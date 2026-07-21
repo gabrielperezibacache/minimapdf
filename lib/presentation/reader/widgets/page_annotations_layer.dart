@@ -15,11 +15,12 @@ import '../../signing/ink_stroke_painter.dart';
 import '../annotation_ink.dart';
 import '../annotation_markup_geometry.dart';
 
-/// Gana o cede la arena según el candado de navegación.
+/// Arena de marcado/subrayado.
 ///
-/// - Candado cerrado ([lockNavigation]): acepta al tocar (el PDF no roba el trazo).
-/// - Candado abierto: cede si hay 2+ dedos (zoom/pan) y solo acepta con un dedo
-///   tras un pequeño movimiento.
+/// - Candado cerrado o S-Pen: acepta al tocar (el primer contacto ya dibuja).
+/// - Candado abierto (dedo): acepta en el primer movimiento o a los ~16 ms si
+///   sigue un solo puntero; con 2º dedo cede para zoom/pan de PhotoView.
+/// - El scroll de página se bloquea aparte (NeverScrollable) con herramienta.
 class _MarkupArenaRecognizer extends OneSequenceGestureRecognizer {
   _MarkupArenaRecognizer({
     required this.lockNavigation,
@@ -32,8 +33,9 @@ class _MarkupArenaRecognizer extends OneSequenceGestureRecognizer {
   final Set<int> _pointers = <int>{};
   Offset? _startPosition;
   bool _resolved = false;
+  Timer? _acceptTimer;
 
-  static const double _unlockAcceptSlop = 8.0;
+  static const Duration _unlockAcceptDelay = Duration(milliseconds: 16);
 
   @override
   void addAllowedPointer(PointerDownEvent event) {
@@ -49,13 +51,34 @@ class _MarkupArenaRecognizer extends OneSequenceGestureRecognizer {
     }
     startTrackingPointer(event.pointer, event.transform);
     _startPosition ??= event.position;
-    if (lockNavigation) {
-      resolve(GestureDisposition.accepted);
-      _resolved = true;
+
+    final stylus = event.kind == PointerDeviceKind.stylus;
+    if (lockNavigation || stylus) {
+      _acceptNow();
+      return;
     }
+
+    // Candado abierto + dedo: esperar un instante por un 2º dedo (zoom),
+    // pero aceptar enseguida al menor movimiento para no perder el trazo.
+    _acceptTimer?.cancel();
+    _acceptTimer = Timer(_unlockAcceptDelay, () {
+      if (!_resolved && _pointers.length == 1) {
+        _acceptNow();
+      }
+    });
+  }
+
+  void _acceptNow() {
+    if (_resolved) return;
+    resolve(GestureDisposition.accepted);
+    _resolved = true;
+    _acceptTimer?.cancel();
+    _acceptTimer = null;
   }
 
   void _yieldToNavigation() {
+    _acceptTimer?.cancel();
+    _acceptTimer = null;
     if (!_resolved) {
       resolve(GestureDisposition.rejected);
       _resolved = true;
@@ -72,17 +95,16 @@ class _MarkupArenaRecognizer extends OneSequenceGestureRecognizer {
     if (!lockNavigation &&
         !_resolved &&
         event is PointerMoveEvent &&
-        _pointers.length == 1 &&
-        _startPosition != null) {
-      if ((event.position - _startPosition!).distance >= _unlockAcceptSlop) {
-        resolve(GestureDisposition.accepted);
-        _resolved = true;
-      }
+        _pointers.length == 1) {
+      // Cualquier movimiento con un dedo = dibujar (primer contacto).
+      _acceptNow();
     }
     if (event is PointerUpEvent || event is PointerCancelEvent) {
       _pointers.remove(event.pointer);
       stopTrackingPointer(event.pointer);
       if (_pointers.isEmpty) {
+        _acceptTimer?.cancel();
+        _acceptTimer = null;
         _startPosition = null;
         _resolved = false;
       }
@@ -97,9 +119,17 @@ class _MarkupArenaRecognizer extends OneSequenceGestureRecognizer {
     stopTrackingPointer(pointer);
     _pointers.remove(pointer);
     if (_pointers.isEmpty) {
+      _acceptTimer?.cancel();
+      _acceptTimer = null;
       _startPosition = null;
       _resolved = false;
     }
+  }
+
+  @override
+  void dispose() {
+    _acceptTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -189,7 +219,6 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
 
   bool get _captureGestures =>
       widget.enabled &&
-      !_creating &&
       (widget.activeTool != AnnotationTool.none || _draft.points.isNotEmpty);
 
   AnnotationTool get _effectiveTool => _gestureTool ?? widget.activeTool;
@@ -455,8 +484,13 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
     required List<Offset> points,
     AnnotationTool? toolOverride,
   }) async {
-    if (_creating || size.width <= 0 || size.height <= 0 || points.isEmpty) {
+    if (size.width <= 0 || size.height <= 0 || points.isEmpty) {
       return;
+    }
+    // No descartar el trazo si el anterior aún se está guardando.
+    while (_creating) {
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+      if (!mounted) return;
     }
     final tool = toolOverride ?? widget.activeTool;
     if (tool == AnnotationTool.none) return;

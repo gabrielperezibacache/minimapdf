@@ -551,9 +551,9 @@ const Map<String, Map<String, String>> _strings = {
     'emptySignaturesCta': 'Firmar documento',
     'currentPageBadge': 'Actual',
     'drawingLocksScrollHint':
-        'Candado cerrado: sin scroll ni zoom. Ábrelo para mover la página con dos dedos.',
+        'Candado cerrado: sin scroll ni zoom. Dibuja con un dedo o S-Pen.',
     'drawingAllowsScrollHint':
-        'Candado abierto: zoom y pan con dos dedos; un dedo sigue dibujando.',
+        'Candado abierto: un dedo dibuja; solo dos dedos hacen zoom o mueven la página.',
     'lockPageNavigation': 'Bloquear scroll y zoom',
     'unlockPageNavigation': 'Permitir scroll y zoom',
     'toolStillArmedHint': 'La herramienta sigue activa: puedes seguir dibujando.',
@@ -855,9 +855,9 @@ const Map<String, Map<String, String>> _strings = {
     'emptySignaturesCta': 'Sign document',
     'currentPageBadge': 'Current',
     'drawingLocksScrollHint':
-        'Lock closed: no scroll or zoom. Open it to move the page with two fingers.',
+        'Lock closed: no scroll or zoom. Draw with one finger or S-Pen.',
     'drawingAllowsScrollHint':
-        'Lock open: pinch-zoom and pan with two fingers; one finger still draws.',
+        'Lock open: one finger draws; only two fingers zoom or move the page.',
     'lockPageNavigation': 'Lock scroll and zoom',
     'unlockPageNavigation': 'Allow scroll and zoom',
     'toolStillArmedHint': 'Tool still armed: you can keep drawing.',
@@ -1158,9 +1158,9 @@ const Map<String, Map<String, String>> _strings = {
     'emptySignaturesCta': 'Assinar documento',
     'currentPageBadge': 'Atual',
     'drawingLocksScrollHint':
-        'Cadeado fechado: sem scroll nem zoom. Abra para mover a página com dois dedos.',
+        'Cadeado fechado: sem scroll nem zoom. Desenhe com um dedo ou S-Pen.',
     'drawingAllowsScrollHint':
-        'Cadeado aberto: zoom e pan com dois dedos; um dedo continua desenhando.',
+        'Cadeado aberto: um dedo desenha; só dois dedos fazem zoom ou movem a página.',
     'lockPageNavigation': 'Bloquear scroll e zoom',
     'unlockPageNavigation': 'Permitir scroll e zoom',
     'toolStillArmedHint': 'Ferramenta ainda ativa: pode continuar a desenhar.',
@@ -1459,9 +1459,9 @@ const Map<String, Map<String, String>> _strings = {
     'emptySignaturesCta': 'Signer le document',
     'currentPageBadge': 'Actuelle',
     'drawingLocksScrollHint':
-        'Cadenas fermé : pas de défilement ni de zoom. Ouvrez-le pour déplacer la page à deux doigts.',
+        'Cadenas fermé : pas de défilement ni de zoom. Dessinez d’un doigt ou au S-Pen.',
     'drawingAllowsScrollHint':
-        'Cadenas ouvert : zoom et panoramique à deux doigts ; un doigt continue de dessiner.',
+        'Cadenas ouvert : un doigt dessine ; seuls deux doigts zoom/déplacent la page.',
     'lockPageNavigation': 'Verrouiller le défilement et le zoom',
     'unlockPageNavigation': 'Autoriser le défilement et le zoom',
     'toolStillArmedHint': 'Outil toujours actif : vous pouvez continuer à dessiner.',
@@ -1762,9 +1762,9 @@ const Map<String, Map<String, String>> _strings = {
     'emptySignaturesCta': 'Dokument unterschreiben',
     'currentPageBadge': 'Aktuell',
     'drawingLocksScrollHint':
-        'Schloss zu: kein Scrollen oder Zoomen. Öffnen, um die Seite mit zwei Fingern zu bewegen.',
+        'Schloss zu: kein Scrollen oder Zoomen. Mit Finger oder S-Pen zeichnen.',
     'drawingAllowsScrollHint':
-        'Schloss offen: Zoomen und Schwenken mit zwei Fingern; ein Finger zeichnet weiter.',
+        'Schloss offen: ein Finger zeichnet; nur zwei Finger zoomen oder verschieben.',
     'lockPageNavigation': 'Scrollen und Zoomen sperren',
     'unlockPageNavigation': 'Scrollen und Zoomen erlauben',
     'toolStillArmedHint': 'Werkzeug bleibt aktiv: Sie können weiterzeichnen.',
@@ -2061,8 +2061,8 @@ const Map<String, Map<String, String>> _strings = {
     'emptyAnnotationsCta': '打开工具',
     'emptySignaturesCta': '签署文档',
     'currentPageBadge': '当前',
-    'drawingLocksScrollHint': '锁已关闭：无法滚动或缩放。打开后可用双指移动页面。',
-    'drawingAllowsScrollHint': '锁已打开：双指缩放/平移；单指仍可绘制。',
+    'drawingLocksScrollHint': '锁已关闭：无法滚动或缩放。用单指或 S-Pen 绘制。',
+    'drawingAllowsScrollHint': '锁已打开：单指绘制；仅双指可缩放或移动页面。',
     'lockPageNavigation': '锁定滚动和缩放',
     'unlockPageNavigation': '允许滚动和缩放',
     'toolStillArmedHint': '工具仍处于启用状态：可以继续绘制。',
@@ -2356,9 +2356,9 @@ const Map<String, Map<String, String>> _strings = {
     'emptySignaturesCta': 'Подписать документ',
     'currentPageBadge': 'Текущая',
     'drawingLocksScrollHint':
-        'Замок закрыт: без прокрутки и масштаба. Откройте, чтобы двигать страницу двумя пальцами.',
+        'Замок закрыт: без прокрутки и масштаба. Рисуйте одним пальцем или S-Pen.',
     'drawingAllowsScrollHint':
-        'Замок открыт: зум и панорама двумя пальцами; один палец по-прежнему рисует.',
+        'Замок открыт: один палец рисует; только два пальца зумят или двигают страницу.',
     'lockPageNavigation': 'Заблокировать прокрутку и масштаб',
     'unlockPageNavigation': 'Разрешить прокрутку и масштаб',
     'toolStillArmedHint': 'Инструмент всё ещё активен: можно продолжать рисовать.',

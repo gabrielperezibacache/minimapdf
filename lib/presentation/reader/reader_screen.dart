@@ -1417,9 +1417,9 @@ class _ReaderScreenState extends State<ReaderScreen>
     final placementMode = signing?.placementMode ?? false;
     final annotationsLayerEnabled = !placementMode && !_sidebarVisible;
     final navigationLocked = annotations?.navigationLocked ?? true;
-    // Solo el marcado/subrayado con candado cerrado bloquea el scroll.
-    final drawingLocksNavigation =
-        activeTool.isMarkup && navigationLocked;
+    // Con Marcado/Subrayado el scroll de página SIEMPRE se bloquea:
+    // un dedo dibuja; el candado abierto solo habilita zoom/pan con dos dedos.
+    final drawingLocksScroll = activeTool.isMarkup;
     final scaffoldBg =
         _ebonyFilter ? EbonyPdfFilter.background : colors.background;
 
@@ -1429,8 +1429,8 @@ class _ReaderScreenState extends State<ReaderScreen>
       controller: _controller,
       scrollDirection: isVertical ? Axis.vertical : Axis.horizontal,
       pageSnapping: !isVertical,
-      // Con marcado/subrayado activo el scroll se pausa para estabilizar el trazo.
-      physics: drawingLocksNavigation
+      // Un dedo no debe pasar página mientras se dibuja (candado abierto o cerrado).
+      physics: drawingLocksScroll
           ? const NeverScrollableScrollPhysics()
           : (isVertical
               ? const BouncingScrollPhysics()
@@ -1547,8 +1547,9 @@ class _ReaderScreenState extends State<ReaderScreen>
             ),
             // Debe coincidir con el SizedBox de SignedPdfPage (puntos PDF).
             childSize: pageSize,
-            // Solo marcado/subrayado con candado cerrado bloquea PhotoView.
-            // Chincheta permite zoom/pan (el scroll ya no se bloquea).
+            // Candado cerrado: sin gestos PhotoView.
+            // Candado abierto: PhotoView activo para zoom/pan con DOS dedos;
+            // el scroll de página ya está bloqueado (NeverScrollable).
             disableGestures:
                 (pageTool.isMarkup && navigationLocked) || placementOnPage,
             initialScale: PhotoViewComputedScale.contained * 1.0,
@@ -1926,7 +1927,8 @@ class _ReaderScreenState extends State<ReaderScreen>
   }) {
     final l10n = AppLocalizations.of(context);
     final showLock = activeTool.isMarkup;
-    final showPageNav = activeTool.isMarkup && navigationLocked && _pagesCount > 1;
+    // El scroll de página está bloqueado con cualquier markup armado.
+    final showPageNav = activeTool.isMarkup && _pagesCount > 1;
     return Positioned(
       left: 0,
       right: 0,
