@@ -7,6 +7,7 @@ class InkStrokePainter extends CustomPainter {
     required this.color,
     this.strokeWidth = 2.0,
     this.normalized = true,
+    this.blendMode = BlendMode.srcOver,
   });
 
   /// Trazos como listas de puntos `[x, y]`.
@@ -14,6 +15,7 @@ class InkStrokePainter extends CustomPainter {
   final Color color;
   final double strokeWidth;
   final bool normalized;
+  final BlendMode blendMode;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -22,7 +24,8 @@ class InkStrokePainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+      ..strokeJoin = StrokeJoin.round
+      ..blendMode = blendMode;
 
     for (final stroke in strokes) {
       if (stroke.length < 2) continue;
@@ -48,6 +51,7 @@ class InkStrokePainter extends CustomPainter {
     return oldDelegate.strokes != strokes ||
         oldDelegate.color != color ||
         oldDelegate.strokeWidth != strokeWidth ||
-        oldDelegate.normalized != normalized;
+        oldDelegate.normalized != normalized ||
+        oldDelegate.blendMode != blendMode;
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Color;
@@ -370,6 +371,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     required double width,
     required double height,
     String? text,
+    List<List<List<double>>>? strokes,
   }) async {
     PageAnnotation? created;
     await _enqueue(() async {
@@ -381,6 +383,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
         width: width,
         height: height,
         text: text,
+        strokes: strokes,
       );
     });
     return created;
@@ -394,6 +397,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     required double width,
     required double height,
     String? text,
+    List<List<List<double>>>? strokes,
   }) async {
     final bookId = _bookId;
     if (_disposed || bookId == null || pageNumber < 1) return null;
@@ -403,6 +407,15 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
       _error = AppMessageKeys.annotationGeometryInvalid;
       _safeNotify();
       return null;
+    }
+    String? inkJson;
+    if (strokes != null && strokes.isNotEmpty) {
+      final valid = strokes
+          .where((stroke) => stroke.length >= 2)
+          .toList(growable: false);
+      if (valid.isNotEmpty) {
+        inkJson = jsonEncode(valid);
+      }
     }
     try {
       final created = await _datasource.insertPageAnnotation(
@@ -415,6 +428,7 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
           y: clamped.$2,
           width: clamped.$3,
           height: clamped.$4,
+          inkJson: inkJson,
           colorValue: _colorToArgb(type.defaultColor),
           createdAt: DateTime.now(),
         ),

@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Keystore temporal para descarga local (NUNCA commit)
+.local-secrets/

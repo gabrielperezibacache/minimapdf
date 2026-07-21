@@ -166,11 +166,14 @@ void main() {
         y: 0.2,
         width: 0.4,
         height: 0.05,
+        inkJson: '[[[0.1,0.22],[0.3,0.23],[0.45,0.21]]]',
         colorValue: 0x99C89A5A,
         createdAt: DateTime.utc(2026, 7, 4),
       );
       expect(PageAnnotation.fromMap(annotation.toMap()), annotation);
       expect(annotation.type.labelEs, 'Marcado');
+      expect(annotation.hasInk, isTrue);
+      expect(annotation.inkStrokes.first, hasLength(3));
     });
 
     test('PageAnnotation.tryFromMap ignora filas corruptas', () {

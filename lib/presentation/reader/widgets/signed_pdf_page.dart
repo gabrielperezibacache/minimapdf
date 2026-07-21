@@ -64,6 +64,7 @@ class SignedPdfPage extends StatefulWidget {
     required double y,
     required double width,
     required double height,
+    List<List<List<double>>>? strokes,
   })? onCreateAnnotation;
   final ValueChanged<PageAnnotation>? onOpenAnnotation;
   final ValueChanged<PageAnnotation>? onDeleteAnnotation;
@@ -174,6 +175,7 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
                 required double y,
                 required double width,
                 required double height,
+                List<List<List<double>>>? strokes,
               }) {
                 return widget.onCreateAnnotation!(
                   pageNumber: widget.pageNumber,
@@ -182,6 +184,7 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
                   y: y,
                   width: width,
                   height: height,
+                  strokes: strokes,
                 );
               },
               onOpenAnnotation: widget.onOpenAnnotation!,

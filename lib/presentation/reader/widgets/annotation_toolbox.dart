@@ -154,6 +154,8 @@ class AnnotationToolbox extends StatelessWidget {
                               selected: activeTool == tool,
                               label: tool.label(l10n),
                               icon: tool.annotationType!.icon,
+                              inkPreview: tool.isMarkup,
+                              thickInk: tool == AnnotationTool.highlight,
                               onTap: () {
                                 HapticFeedback.selectionClick();
                                 onSelectTool(tool);
@@ -200,12 +202,16 @@ class _ToolChip extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.onTap,
+    this.inkPreview = false,
+    this.thickInk = false,
   });
 
   final bool selected;
   final String label;
   final IconData icon;
   final VoidCallback onTap;
+  final bool inkPreview;
+  final bool thickInk;
 
   @override
   Widget build(BuildContext context) {
@@ -248,6 +254,21 @@ class _ToolChip extends StatelessWidget {
                         fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                       ),
                 ),
+                if (inkPreview) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 18,
+                    height: thickInk ? 10 : 2.5,
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? fg.withValues(alpha: thickInk ? 0.55 : 0.9)
+                          : AppColors.ebonyAccent.withValues(
+                              alpha: thickInk ? 0.55 : 0.9,
+                            ),
+                      borderRadius: BorderRadius.circular(thickInk ? 4 : 1),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

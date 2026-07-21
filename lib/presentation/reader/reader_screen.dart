@@ -405,6 +405,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     required double y,
     required double width,
     required double height,
+    List<List<List<double>>>? strokes,
   }) async {
     final provider = _annotations;
     final type = tool.annotationType;
@@ -433,6 +434,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       width: width,
       height: height,
       text: text,
+      strokes: strokes,
     );
     if (!mounted) return;
     if (provider.error != null) {

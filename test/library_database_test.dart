@@ -273,15 +273,18 @@ void main() {
           y: 0.5,
           width: 0.5,
           height: 0.02,
+          inkJson: '[[[0.1,0.51],[0.35,0.505],[0.6,0.51]]]',
           colorValue: 0xFFC89A5A,
           createdAt: DateTime(2026, 7, 2),
         ),
       );
       expect(created.id, isNotNull);
+      expect(created.hasInk, isTrue);
 
       final forPage = await library.getPageAnnotationsForPage(book.id!, 2);
       expect(forPage, hasLength(1));
       expect(forPage.first.type, AnnotationType.underline);
+      expect(forPage.first.inkJson, isNotNull);
 
       await library.updatePageAnnotation(
         created.copyWith(text: 'Subrayado clave'),
