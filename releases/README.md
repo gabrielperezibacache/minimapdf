@@ -5,6 +5,7 @@
 | Archivo | Formato | Versión | applicationId |
 |---------|---------|---------|---------------|
 | `minimalpdf-1.0.0+2-release.aab` | App Bundle (Play) | 1.0.0 (code 2) | `apps.perezibacache.minimalpdf` |
+| `minimalpdf-1.0.0+2-testing.apk` | APK (testing / instalación directa) | 1.0.0 (code 2) | `apps.perezibacache.minimalpdf` |
 | `minimalpdf-1.0.0+1-release.aab` | App Bundle (Play) | 1.0.0 (code 1) | `apps.perezibacache.minimalpdf` |
 | `minimalpdf-1.0.0+1-release.apk` | APK (instalación directa) | 1.0.0 (code 1) | `apps.perezibacache.minimalpdf` |
 
