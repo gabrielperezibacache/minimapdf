@@ -128,82 +128,21 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
           fit: StackFit.expand,
           clipBehavior: Clip.none,
           children: [
+            // Chincheta: captura debajo de las marcas para poder abrir/editar.
+            if (_captureGestures && widget.activeTool.needsText)
+              Positioned.fill(child: _buildCaptureListener(size)),
             for (final annotation in widget.annotations)
               _AnnotationMark(
                 annotation: annotation,
                 canvasSize: size,
-                interactive: !_captureGestures,
+                // Con marcado armado no interceptan; con chincheta sí.
+                interactive: !_captureGestures || widget.activeTool.needsText,
                 onTap: () => widget.onOpenAnnotation(annotation),
                 onLongPress: () => widget.onDeleteAnnotation(annotation),
               ),
-            if (_captureGestures)
-              Positioned.fill(
-                child: Listener(
-                  behavior: HitTestBehavior.opaque,
-                  onPointerDown: (event) {
-                    if (!_acceptPointer(event)) return;
-                    final stylus = _isStylus(event.kind);
-                    setState(() {
-                      _gestureTool = widget.activeTool;
-                      _path
-                        ..clear()
-                        ..add(event.localPosition);
-                      _panMoved = false;
-                      _activePointer = event.pointer;
-                      if (stylus) _stylusPointer = event.pointer;
-                    });
-                  },
-                  onPointerMove: (event) {
-                    if (event.pointer != _activePointer || _path.isEmpty) {
-                      return;
-                    }
-                    final last = _path.last;
-                    final delta = (event.localPosition - last).distance;
-                    if (delta < kStrokeSamplePx && _path.length > 1) return;
-                    final moved =
-                        (event.localPosition - _path.first).distance >
-                            kStrokeCommitPx;
-                    setState(() {
-                      _path.add(event.localPosition);
-                      if (moved) _panMoved = true;
-                    });
-                  },
-                  onPointerUp: (event) async {
-                    if (event.pointer != _activePointer) return;
-                    final points = List<Offset>.from(_path);
-                    if (points.isNotEmpty) {
-                      if ((points.last - event.localPosition).distance > 0.5) {
-                        points.add(event.localPosition);
-                      } else {
-                        points[points.length - 1] = event.localPosition;
-                      }
-                    }
-                    final tool = _effectiveTool;
-                    final wasStylus = _stylusPointer == event.pointer;
-                    setState(() {
-                      _clearStroke();
-                      if (wasStylus) _stylusPointer = null;
-                    });
-                    if (points.isEmpty) return;
-                    await _finishGesture(
-                      size: size,
-                      points: points,
-                      toolOverride: tool,
-                    );
-                  },
-                  onPointerCancel: (event) {
-                    if (event.pointer != _activePointer &&
-                        event.pointer != _stylusPointer) {
-                      return;
-                    }
-                    setState(() {
-                      final wasStylus = _stylusPointer == event.pointer;
-                      _clearStroke();
-                      if (wasStylus) _stylusPointer = null;
-                    });
-                  },
-                ),
-              ),
+            // Marcado/subrayado: captura encima para no perder el trazo.
+            if (_captureGestures && widget.activeTool.isMarkup)
+              Positioned.fill(child: _buildCaptureListener(size)),
             if (_panMoved && _path.length >= 2)
               Positioned.fill(
                 child: IgnorePointer(
@@ -223,6 +162,73 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
               ),
           ],
         );
+      },
+    );
+  }
+
+  Widget _buildCaptureListener(Size size) {
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (event) {
+        if (!_acceptPointer(event)) return;
+        final stylus = _isStylus(event.kind);
+        setState(() {
+          _gestureTool = widget.activeTool;
+          _path
+            ..clear()
+            ..add(event.localPosition);
+          _panMoved = false;
+          _activePointer = event.pointer;
+          if (stylus) _stylusPointer = event.pointer;
+        });
+      },
+      onPointerMove: (event) {
+        if (event.pointer != _activePointer || _path.isEmpty) {
+          return;
+        }
+        final last = _path.last;
+        final delta = (event.localPosition - last).distance;
+        if (delta < kStrokeSamplePx && _path.length > 1) return;
+        final moved =
+            (event.localPosition - _path.first).distance > kStrokeCommitPx;
+        setState(() {
+          _path.add(event.localPosition);
+          if (moved) _panMoved = true;
+        });
+      },
+      onPointerUp: (event) async {
+        if (event.pointer != _activePointer) return;
+        final points = List<Offset>.from(_path);
+        if (points.isNotEmpty) {
+          if ((points.last - event.localPosition).distance > 0.5) {
+            points.add(event.localPosition);
+          } else {
+            points[points.length - 1] = event.localPosition;
+          }
+        }
+        final tool = _effectiveTool;
+        final wasStylus = _stylusPointer == event.pointer;
+        setState(() {
+          _clearStroke();
+          if (wasStylus) _stylusPointer = null;
+        });
+        if (points.isEmpty) return;
+        await _finishGesture(
+          size: size,
+          points: points,
+          toolOverride: tool,
+        );
+      },
+      onPointerCancel: (event) {
+        if (event.pointer != _activePointer &&
+            event.pointer != _stylusPointer) {
+          return;
+        }
+        setState(() {
+          final wasStylus = _stylusPointer == event.pointer;
+          _clearStroke();
+          if (wasStylus) _stylusPointer = null;
+        });
       },
     );
   }
