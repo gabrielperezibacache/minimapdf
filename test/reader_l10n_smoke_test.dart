@@ -18,6 +18,13 @@ void main() {
       expect(l10n.snapToTextOn, isNot(equals('snapToTextOn')));
       expect(l10n.snapToTextOff, isNot(equals('snapToTextOff')));
       expect(l10n.snapToTextHint, isNot(equals('snapToTextHint')));
+      expect(l10n.selectTextTool, isNot(equals('selectTextTool')));
+      expect(l10n.selectTextHint, isNot(equals('selectTextHint')));
+      expect(l10n.noSelectableText, isNot(equals('noSelectableText')));
+      expect(l10n.copyText, isNot(equals('copyText')));
+      expect(l10n.textCopied, isNot(equals('textCopied')));
+      expect(l10n.done, isNot(equals('done')));
+      expect(l10n.selectedCharacters(3), contains('3'));
       expect(l10n.toolStillArmedHint, isNot(equals('toolStillArmedHint')));
       expect(l10n.emptyNoteNotSaved, isNot(equals('emptyNoteNotSaved')));
       expect(l10n.strokeTooShortHint, isNot(equals('strokeTooShortHint')));

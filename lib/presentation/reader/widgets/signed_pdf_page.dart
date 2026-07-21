@@ -9,10 +9,13 @@ import '../../../core/theme/ebony_pdf_filter.dart';
 import '../../../data/models/document_signature.dart';
 import '../../../data/models/page_annotation.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../domain/pdf_text_service.dart';
 import '../../providers/reader_annotations_provider.dart';
 import '../../signing/signature_overlay.dart';
+import '../pdf_text_selection.dart';
 import '../text_line_snap.dart';
 import 'page_annotations_layer.dart';
+import 'text_selection_layer.dart';
 
 /// Página PDF con sellos de firma y anotaciones anclados al rectángulo de la página.
 ///
@@ -43,6 +46,9 @@ class SignedPdfPage extends StatefulWidget {
     this.navigationLocked = true,
     this.zoomController,
     this.snapToText = false,
+    this.textLines = const [],
+    this.textSelecting = false,
+    this.onTextSelected,
     this.onCreateAnnotation,
     this.onOpenAnnotation,
     this.onDeleteAnnotation,
@@ -76,6 +82,11 @@ class SignedPdfPage extends StatefulWidget {
   final PhotoViewController? zoomController;
   /// Imantar marcado/subrayado a las líneas de texto de la página.
   final bool snapToText;
+  /// Líneas de texto reales del PDF (capa de texto) para esta página.
+  final List<PdfLineBox> textLines;
+  /// Modo selección de texto activo (solo página actual).
+  final bool textSelecting;
+  final ValueChanged<String>? onTextSelected;
   final Future<void> Function({
     required int pageNumber,
     required AnnotationTool tool,
@@ -149,8 +160,16 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
     });
   }
 
+  /// Bandas efectivas para el imantado: líneas reales del PDF o, si no hay
+  /// capa de texto (escaneado), la proyección de tinta como respaldo.
+  List<TextBand> get _effectiveBands {
+    if (widget.textLines.isNotEmpty) return bandsFromLines(widget.textLines);
+    return _textBands;
+  }
+
   /// Detecta líneas de texto (una vez por página) para imantar el marcado.
   void _maybeDetectBands(Uint8List bytes) {
+    if (widget.textLines.isNotEmpty) return; // ya hay texto real
     if (_detectingBands) return;
     final upToDate = _bandsPage == widget.pageNumber &&
         _bandsGeneration == widget.documentGeneration;
@@ -256,7 +275,7 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
                 navigationLocked: widget.navigationLocked,
                 zoomController: widget.zoomController,
                 snapToText: widget.snapToText,
-                textBands: _textBands,
+                textBands: _effectiveBands,
                 onCreateRect: ({
                   required AnnotationTool tool,
                   required double x,
@@ -290,7 +309,7 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
                 strokeWidthPx: widget.strokeWidthPx,
                 navigationLocked: widget.navigationLocked,
                 snapToText: widget.snapToText,
-                textBands: _textBands,
+                textBands: _effectiveBands,
                 onCreateRect: ({
                   required AnnotationTool tool,
                   required double x,
@@ -323,6 +342,13 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
               onDelete: widget.onDelete,
             ),
           ],
+          if (widget.textSelecting && widget.onTextSelected != null)
+            Positioned.fill(
+              child: TextSelectionLayer(
+                lines: widget.textLines,
+                onSelectionChanged: widget.onTextSelected!,
+              ),
+            ),
         ],
       ),
     );

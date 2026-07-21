@@ -20,6 +20,7 @@ import '../../data/models/document_signature.dart';
 import '../../data/models/page_annotation.dart';
 import '../../data/models/signature_role.dart';
 import '../../domain/annotated_pdf_export_service.dart';
+import '../../domain/pdf_text_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../providers/document_signing_provider.dart';
 import '../providers/library_provider.dart';
@@ -49,6 +50,11 @@ class _ReaderScreenState extends State<ReaderScreen>
   late final PdfController _controller;
   /// Zoom/pan de la página actual mientras se dibuja con candado abierto.
   final PhotoViewController _pageZoomController = PhotoViewController();
+  /// Extracción de texto del PDF (imantado preciso + selección para copiar).
+  PdfTextService? _pdfText;
+  List<PdfLineBox> _currentPageLines = const [];
+  bool _textSelecting = false;
+  String _selectedText = '';
   ReadingProgressSaver? _progressSaver;
   ReaderAnnotationsProvider? _annotations;
   AppPreferences? _preferences;
@@ -87,6 +93,8 @@ class _ReaderScreenState extends State<ReaderScreen>
       document: _documentFuture,
       initialPage: initialPage,
     );
+    final path = widget.book.filePath;
+    _pdfText = PdfTextService(() => File(path).readAsBytes());
   }
 
   @override
@@ -283,7 +291,86 @@ class _ReaderScreenState extends State<ReaderScreen>
     _currentPage = page;
     _progressSaver?.onPageChanged(page);
     _noteDismissed = false;
+    _currentPageLines = const [];
+    _selectedText = '';
     if (mounted) setState(() {});
+    _maybeFetchPageText();
+  }
+
+  bool get _needsPageText =>
+      _textSelecting ||
+      ((_annotations?.snapToText ?? false) &&
+          (_annotations?.activeTool.isMarkup ?? false));
+
+  /// Extrae (perezosamente) el texto de la página actual cuando hace falta.
+  void _maybeFetchPageText() {
+    if (!_needsPageText) return;
+    final service = _pdfText;
+    if (service == null || _pagesCount < 1) return;
+    final page = _currentPage;
+    final index = page - 1;
+    if (index < 0) return;
+    unawaited(() async {
+      final lines = await service.linesForPage(index);
+      if (!mounted || _currentPage != page) return;
+      setState(() => _currentPageLines = lines);
+      if (_textSelecting && lines.isEmpty) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context).noSelectableText),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+      }
+    }());
+  }
+
+  void _enterTextSelection() {
+    if (_signing?.placementMode == true) _signing?.cancelPlacementMode();
+    _annotations?.clearTool();
+    _annotations?.setToolboxVisible(false);
+    _resetPageZoom();
+    setState(() {
+      _textSelecting = true;
+      _selectedText = '';
+      _controlsVisible = true;
+    });
+    _maybeFetchPageText();
+  }
+
+  void _exitTextSelection() {
+    setState(() {
+      _textSelecting = false;
+      _selectedText = '';
+    });
+  }
+
+  Future<void> _copySelectedText() async {
+    final text = _selectedText.trim();
+    if (text.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).textCopied),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(milliseconds: 1400),
+        ),
+      );
+  }
+
+  Future<void> _shareSelectedText() async {
+    final text = _selectedText.trim();
+    if (text.isEmpty) return;
+    try {
+      await SharePlus.instance.share(ShareParams(text: text));
+    } catch (e) {
+      if (kDebugMode) debugPrint('ReaderScreen._shareSelectedText: $e');
+    }
   }
 
   /// Devuelve la página actual a su encuadre (cancela el zoom manual).
@@ -370,6 +457,10 @@ class _ReaderScreenState extends State<ReaderScreen>
     }
     if (_sidebarVisible) {
       setState(() => _sidebarVisible = false);
+      return;
+    }
+    if (_textSelecting) {
+      _exitTextSelection();
       return;
     }
     final annotations = _annotations;
@@ -1251,6 +1342,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                   _buildPlacementBanner(),
                 if (_controlsVisible &&
                     !toolboxVisible &&
+                    !_textSelecting &&
                     activeTool == AnnotationTool.none)
                   _buildBottomBar(
                     colors,
@@ -1258,7 +1350,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                     signatureCount: pageSignatures.length,
                     annotationCount: pageAnnotations.length,
                   ),
-                if (_controlsVisible)
+                if (_textSelecting) _buildTextSelectionBar(colors),
+                if (_controlsVisible && !_textSelecting)
                   Positioned(
                     left: 0,
                     right: 0,
@@ -1286,6 +1379,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                         }
                         annotations?.selectTool(tool);
                         setState(() {});
+                        _maybeFetchPageText();
                       },
                       onToggleNavigationLock: () {
                         annotations?.toggleNavigationLock();
@@ -1303,6 +1397,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                               Future.value(),
                         );
                         setState(() {});
+                        _maybeFetchPageText();
                       },
                       onInkColorChanged: (color) {
                         annotations?.setInkColor(color);
@@ -1331,7 +1426,9 @@ class _ReaderScreenState extends State<ReaderScreen>
                     ),
                   ),
                 // Barra compacta: visible también en modo inmersivo para poder deseleccionar.
-                if (!toolboxVisible && activeTool != AnnotationTool.none)
+                if (!toolboxVisible &&
+                    !_textSelecting &&
+                    activeTool != AnnotationTool.none)
                   _buildArmedToolStrip(
                     colors,
                     activeTool: activeTool,
@@ -1465,7 +1562,8 @@ class _ReaderScreenState extends State<ReaderScreen>
     final navigationLocked = annotations?.navigationLocked ?? true;
     // Con Marcado/Subrayado el scroll de página SIEMPRE se bloquea:
     // un dedo dibuja; el candado abierto solo habilita zoom/pan con dos dedos.
-    final drawingLocksScroll = activeTool.isMarkup;
+    // El modo selección también bloquea el scroll para arrastrar el rectángulo.
+    final drawingLocksScroll = activeTool.isMarkup || _textSelecting;
     final scaffoldBg =
         _ebonyFilter ? EbonyPdfFilter.background : colors.background;
 
@@ -1564,6 +1662,13 @@ class _ReaderScreenState extends State<ReaderScreen>
                   ? _pageZoomController
                   : null,
               snapToText: annotations?.snapToText ?? false,
+              textLines:
+                  pageNumber == _currentPage ? _currentPageLines : const [],
+              textSelecting: _textSelecting && pageNumber == _currentPage,
+              onTextSelected: (t) {
+                if (_selectedText == t) return;
+                setState(() => _selectedText = t);
+              },
               ebonyFilter: _ebonyFilter,
               // Solo la página actual acepta toques de colocación (scroll continuo).
               placementMode: placementOnPage,
@@ -1602,7 +1707,9 @@ class _ReaderScreenState extends State<ReaderScreen>
             // Con herramienta armada, PhotoView no maneja gestos: el trazo se
             // captura sin conflictos y el zoom (2 dedos, candado abierto) se
             // aplica manualmente vía _pageZoomController.
-            disableGestures: pageTool.isMarkup || placementOnPage,
+            disableGestures: pageTool.isMarkup ||
+                placementOnPage ||
+                (_textSelecting && pageNumber == _currentPage),
             controller: pageTool.isMarkup && pageNumber == _currentPage
                 ? _pageZoomController
                 : null,
@@ -1737,6 +1844,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                         _toggleBookmark();
                       case _ReaderToolAction.note:
                         _editNote();
+                      case _ReaderToolAction.selectText:
+                        _enterTextSelection();
                       case _ReaderToolAction.ebonyFilter:
                         _toggleFilter();
                       case _ReaderToolAction.hideControls:
@@ -1792,6 +1901,14 @@ class _ReaderScreenState extends State<ReaderScreen>
                           icon: Icons.sticky_note_2_outlined,
                           label: hasNote ? l10n.editPageNote : l10n.addNote,
                           color: colors.accent,
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: _ReaderToolAction.selectText,
+                        child: _ReaderToolMenuRow(
+                          icon: Icons.text_fields,
+                          label: l10n.selectTextTool,
+                          color: AppColors.ebonyAccent,
                         ),
                       ),
                       if (compact)
@@ -1962,6 +2079,97 @@ class _ReaderScreenState extends State<ReaderScreen>
                   ],
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Barra inferior del modo selección de texto: copiar / compartir / cerrar.
+  Widget _buildTextSelectionBar(AppPalette colors) {
+    final l10n = AppLocalizations.of(context);
+    final hasText = _selectedText.trim().isNotEmpty;
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: Material(
+        color: colors.panel.withValues(alpha: 0.98),
+        child: SafeArea(
+          top: false,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: AppColors.ebonyAccent.withValues(alpha: 0.45),
+                ),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.text_fields,
+                    size: 18, color: AppColors.ebonyAccent),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        l10n.selectTextTool,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: AppColors.ebonyAccent,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      Text(
+                        hasText
+                            ? l10n.selectedCharacters(_selectedText.length)
+                            : l10n.selectTextHint,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelSmall
+                            ?.copyWith(color: colors.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: l10n.copyText,
+                  onPressed: hasText ? () => unawaited(_copySelectedText()) : null,
+                  icon: Icon(
+                    Icons.copy,
+                    size: 20,
+                    color: hasText
+                        ? AppColors.ebonyAccent
+                        : colors.textMuted.withValues(alpha: 0.4),
+                  ),
+                ),
+                IconButton(
+                  tooltip: l10n.shareDocument,
+                  onPressed:
+                      hasText ? () => unawaited(_shareSelectedText()) : null,
+                  icon: Icon(
+                    Icons.ios_share_outlined,
+                    size: 20,
+                    color: hasText
+                        ? AppColors.ebonyAccent
+                        : colors.textMuted.withValues(alpha: 0.4),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _exitTextSelection,
+                  style: TextButton.styleFrom(
+                    foregroundColor: colors.textMuted,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: Text(l10n.done),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -2224,6 +2432,7 @@ enum _AnnotationAction { edit, delete }
 enum _ReaderToolAction {
   bookmark,
   note,
+  selectText,
   ebonyFilter,
   hideControls,
   share,

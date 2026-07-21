@@ -135,6 +135,14 @@ class AppLocalizations {
   String get snapToTextOn => _t('snapToTextOn');
   String get snapToTextOff => _t('snapToTextOff');
   String get snapToTextHint => _t('snapToTextHint');
+  String get selectTextTool => _t('selectTextTool');
+  String get selectTextHint => _t('selectTextHint');
+  String get noSelectableText => _t('noSelectableText');
+  String get copyText => _t('copyText');
+  String get textCopied => _t('textCopied');
+  String get done => _t('done');
+  String selectedCharacters(int count) =>
+      _t('selectedCharacters').replaceAll('{count}', '$count');
   String get toolStillArmedHint => _t('toolStillArmedHint');
   String get emptyNoteNotSaved => _t('emptyNoteNotSaved');
   String get strokeTooShortHint => _t('strokeTooShortHint');
@@ -561,6 +569,13 @@ const Map<String, Map<String, String>> _strings = {
     'snapToTextOn': 'Imantar al texto: activado',
     'snapToTextOff': 'Imantar al texto: desactivado',
     'snapToTextHint': 'Imantado: el marcado se ajusta a la línea de texto.',
+    'selectTextTool': 'Seleccionar texto',
+    'selectTextHint': 'Arrastra sobre el texto para seleccionarlo.',
+    'noSelectableText': 'Esta página no tiene texto seleccionable.',
+    'copyText': 'Copiar',
+    'textCopied': 'Texto copiado.',
+    'done': 'Listo',
+    'selectedCharacters': '{count} caracteres seleccionados',
     'unlockPageNavigation': 'Permitir scroll y zoom',
     'toolStillArmedHint': 'La herramienta sigue activa: puedes seguir dibujando.',
     'emptyNoteNotSaved': 'Nota vacía: no se guardó.',
@@ -868,6 +883,13 @@ const Map<String, Map<String, String>> _strings = {
     'snapToTextOn': 'Snap to text: on',
     'snapToTextOff': 'Snap to text: off',
     'snapToTextHint': 'Snap on: marks align to the text line.',
+    'selectTextTool': 'Select text',
+    'selectTextHint': 'Drag over the text to select it.',
+    'noSelectableText': 'This page has no selectable text.',
+    'copyText': 'Copy',
+    'textCopied': 'Text copied.',
+    'done': 'Done',
+    'selectedCharacters': '{count} characters selected',
     'unlockPageNavigation': 'Allow scroll and zoom',
     'toolStillArmedHint': 'Tool still armed: you can keep drawing.',
     'emptyNoteNotSaved': 'Empty note: nothing was saved.',
@@ -1174,6 +1196,13 @@ const Map<String, Map<String, String>> _strings = {
     'snapToTextOn': 'Imantar ao texto: ativado',
     'snapToTextOff': 'Imantar ao texto: desativado',
     'snapToTextHint': 'Imantado: a marca ajusta-se à linha de texto.',
+    'selectTextTool': 'Selecionar texto',
+    'selectTextHint': 'Arraste sobre o texto para selecioná-lo.',
+    'noSelectableText': 'Esta página não tem texto selecionável.',
+    'copyText': 'Copiar',
+    'textCopied': 'Texto copiado.',
+    'done': 'Pronto',
+    'selectedCharacters': '{count} caracteres selecionados',
     'unlockPageNavigation': 'Permitir scroll e zoom',
     'toolStillArmedHint': 'Ferramenta ainda ativa: pode continuar a desenhar.',
     'emptyNoteNotSaved': 'Nota vazia: nada foi guardado.',
@@ -1478,6 +1507,13 @@ const Map<String, Map<String, String>> _strings = {
     'snapToTextOn': 'Aimanter au texte : activé',
     'snapToTextOff': 'Aimanter au texte : désactivé',
     'snapToTextHint': 'Aimanté : la marque s’aligne sur la ligne de texte.',
+    'selectTextTool': 'Sélectionner le texte',
+    'selectTextHint': 'Glissez sur le texte pour le sélectionner.',
+    'noSelectableText': 'Cette page n’a pas de texte sélectionnable.',
+    'copyText': 'Copier',
+    'textCopied': 'Texte copié.',
+    'done': 'Terminé',
+    'selectedCharacters': '{count} caractères sélectionnés',
     'unlockPageNavigation': 'Autoriser le défilement et le zoom',
     'toolStillArmedHint': 'Outil toujours actif : vous pouvez continuer à dessiner.',
     'emptyNoteNotSaved': 'Note vide : rien n\'a été enregistré.',
@@ -1784,6 +1820,13 @@ const Map<String, Map<String, String>> _strings = {
     'snapToTextOn': 'Am Text ausrichten: an',
     'snapToTextOff': 'Am Text ausrichten: aus',
     'snapToTextHint': 'Ausrichten: Markierung folgt der Textzeile.',
+    'selectTextTool': 'Text auswählen',
+    'selectTextHint': 'Über den Text ziehen, um ihn auszuwählen.',
+    'noSelectableText': 'Diese Seite hat keinen auswählbaren Text.',
+    'copyText': 'Kopieren',
+    'textCopied': 'Text kopiert.',
+    'done': 'Fertig',
+    'selectedCharacters': '{count} Zeichen ausgewählt',
     'unlockPageNavigation': 'Scrollen und Zoomen erlauben',
     'toolStillArmedHint': 'Werkzeug bleibt aktiv: Sie können weiterzeichnen.',
     'emptyNoteNotSaved': 'Leere Notiz: nichts gespeichert.',
@@ -2085,6 +2128,13 @@ const Map<String, Map<String, String>> _strings = {
     'snapToTextOn': '吸附到文字：开',
     'snapToTextOff': '吸附到文字：关',
     'snapToTextHint': '吸附开启：标记对齐到文字行。',
+    'selectTextTool': '选择文字',
+    'selectTextHint': '在文字上拖动进行选择。',
+    'noSelectableText': '本页没有可选择的文字。',
+    'copyText': '复制',
+    'textCopied': '已复制文字。',
+    'done': '完成',
+    'selectedCharacters': '已选择 {count} 个字符',
     'unlockPageNavigation': '允许滚动和缩放',
     'toolStillArmedHint': '工具仍处于启用状态：可以继续绘制。',
     'emptyNoteNotSaved': '空笔记：未保存。',
@@ -2384,6 +2434,13 @@ const Map<String, Map<String, String>> _strings = {
     'snapToTextOn': 'Примагничивать к тексту: вкл',
     'snapToTextOff': 'Примагничивать к тексту: выкл',
     'snapToTextHint': 'Примагничивание: метка выравнивается по строке.',
+    'selectTextTool': 'Выбрать текст',
+    'selectTextHint': 'Проведите по тексту, чтобы выделить.',
+    'noSelectableText': 'На этой странице нет выделяемого текста.',
+    'copyText': 'Копировать',
+    'textCopied': 'Текст скопирован.',
+    'done': 'Готово',
+    'selectedCharacters': 'Выбрано символов: {count}',
     'unlockPageNavigation': 'Разрешить прокрутку и масштаб',
     'toolStillArmedHint': 'Инструмент всё ещё активен: можно продолжать рисовать.',
     'emptyNoteNotSaved': 'Пустая заметка: ничего не сохранено.',
