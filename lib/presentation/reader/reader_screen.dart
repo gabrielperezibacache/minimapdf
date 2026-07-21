@@ -34,6 +34,7 @@ import 'reader_scroll_mode.dart';
 import 'reading_progress_saver.dart';
 import 'pdf_text_search.dart';
 import 'pdf_text_selection.dart';
+import 'text_line_snap.dart';
 import 'widgets/annotation_toolbox.dart';
 import 'widgets/floating_page_note.dart';
 import 'widgets/note_edit_sheet.dart';
@@ -62,6 +63,8 @@ class _ReaderScreenState extends State<ReaderScreen>
   List<PdfLineBox> _currentPageLines = const [];
   /// Caché de líneas por página (1-based) para selección/imantado.
   final Map<int, List<PdfLineBox>> _pageLinesCache = {};
+  /// Bandas OCR por página (respaldo cuando no hay capa de texto embebida).
+  final Map<int, List<TextBand>> _pageOcrBandsCache = {};
   bool _textSelecting = false;
   final ValueNotifier<String> _selectedText = ValueNotifier<String>('');
   /// Modo buscador de texto del menú ⋯.
@@ -627,6 +630,13 @@ class _ReaderScreenState extends State<ReaderScreen>
     return activeTool != AnnotationTool.none ||
         _textSelecting ||
         placementMode;
+  }
+
+  List<TextBand> _effectiveTextBandsFor(int pageNumber) {
+    final lines = _pageLinesCache[pageNumber] ??
+        (pageNumber == _currentPage ? _currentPageLines : const []);
+    if (lines.isNotEmpty) return bandsFromLines(lines);
+    return _pageOcrBandsCache[pageNumber] ?? const [];
   }
 
   void _jumpToPage(int page) {
@@ -1417,6 +1427,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (!mounted) return;
     _documentGeneration++;
     _pageLinesCache.clear();
+    _pageOcrBandsCache.clear();
     _currentPageLines = const [];
     // Recrear el servicio de texto: los bytes en caché serían del PDF anterior.
     final oldText = _pdfText;
@@ -1870,6 +1881,12 @@ class _ReaderScreenState extends State<ReaderScreen>
             fallbackSize: pageSize,
             documentGeneration: _documentGeneration,
             externalViewportCapture: externalCapture,
+            onOcrTextBands: (bands) {
+              _pageOcrBandsCache[pageNumber] = bands;
+              if (pageNumber == _currentPage && mounted) {
+                setState(() {});
+              }
+            },
             signatures: signing?.signaturesForPage(pageNumber) ?? const [],
             annotations:
                 annotations?.annotationsForPage(pageNumber) ?? const [],
@@ -1967,7 +1984,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                 strokeWidthPx: annotations?.activeStrokeWidthPx,
                 navigationLocked: navigationLocked,
                 snapToText: annotations?.snapToText ?? false,
-                textBands: bandsFromLines(currentPageLines),
+                textBands: _effectiveTextBandsFor(_currentPage),
                 onCreateRect: ({
                   required tool,
                   required x,

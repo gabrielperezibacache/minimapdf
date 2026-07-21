@@ -43,4 +43,44 @@ void main() {
       const Offset(50, 100),
     );
   });
+
+  test('page rect con pan desplaza el rectángulo', () {
+    const viewport = Size(400, 800);
+    const page = Size(200, 400);
+
+    final rect = photoViewPageRectInViewport(
+      viewportSize: viewport,
+      pageSize: page,
+      controllerValue: const PhotoViewControllerValue(
+        position: Offset(30, 0),
+        scale: 2.0,
+        rotation: 0,
+        rotationFocusPoint: null,
+      ),
+    );
+
+    expect(rect.left, 30);
+    expect(rect.top, 0);
+  });
+
+  test('sin escala medida se ignora el pan residual', () {
+    const viewport = Size(400, 800);
+    const page = Size(200, 400);
+
+    final rect = photoViewPageRectInViewport(
+      viewportSize: viewport,
+      pageSize: page,
+      controllerValue: const PhotoViewControllerValue(
+        position: Offset(40, 20),
+        scale: null,
+        rotation: 0,
+        rotationFocusPoint: null,
+      ),
+    );
+
+    expect(rect.left, 0);
+    expect(rect.top, 0);
+    expect(rect.width, 400);
+    expect(rect.height, 800);
+  });
 }

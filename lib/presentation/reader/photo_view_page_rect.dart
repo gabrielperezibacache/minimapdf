@@ -21,7 +21,8 @@ Rect photoViewPageRectInViewport({
   }
 
   final scale = controllerValue.scale;
-  final effectiveScale = scale != null && scale > 0
+  final hasMeasuredScale = scale != null && scale > 0;
+  final effectiveScale = hasMeasuredScale
       ? scale
       : math.min(
           viewportSize.width / pageSize.width,
@@ -39,8 +40,10 @@ Rect photoViewPageRectInViewport({
   final offsetX = halfWidth * (basePosition.x + 1);
   final offsetY = halfHeight * (basePosition.y + 1);
 
-  final left = offsetX + controllerValue.position.dx;
-  final top = offsetY + controllerValue.position.dy;
+  // Sin escala medida aún, ignorar pan residual para evitar desalineación.
+  final pan = hasMeasuredScale ? controllerValue.position : Offset.zero;
+  final left = offsetX + pan.dx;
+  final top = offsetY + pan.dy;
 
   return Rect.fromLTWH(left, top, childWidth, childHeight);
 }

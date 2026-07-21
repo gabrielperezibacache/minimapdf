@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:photo_view/photo_view.dart' show PhotoViewController;
+import 'package:photo_view/photo_view.dart'
+    show PhotoViewController, PhotoViewControllerValue;
 
+import '../../../core/theme/app_colors.dart';
 import '../../../data/models/page_annotation.dart';
 import '../../../domain/pdf_text_service.dart';
 import '../../providers/reader_annotations_provider.dart';
@@ -76,17 +78,20 @@ class _ReaderViewportCaptureState extends State<ReaderViewportCapture> {
   final GlobalKey<TextSelectionLayerState> _selectionKey =
       GlobalKey<TextSelectionLayerState>();
 
+  int? _placementPointer;
+  Offset? _placementDown;
+
   bool get _toolActive =>
       widget.annotationsEnabled && widget.activeTool != AnnotationTool.none;
 
   bool get _capturing =>
       _toolActive || widget.textSelecting || widget.placementMode;
 
-  Rect _pageRect() {
+  Rect _pageRect(PhotoViewControllerValue controllerValue) {
     return photoViewPageRectInViewport(
       viewportSize: widget.viewportSize,
       pageSize: widget.pageSize,
-      controllerValue: widget.zoomController.value,
+      controllerValue: controllerValue,
     );
   }
 
@@ -94,10 +99,10 @@ class _ReaderViewportCaptureState extends State<ReaderViewportCapture> {
     return viewportPointToPageLocal(viewportPoint, pageRect);
   }
 
-  void _handlePlacement(PointerDownEvent event, Rect pageRect) {
+  void _placeSignatureAt(Offset viewportPoint, Rect pageRect) {
     final onPlace = widget.onPlaceTap;
     if (!widget.placementMode || onPlace == null) return;
-    final local = _pageLocal(event.localPosition, pageRect);
+    final local = _pageLocal(viewportPoint, pageRect);
     final x = (local.dx / pageRect.width).clamp(0.0, 1.0);
     final y = (local.dy / pageRect.height).clamp(0.0, 1.0);
     onPlace(x, y);
@@ -109,10 +114,12 @@ class _ReaderViewportCaptureState extends State<ReaderViewportCapture> {
       return const SizedBox.shrink();
     }
 
-    return ListenableBuilder(
-      listenable: widget.zoomController,
-      builder: (context, _) {
-        final pageRect = _pageRect();
+    return StreamBuilder<PhotoViewControllerValue>(
+      stream: widget.zoomController.outputStateStream,
+      initialData: widget.zoomController.value,
+      builder: (context, snapshot) {
+        final controllerValue = snapshot.data ?? widget.zoomController.value;
+        final pageRect = _pageRect(controllerValue);
         if (pageRect.width <= 0 || pageRect.height <= 0) {
           return const SizedBox.shrink();
         }
@@ -135,7 +142,8 @@ class _ReaderViewportCaptureState extends State<ReaderViewportCapture> {
                 return;
               }
               if (widget.placementMode) {
-                _handlePlacement(event, pageRect);
+                _placementPointer = event.pointer;
+                _placementDown = event.localPosition;
               }
             },
             onPointerMove: (event) {
@@ -160,7 +168,18 @@ class _ReaderViewportCaptureState extends State<ReaderViewportCapture> {
               if (_toolActive) {
                 _annotationsKey.currentState
                     ?.handlePointerUp(event, localOverride: local);
+                return;
               }
+              if (widget.placementMode &&
+                  event.pointer == _placementPointer &&
+                  _placementDown != null) {
+                final moved = (event.localPosition - _placementDown!).distance;
+                if (moved < 12) {
+                  _placeSignatureAt(event.localPosition, pageRect);
+                }
+              }
+              _placementPointer = null;
+              _placementDown = null;
             },
             onPointerCancel: (event) {
               final local = _pageLocal(event.localPosition, pageRect);
@@ -173,10 +192,21 @@ class _ReaderViewportCaptureState extends State<ReaderViewportCapture> {
                 _annotationsKey.currentState
                     ?.handlePointerCancel(event, localOverride: local);
               }
+              if (event.pointer == _placementPointer) {
+                _placementPointer = null;
+                _placementDown = null;
+              }
             },
             child: Stack(
               clipBehavior: Clip.none,
               children: [
+                if (widget.placementMode)
+                  Positioned.fromRect(
+                    rect: pageRect,
+                    child: ColoredBox(
+                      color: AppColors.ebonyAccent.withValues(alpha: 0.08),
+                    ),
+                  ),
                 if (_toolActive)
                   Positioned.fromRect(
                     rect: pageRect,

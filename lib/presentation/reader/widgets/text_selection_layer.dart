@@ -104,7 +104,9 @@ class TextSelectionLayerState extends State<TextSelectionLayer> {
   }
 
   void handlePointerCancel(PointerCancelEvent event, {Offset? localOverride}) {
-    _onPointerCancel(event);
+    if (event.pointer != _activePointer) return;
+    setState(_clear);
+    widget.onSelectionChanged('');
   }
 
   void _onPointerDown(PointerDownEvent event, Offset localPosition) {
@@ -118,6 +120,10 @@ class TextSelectionLayerState extends State<TextSelectionLayer> {
 
   void _onPointerMove(PointerMoveEvent event, Offset localPosition) {
     if (event.pointer != _activePointer) return;
+    final previous = _currentPx;
+    if (previous != null && (localPosition - previous).distance < 1.5) {
+      return;
+    }
     setState(() => _currentPx = localPosition);
     _emit();
   }
@@ -125,12 +131,6 @@ class TextSelectionLayerState extends State<TextSelectionLayer> {
   void _onPointerUp(PointerUpEvent event, Offset localPosition) {
     if (event.pointer != _activePointer) return;
     setState(() => _currentPx = localPosition);
-    _emit();
-    _activePointer = null;
-  }
-
-  void _onPointerCancel(PointerCancelEvent event) {
-    if (event.pointer != _activePointer) return;
     _emit();
     _activePointer = null;
   }
@@ -160,7 +160,11 @@ class TextSelectionLayerState extends State<TextSelectionLayer> {
             onPointerDown: (event) => _onPointerDown(event, event.localPosition),
             onPointerMove: (event) => _onPointerMove(event, event.localPosition),
             onPointerUp: (event) => _onPointerUp(event, event.localPosition),
-            onPointerCancel: _onPointerCancel,
+            onPointerCancel: (event) {
+              if (event.pointer != _activePointer) return;
+              setState(_clear);
+              widget.onSelectionChanged('');
+            },
             child: paintChild,
           ),
         );

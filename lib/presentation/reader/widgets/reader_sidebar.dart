@@ -108,64 +108,67 @@ class ReaderSidebar extends StatelessWidget {
                                 isScrollable: true,
                                 tabAlignment: TabAlignment.start,
                                 tabs: [
-                                  Tab(text: AppLocalizations.of(context).tocTab),
                                   Tab(
-                                    text:
-                                        AppLocalizations.of(context).bookmarksTab,
+                                    text: AppLocalizations.of(context).tocTab,
+                                  ),
+                                  Tab(
+                                    text: AppLocalizations.of(context)
+                                        .bookmarksTab,
                                   ),
                                   Tab(
                                     text: AppLocalizations.of(context)
                                         .annotationsTab,
                                   ),
                                   Tab(
-                                    text:
-                                        AppLocalizations.of(context).signaturesTab,
+                                    text: AppLocalizations.of(context)
+                                        .signaturesTab,
                                   ),
                                 ],
+                              ),
+                              Expanded(
+                                child: TabBarView(
+                                  children: [
+                                    _TocPane(
+                                      pagesCount: pagesCount,
+                                      currentPage: currentPage,
+                                      onOpenPage: onOpenPage,
+                                    ),
+                                    _BookmarksPane(
+                                      bookmarks: bookmarks,
+                                      currentPage: currentPage,
+                                      currentPageBookmarked:
+                                          currentPageBookmarked,
+                                      onOpenPage: onOpenPage,
+                                      onDelete: onDeleteBookmark,
+                                      onAddBookmark: onAddBookmark,
+                                    ),
+                                    _AnnotationsPane(
+                                      annotations: annotations,
+                                      currentPage: currentPage,
+                                      onOpenPage: onOpenPage,
+                                      onDelete: onDeleteAnnotation,
+                                      onOpen: onOpenAnnotation,
+                                      onOpenTools: onOpenAnnotationTools,
+                                    ),
+                                    _SignaturesPane(
+                                      signatures: signatures,
+                                      currentPage: currentPage,
+                                      onOpenPage: onOpenPage,
+                                      onDelete: onDeleteSignature,
+                                      onStartSigning: onStartSigning,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          Expanded(
-                            child: TabBarView(
-                              children: [
-                                _TocPane(
-                                  pagesCount: pagesCount,
-                                  currentPage: currentPage,
-                                  onOpenPage: onOpenPage,
-                                ),
-                                _BookmarksPane(
-                                  bookmarks: bookmarks,
-                                  currentPage: currentPage,
-                                  currentPageBookmarked: currentPageBookmarked,
-                                  onOpenPage: onOpenPage,
-                                  onDelete: onDeleteBookmark,
-                                  onAddBookmark: onAddBookmark,
-                                ),
-                                _AnnotationsPane(
-                                  annotations: annotations,
-                                  currentPage: currentPage,
-                                  onOpenPage: onOpenPage,
-                                  onDelete: onDeleteAnnotation,
-                                  onOpen: onOpenAnnotation,
-                                  onOpenTools: onOpenAnnotationTools,
-                                ),
-                                _SignaturesPane(
-                                  signatures: signatures,
-                                  currentPage: currentPage,
-                                  onOpenPage: onOpenPage,
-                                  onDelete: onDeleteSignature,
-                                  onStartSigning: onStartSigning,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
           ],
         ),
       ),

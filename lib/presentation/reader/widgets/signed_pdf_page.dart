@@ -58,6 +58,7 @@ class SignedPdfPage extends StatefulWidget {
     this.onDeleteAnnotation,
     this.fallbackSize = const Size(595, 842),
     this.externalViewportCapture = false,
+    this.onOcrTextBands,
   });
 
   /// PNG rasterizado de la página (pdfrx).
@@ -111,6 +112,8 @@ class SignedPdfPage extends StatefulWidget {
   final Size fallbackSize;
   /// La captura de gestos la hace [ReaderViewportCapture] en el viewport.
   final bool externalViewportCapture;
+  /// Bandas OCR detectadas en esta página (PDF escaneado sin capa de texto).
+  final ValueChanged<List<TextBand>>? onOcrTextBands;
 
   @override
   State<SignedPdfPage> createState() => _SignedPdfPageState();
@@ -211,6 +214,7 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
         _bandsGeneration = generation;
         _detectingBands = false;
       });
+      widget.onOcrTextBands?.call(bands);
     }();
   }
 
