@@ -17,7 +17,9 @@ void main() {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: Scaffold(body: child),
+      home: Scaffold(
+        body: Stack(children: [child]),
+      ),
     );
   }
 
@@ -79,31 +81,28 @@ void main() {
     var tapped = false;
 
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.ebony,
-        home: Scaffold(
-          body: Stack(
-            children: [
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => tapped = true,
-                  child: const ColoredBox(color: Colors.white),
-                ),
+      wrap(
+        Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => tapped = true,
+                child: const ColoredBox(color: Colors.white),
               ),
-              ReaderSidebar(
-                visible: false,
-                pagesCount: 5,
-                currentPage: 2,
-                bookmarks: const [],
-                annotations: const [],
-                signatures: const [],
-                onClose: () {},
-                onOpenPage: (_) {},
-                onDeleteBookmark: (_) {},
-              ),
-            ],
-          ),
+            ),
+            ReaderSidebar(
+              visible: false,
+              pagesCount: 5,
+              currentPage: 2,
+              bookmarks: const [],
+              annotations: const [],
+              signatures: const [],
+              onClose: () {},
+              onOpenPage: (_) {},
+              onDeleteBookmark: (_) {},
+            ),
+          ],
         ),
       ),
     );

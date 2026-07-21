@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:minimal_pdf/presentation/reader/widgets/text_selection_layer.dart';
@@ -26,20 +27,14 @@ void main() {
       find.byType(TextSelectionLayer),
     );
 
-    await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
-      'flutter/lifecycle',
-      null,
-      (_) {},
-    );
-
-    final down = TestPointer(1);
+    final pointer = TestPointer(1, PointerDeviceKind.touch);
     state.handlePointerDown(
-      down.down(const Offset(40, 40)),
+      pointer.down(const Offset(40, 40)),
     );
     await tester.pump();
 
     state.handlePointerCancel(
-      TestPointer(1).cancel(),
+      pointer.cancel(),
     );
     await tester.pump();
 
