@@ -47,11 +47,13 @@ void main() {
     expect(find.text('2 en página'), findsOneWidget);
     expect(find.text('Marcado'), findsOneWidget);
     expect(find.text('Subrayado'), findsOneWidget);
-    expect(find.text('Nota'), findsOneWidget);
-    expect(find.text('Comentario'), findsOneWidget);
-    expect(find.text('Anotación'), findsOneWidget);
+    expect(find.text('Chincheta'), findsOneWidget);
+    expect(find.text('Comentario'), findsNothing);
+    expect(find.text('Anotación'), findsNothing);
     expect(
-      find.text('Elige Marcado o Subrayado y dibuja; o Nota y toca la página.'),
+      find.text(
+        'Elige Marcado o Subrayado y dibuja; o Chincheta y toca la página.',
+      ),
       findsOneWidget,
     );
 
@@ -77,9 +79,14 @@ void main() {
       ),
     );
 
-    expect(find.text('Toca la página para colocar una nota.'), findsOneWidget);
     expect(
-      find.text('Herramienta activa: deselecciona para desplazarte o editar marcas.'),
+      find.text('Toca la página para anclar una chincheta.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'Herramienta activa: deselecciona para desplazarte o editar marcas.',
+      ),
       findsOneWidget,
     );
     expect(find.text('Deseleccionar'), findsOneWidget);
@@ -128,12 +135,10 @@ void main() {
     await tester.pump();
     expect(redone, isTrue);
 
-    // Segundo tamaño (índice 1).
     await tester.tap(find.bySemanticsLabel('size 1'));
     await tester.pump();
     expect(size, 1);
 
-    // Primer color de la paleta (amarillo).
     await tester.tap(find.bySemanticsLabel('color').first);
     await tester.pump();
     expect(picked, isNotNull);

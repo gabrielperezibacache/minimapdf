@@ -132,6 +132,10 @@ class AppLocalizations {
   String get strokeTooShortHint => _t('strokeTooShortHint');
   String get bookmarkThisPage => _t('bookmarkThisPage');
   String get pageAlreadyBookmarked => _t('pageAlreadyBookmarked');
+  String get previousPage => _t('previousPage');
+  String get nextPage => _t('nextPage');
+  String get expandAnnotationTools => _t('expandAnnotationTools');
+  String get readerFirstTip => _t('readerFirstTip');
   String get filterEbonyOn => _t('filterEbonyOn');
   String get filterEbonyOff => _t('filterEbonyOff');
   String scrollModeTooltip(String mode) =>
@@ -534,7 +538,7 @@ const Map<String, Map<String, String>> _strings = {
     'back': 'Volver',
     'addBookmark': 'Marcar página',
     'removeBookmark': 'Quitar marcador',
-    'addNote': 'Añadir nota',
+    'addNote': 'Nota de página',
     'editPageNote': 'Editar nota de página',
     'placementModeBanner': 'Toca la página para colocar la firma · Desplázate si hace falta · Atrás cancela',
     'emptyAnnotationsCta': 'Abrir herramientas',
@@ -545,6 +549,10 @@ const Map<String, Map<String, String>> _strings = {
     'strokeTooShortHint': 'Arrastra el dedo o el S-Pen para marcar.',
     'bookmarkThisPage': 'Marcar esta página',
     'pageAlreadyBookmarked': 'Esta página ya está marcada.',
+    'previousPage': 'Página anterior',
+    'nextPage': 'Página siguiente',
+    'expandAnnotationTools': 'Más herramientas',
+    'readerFirstTip': 'Lápiz bronce: anotar · Icono de firma: colocar firma en la página.',
     'filterEbonyOn': 'Filtro Ébano',
     'filterEbonyOff': 'Desactivar filtro Ébano',
     'scrollModeTooltip': 'Modo: {mode}',
@@ -630,7 +638,7 @@ const Map<String, Map<String, String>> _strings = {
     'signatureTypeTyped': 'Firma mecanografiada',
     'annotationHighlight': 'Marcado',
     'annotationUnderline': 'Subrayado',
-    'annotationNote': 'Nota',
+    'annotationNote': 'Chincheta',
     'annotationComment': 'Comentario',
     'annotationGeneric': 'Anotación',
     'annotationToolNone': 'Ninguna',
@@ -710,12 +718,12 @@ const Map<String, Map<String, String>> _strings = {
         'welcomeLead': 'Bienvenido a una lectura offline, privada y sin ruido.',
     'welcomeHowItWorks': 'Así funciona Minimal PDF',
     'annotationHintNone':
-        'Elige Marcado o Subrayado y dibuja; o Nota y toca la página.',
+        'Elige Marcado o Subrayado y dibuja; o Chincheta y toca la página.',
     'annotationHintHighlight':
         'Dibuja sobre el texto. El scroll se pausa hasta Deseleccionar.',
     'annotationHintUnderline':
         'Dibuja bajo el texto. El scroll se pausa hasta Deseleccionar.',
-    'annotationHintNote': 'Toca la página para colocar una nota.',
+    'annotationHintNote': 'Toca la página para anclar una chincheta.',
     'annotationHintComment': 'Toca la página para dejar un comentario.',
     'annotationHintAnnotation': 'Toca la página para añadir una anotación.',
     'annotationUndo': 'Deshacer',
@@ -826,7 +834,7 @@ const Map<String, Map<String, String>> _strings = {
     'back': 'Back',
     'addBookmark': 'Bookmark page',
     'removeBookmark': 'Remove bookmark',
-    'addNote': 'Add note',
+    'addNote': 'Page note',
     'editPageNote': 'Edit page note',
     'placementModeBanner':
         'Scroll to the page and tap to place the signature · Back cancels',
@@ -838,6 +846,10 @@ const Map<String, Map<String, String>> _strings = {
     'strokeTooShortHint': 'Drag your finger or S-Pen to mark.',
     'bookmarkThisPage': 'Bookmark this page',
     'pageAlreadyBookmarked': 'This page is already bookmarked.',
+    'previousPage': 'Previous page',
+    'nextPage': 'Next page',
+    'expandAnnotationTools': 'More tools',
+    'readerFirstTip': 'Bronze pen: annotate · Signature icon: place a signature on the page.',
     'filterEbonyOn': 'Ébano filter',
     'filterEbonyOff': 'Disable Ébano filter',
     'scrollModeTooltip': 'Mode: {mode}',
@@ -922,7 +934,7 @@ const Map<String, Map<String, String>> _strings = {
     'signatureTypeTyped': 'Typed signature',
     'annotationHighlight': 'Highlight',
     'annotationUnderline': 'Underline',
-    'annotationNote': 'Note',
+    'annotationNote': 'Pin note',
     'annotationComment': 'Comment',
     'annotationGeneric': 'Annotation',
     'annotationToolNone': 'None',
@@ -1002,12 +1014,12 @@ const Map<String, Map<String, String>> _strings = {
         'welcomeLead': 'Welcome to offline, private, distraction-free reading.',
     'welcomeHowItWorks': 'How Minimal PDF works',
     'annotationHintNone':
-        'Pick Highlight or Underline and draw; or Note and tap the page.',
+        'Pick Highlight or Underline and draw; or Pin note and tap the page.',
     'annotationHintHighlight':
         'Draw over the text. Scrolling pauses until you Deselect.',
     'annotationHintUnderline':
         'Draw under the text. Scrolling pauses until you Deselect.',
-    'annotationHintNote': 'Tap the page to place a note.',
+    'annotationHintNote': 'Tap the page to place a pin note.',
     'annotationHintComment': 'Tap the page to leave a comment.',
     'annotationHintAnnotation': 'Tap the page to add an annotation.',
     'annotationUndo': 'Undo',
@@ -1118,7 +1130,7 @@ const Map<String, Map<String, String>> _strings = {
     'back': 'Voltar',
     'addBookmark': 'Marcar página',
     'removeBookmark': 'Remover marcador',
-    'addNote': 'Adicionar nota',
+    'addNote': 'Nota de página',
     'editPageNote': 'Editar nota da página',
     'placementModeBanner':
         'Desloque até à página e toque para colocar a assinatura · Voltar cancela',
@@ -1130,6 +1142,10 @@ const Map<String, Map<String, String>> _strings = {
     'strokeTooShortHint': 'Arraste o dedo ou o S-Pen para marcar.',
     'bookmarkThisPage': 'Marcar esta página',
     'pageAlreadyBookmarked': 'Esta página já está marcada.',
+    'previousPage': 'Página anterior',
+    'nextPage': 'Página seguinte',
+    'expandAnnotationTools': 'Mais ferramentas',
+    'readerFirstTip': 'Lápis bronze: anotar · Ícone de assinatura: colocar assinatura na página.',
     'filterEbonyOn': 'Filtro Ébano',
     'filterEbonyOff': 'Desativar filtro Ébano',
     'scrollModeTooltip': 'Modo: {mode}',
@@ -1215,7 +1231,7 @@ const Map<String, Map<String, String>> _strings = {
     'signatureTypeTyped': 'Assinatura datilografada',
     'annotationHighlight': 'Destaque',
     'annotationUnderline': 'Sublinhado',
-    'annotationNote': 'Nota',
+    'annotationNote': 'Alfinete',
     'annotationComment': 'Comentário',
     'annotationGeneric': 'Anotação',
     'annotationToolNone': 'Nenhuma',
@@ -1408,7 +1424,7 @@ const Map<String, Map<String, String>> _strings = {
     'back': 'Retour',
     'addBookmark': 'Marquer la page',
     'removeBookmark': 'Retirer le signet',
-    'addNote': 'Ajouter une note',
+    'addNote': 'Note de page',
     'editPageNote': 'Modifier la note de page',
     'placementModeBanner':
         'Faites défiler jusqu’à la page et touchez pour placer la signature · Retour annule',
@@ -1420,6 +1436,10 @@ const Map<String, Map<String, String>> _strings = {
     'strokeTooShortHint': 'Glissez le doigt ou le S-Pen pour surligner.',
     'bookmarkThisPage': 'Marquer cette page',
     'pageAlreadyBookmarked': 'Cette page est déjà marquée.',
+    'previousPage': 'Page précédente',
+    'nextPage': 'Page suivante',
+    'expandAnnotationTools': 'Plus d’outils',
+    'readerFirstTip': 'Stylo bronze : annoter · Icône signature : placer une signature.',
     'filterEbonyOn': 'Filtre Ébano',
     'filterEbonyOff': 'Désactiver le filtre Ébano',
     'scrollModeTooltip': 'Mode : {mode}',
@@ -1700,7 +1720,7 @@ const Map<String, Map<String, String>> _strings = {
     'back': 'Zurück',
     'addBookmark': 'Seite markieren',
     'removeBookmark': 'Lesezeichen entfernen',
-    'addNote': 'Notiz hinzufügen',
+    'addNote': 'Seitennotiz',
     'editPageNote': 'Seitennotiz bearbeiten',
     'placementModeBanner':
         'Zur Seite scrollen und tippen, um zu unterschreiben · Zurück bricht ab',
@@ -1712,6 +1732,10 @@ const Map<String, Map<String, String>> _strings = {
     'strokeTooShortHint': 'Mit Finger oder S-Pen ziehen, um zu markieren.',
     'bookmarkThisPage': 'Diese Seite markieren',
     'pageAlreadyBookmarked': 'Diese Seite ist bereits markiert.',
+    'previousPage': 'Vorherige Seite',
+    'nextPage': 'Nächste Seite',
+    'expandAnnotationTools': 'Mehr Werkzeuge',
+    'readerFirstTip': 'Bronzestift: annotieren · Unterschriften-Symbol: Unterschrift platzieren.',
     'filterEbonyOn': 'Ébano-Filter',
     'filterEbonyOff': 'Ébano-Filter deaktivieren',
     'scrollModeTooltip': 'Modus: {mode}',
@@ -1990,7 +2014,7 @@ const Map<String, Map<String, String>> _strings = {
     'back': '返回',
     'addBookmark': '添加书签',
     'removeBookmark': '移除书签',
-    'addNote': '添加笔记',
+    'addNote': '页面笔记',
     'editPageNote': '编辑页面笔记',
     'placementModeBanner': '滚动到页面后点按以放置签名 · 返回取消',
     'emptyAnnotationsCta': '打开工具',
@@ -2000,6 +2024,10 @@ const Map<String, Map<String, String>> _strings = {
     'strokeTooShortHint': '拖动手指或 S-Pen 进行标记。',
     'bookmarkThisPage': '标记此页',
     'pageAlreadyBookmarked': '此页已标记。',
+    'previousPage': '上一页',
+    'nextPage': '下一页',
+    'expandAnnotationTools': '更多工具',
+    'readerFirstTip': '铜色笔：批注 · 签名图标：在页面放置签名。',
     'filterEbonyOn': 'Ébano 滤镜',
     'filterEbonyOff': '关闭 Ébano 滤镜',
     'scrollModeTooltip': '模式：{mode}',
@@ -2273,7 +2301,7 @@ const Map<String, Map<String, String>> _strings = {
     'back': 'Назад',
     'addBookmark': 'Добавить закладку',
     'removeBookmark': 'Убрать закладку',
-    'addNote': 'Добавить заметку',
+    'addNote': 'Заметка страницы',
     'editPageNote': 'Изменить заметку страницы',
     'placementModeBanner':
         'Пролистайте до страницы и нажмите, чтобы поставить подпись · Назад отменяет',
@@ -2285,6 +2313,10 @@ const Map<String, Map<String, String>> _strings = {
     'strokeTooShortHint': 'Проведите пальцем или S-Pen, чтобы выделить.',
     'bookmarkThisPage': 'Добавить закладку на эту страницу',
     'pageAlreadyBookmarked': 'Эта страница уже в закладках.',
+    'previousPage': 'Предыдущая страница',
+    'nextPage': 'Следующая страница',
+    'expandAnnotationTools': 'Ещё инструменты',
+    'readerFirstTip': 'Бронзовый карандаш: аннотации · Иконка подписи: поставить подпись.',
     'filterEbonyOn': 'Фильтр Ébano',
     'filterEbonyOff': 'Отключить фильтр Ébano',
     'scrollModeTooltip': 'Режим: {mode}',

@@ -58,8 +58,6 @@ class AnnotationToolbox extends StatelessWidget {
     AnnotationTool.highlight,
     AnnotationTool.underline,
     AnnotationTool.note,
-    AnnotationTool.comment,
-    AnnotationTool.annotation,
   ];
 
   bool get _showInkControls =>
@@ -355,6 +353,7 @@ class AnnotationToolbox extends StatelessWidget {
       AnnotationTool.highlight => l10n.annotationHintHighlight,
       AnnotationTool.underline => l10n.annotationHintUnderline,
       AnnotationTool.note => l10n.annotationHintNote,
+      // Comentario/anotación genérica ya no están en la caja; se mantienen por datos antiguos.
       AnnotationTool.comment => l10n.annotationHintComment,
       AnnotationTool.annotation => l10n.annotationHintAnnotation,
     };

@@ -421,8 +421,36 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (_signing?.placementMode == true) {
       _signing?.cancelPlacementMode();
     }
-    _annotations?.toggleToolbox();
+    final annotations = _annotations;
+    if (annotations == null) return;
+    if (annotations.toolboxVisible) {
+      // Con herramienta armada, cerrar = minimizar (sigue dibujando).
+      if (annotations.activeTool != AnnotationTool.none) {
+        annotations.minimizeToolbox();
+      } else {
+        annotations.setToolboxVisible(false);
+      }
+    } else {
+      annotations.setToolboxVisible(true);
+    }
     setState(() {});
+  }
+
+  void _maybeShowReaderTip() {
+    final prefs = _preferences;
+    if (prefs == null || prefs.hasSeenReaderTip || !mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || prefs.hasSeenReaderTip) return;
+      final l10n = AppLocalizations.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.readerFirstTip),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      unawaited(prefs.markReaderTipSeen());
+    });
   }
 
   Future<void> _createAnnotationRect({
@@ -1104,7 +1132,9 @@ class _ReaderScreenState extends State<ReaderScreen>
                   Positioned(
                     right: 12,
                     bottom: _controlsVisible
-                        ? (toolboxVisible ? 200 : 64)
+                        ? (toolboxVisible
+                            ? 200
+                            : (activeTool != AnnotationTool.none ? 72 : 64))
                         : 16,
                     child: FloatingPageNote(
                       noteText: noteText,
@@ -1150,7 +1180,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                           !(_signing?.exporting ?? false),
                       saving: annotations?.savingToPdf ?? false,
                       onToggleBookmark: () {
-                        unawaited(_toggleBookmark());
+                        unawaited(_addBookmarkIfNeeded());
                       },
                       onSelectTool: (tool) {
                         if (_signing?.placementMode == true) {
@@ -1177,8 +1207,26 @@ class _ReaderScreenState extends State<ReaderScreen>
                         unawaited(_promptSaveAnnotations());
                       },
                       onClearTool: () => annotations?.clearTool(),
-                      onClose: () => annotations?.setToolboxVisible(false),
+                      onClose: () {
+                        if (activeTool != AnnotationTool.none) {
+                          annotations?.minimizeToolbox();
+                        } else {
+                          annotations?.setToolboxVisible(false);
+                        }
+                      },
                     ),
+                  ),
+                // Barra compacta: herramienta armada sin el panel completo.
+                if (_controlsVisible &&
+                    !toolboxVisible &&
+                    activeTool != AnnotationTool.none)
+                  _buildArmedToolStrip(
+                    colors,
+                    activeTool: activeTool,
+                    canUndo: annotations?.canUndo ?? false,
+                    onUndo: () => unawaited(annotations?.undo()),
+                    onClear: () => annotations?.clearTool(),
+                    onExpand: () => annotations?.setToolboxVisible(true),
                   ),
                 if (!_controlsVisible)
                   Positioned(
@@ -1276,9 +1324,8 @@ class _ReaderScreenState extends State<ReaderScreen>
     final activeTool = annotations?.activeTool ?? AnnotationTool.none;
     final placementMode = signing?.placementMode ?? false;
     final annotationsLayerEnabled = !placementMode && !_sidebarVisible;
-    // Solo el dibujo de anotación bloquea el scroll; en colocación de firma
-    // se puede desplazar hasta la página correcta y luego tocar.
-    final drawingLocksNavigation = activeTool != AnnotationTool.none;
+    // Solo el marcado/subrayado bloquea el scroll; chinchetas permiten paginar.
+    final drawingLocksNavigation = activeTool.isMarkup;
     final scaffoldBg =
         _ebonyFilter ? EbonyPdfFilter.background : colors.background;
 
@@ -1288,8 +1335,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       controller: _controller,
       scrollDirection: isVertical ? Axis.vertical : Axis.horizontal,
       pageSnapping: !isVertical,
-      // Con herramienta de anotación o colocación de firma, no desplazar
-      // páginas: el trazo (dedo/S-Pen) debe ser estable.
+      // Con marcado/subrayado activo el scroll se pausa para estabilizar el trazo.
       physics: drawingLocksNavigation
           ? const NeverScrollableScrollPhysics()
           : (isVertical
@@ -1314,6 +1360,7 @@ class _ReaderScreenState extends State<ReaderScreen>
         }
         final generation = ++_pageSizeCacheGeneration;
         unawaited(_cachePageSizes(document, generation));
+        _maybeShowReaderTip();
       },
       onDocumentError: (error) {
         if (!mounted) return;
@@ -1489,6 +1536,26 @@ class _ReaderScreenState extends State<ReaderScreen>
                 Icons.border_color,
                 color: AppColors.ebonyAccent,
                 size: toolboxVisible ? 24 : 22,
+              ),
+            ),
+            IconButton(
+              tooltip: placement ? l10n.cancelPlacement : l10n.signDocument,
+              onPressed: () {
+                if (placement) {
+                  signing?.cancelPlacementMode();
+                  setState(() {});
+                  return;
+                }
+                _signDocument();
+              },
+              style: IconButton.styleFrom(
+                backgroundColor: placement
+                    ? AppColors.ebonyAccent.withValues(alpha: 0.22)
+                    : null,
+              ),
+              icon: Icon(
+                placement ? Icons.close : Icons.draw_outlined,
+                color: AppColors.ebonyAccent,
               ),
             ),
             IconButton(
@@ -1685,7 +1752,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                 Row(
                   children: [
                     IconButton(
-                      tooltip: l10n.back,
+                      tooltip: l10n.previousPage,
                       onPressed: canPrev
                           ? () => _jumpToPage(_currentPage - 1)
                           : null,
@@ -1706,7 +1773,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                       ),
                     ),
                     IconButton(
-                      tooltip: l10n.go,
+                      tooltip: l10n.nextPage,
                       onPressed: canNext
                           ? () => _jumpToPage(_currentPage + 1)
                           : null,
@@ -1720,6 +1787,87 @@ class _ReaderScreenState extends State<ReaderScreen>
                   ],
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Barra compacta cuando hay herramienta armada y el panel está minimizado.
+  Widget _buildArmedToolStrip(
+    AppPalette colors, {
+    required AnnotationTool activeTool,
+    required bool canUndo,
+    required VoidCallback onUndo,
+    required VoidCallback onClear,
+    required VoidCallback onExpand,
+  }) {
+    final l10n = AppLocalizations.of(context);
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: Material(
+        color: colors.panel.withValues(alpha: 0.96),
+        child: SafeArea(
+          top: false,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: AppColors.ebonyAccent.withValues(alpha: 0.45),
+                ),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+            child: Row(
+              children: [
+                Icon(
+                  activeTool.annotationType?.icon ?? Icons.border_color,
+                  size: 18,
+                  color: AppColors.ebonyAccent,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    activeTool.label(l10n),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: AppColors.ebonyAccent,
+                        ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: l10n.annotationUndo,
+                  onPressed: canUndo ? onUndo : null,
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    Icons.undo,
+                    size: 20,
+                    color: canUndo
+                        ? AppColors.ebonyAccent
+                        : colors.textMuted.withValues(alpha: 0.4),
+                  ),
+                ),
+                TextButton(
+                  onPressed: onClear,
+                  style: TextButton.styleFrom(
+                    foregroundColor: colors.textMuted,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: Text(l10n.releaseTool),
+                ),
+                IconButton(
+                  tooltip: l10n.expandAnnotationTools,
+                  onPressed: onExpand,
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(
+                    Icons.unfold_more,
+                    color: AppColors.ebonyAccent,
+                    size: 20,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -261,6 +261,13 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
     if (!alreadyOpen) _safeNotify();
   }
 
+  /// Oculta el panel pero mantiene la herramienta (barra compacta en el lector).
+  void minimizeToolbox() {
+    if (_disposed || !_toolboxVisible) return;
+    _toolboxVisible = false;
+    _safeNotify();
+  }
+
   void selectTool(AnnotationTool tool) {
     if (_disposed) return;
     _activeTool = _activeTool == tool ? AnnotationTool.none : tool;
