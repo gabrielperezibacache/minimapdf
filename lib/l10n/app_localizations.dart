@@ -135,6 +135,7 @@ class AppLocalizations {
   String get previousPage => _t('previousPage');
   String get nextPage => _t('nextPage');
   String get expandAnnotationTools => _t('expandAnnotationTools');
+  String get minimizeAnnotationTools => _t('minimizeAnnotationTools');
   String get readerFirstTip => _t('readerFirstTip');
   String get filterEbonyOn => _t('filterEbonyOn');
   String get filterEbonyOff => _t('filterEbonyOff');

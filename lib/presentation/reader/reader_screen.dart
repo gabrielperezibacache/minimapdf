@@ -1102,6 +1102,11 @@ class _ReaderScreenState extends State<ReaderScreen>
           setState(() => _sidebarVisible = false);
           return;
         }
+        // Misma secuencia que el botón X / lápiz: minimizar → soltar → salir.
+        if (toolboxVisible && activeTool != AnnotationTool.none) {
+          annotations?.minimizeToolbox();
+          return;
+        }
         if (toolboxVisible) {
           annotations?.setToolboxVisible(false);
           return;
@@ -1154,7 +1159,9 @@ class _ReaderScreenState extends State<ReaderScreen>
                 // Banner de colocación siempre visible (también en modo inmersivo).
                 if (signing?.placementMode == true && !toolboxVisible)
                   _buildPlacementBanner(),
-                if (_controlsVisible && !toolboxVisible)
+                if (_controlsVisible &&
+                    !toolboxVisible &&
+                    activeTool == AnnotationTool.none)
                   _buildBottomBar(
                     colors,
                     isBookmarked: isBookmarked,
@@ -1472,236 +1479,279 @@ class _ReaderScreenState extends State<ReaderScreen>
   }) {
     final l10n = AppLocalizations.of(context);
     final placement = signing?.placementMode == true;
+    final activeTool = _annotations?.activeTool ?? AnnotationTool.none;
 
     return Positioned(
       top: 0,
       left: 0,
       right: 0,
-      child: Container(
-        color: colors.panel.withValues(alpha: 0.94),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Row(
-          children: [
-            IconButton(
-              tooltip: l10n.menuToc,
-              onPressed: _toggleSidebar,
-              icon: Icon(Icons.menu, color: colors.accent),
-            ),
-            IconButton(
-              tooltip: placement ? l10n.cancelPlacement : l10n.back,
-              onPressed: () {
-                if (placement) {
-                  signing?.cancelPlacementMode();
-                  setState(() {});
-                  return;
-                }
-                _onExit();
-              },
-              icon: Icon(Icons.arrow_back, color: colors.text),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.book.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  Text(
-                    _pagesCount > 0
-                        ? '$_currentPage / $_pagesCount'
-                        : '$_currentPage',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colors.textMuted,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            // Icono bronce de anotación siempre visible.
-            IconButton(
-              tooltip: toolboxVisible
-                  ? l10n.closeAnnotationTools
-                  : l10n.annotationTools,
-              onPressed: _toggleAnnotationToolbox,
-              style: IconButton.styleFrom(
-                backgroundColor: toolboxVisible
-                    ? AppColors.ebonyAccent.withValues(alpha: 0.22)
-                    : null,
-              ),
-              icon: Icon(
-                Icons.border_color,
-                color: AppColors.ebonyAccent,
-                size: toolboxVisible ? 24 : 22,
-              ),
-            ),
-            IconButton(
-              tooltip: placement ? l10n.cancelPlacement : l10n.signDocument,
-              onPressed: () {
-                if (placement) {
-                  signing?.cancelPlacementMode();
-                  setState(() {});
-                  return;
-                }
-                _signDocument();
-              },
-              style: IconButton.styleFrom(
-                backgroundColor: placement
-                    ? AppColors.ebonyAccent.withValues(alpha: 0.22)
-                    : null,
-              ),
-              icon: Icon(
-                placement ? Icons.close : Icons.draw_outlined,
-                color: AppColors.ebonyAccent,
-              ),
-            ),
-            IconButton(
-              tooltip: l10n.scrollModeTooltip(
-                _scrollMode.localizedLabel(l10n),
-              ),
-              onPressed: _toggleScrollMode,
-              icon: Icon(
-                _scrollMode.isVertical ? Icons.swap_vert : Icons.swap_horiz,
-                color: colors.accent,
-              ),
-            ),
-            PopupMenuButton<_ReaderToolAction>(
-              tooltip: l10n.options,
-              icon: Icon(Icons.more_vert, color: colors.textMuted),
-              onSelected: (action) {
-                switch (action) {
-                  case _ReaderToolAction.bookmark:
-                    _toggleBookmark();
-                  case _ReaderToolAction.note:
-                    _editNote();
-                  case _ReaderToolAction.ebonyFilter:
-                    _toggleFilter();
-                  case _ReaderToolAction.hideControls:
-                    _toggleControls();
-                  case _ReaderToolAction.sign:
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Pantallas estrechas: lápiz + ⋯; firma/scroll van al menú.
+          final compact = constraints.maxWidth < 400;
+          final penTooltip = toolboxVisible
+              ? (activeTool != AnnotationTool.none
+                  ? l10n.minimizeAnnotationTools
+                  : l10n.closeAnnotationTools)
+              : l10n.annotationTools;
+
+          return Container(
+            color: colors.panel.withValues(alpha: 0.94),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: l10n.menuToc,
+                  onPressed: _toggleSidebar,
+                  icon: Icon(Icons.menu, color: colors.accent),
+                ),
+                IconButton(
+                  tooltip: placement ? l10n.cancelPlacement : l10n.back,
+                  onPressed: () {
                     if (placement) {
                       signing?.cancelPlacementMode();
                       setState(() {});
                       return;
                     }
-                    _signDocument();
-                  case _ReaderToolAction.share:
-                    unawaited(_shareDocument());
-                  case _ReaderToolAction.export:
-                    _exportSignedPdf();
-                  case _ReaderToolAction.saveAnnotations:
-                    unawaited(_promptSaveAnnotations());
-                }
-              },
-              itemBuilder: (context) {
-                final signBusy = signing?.saving == true ||
-                    signing?.loading == true ||
-                    signing?.exporting == true;
-                final annotationsBusy =
-                    _annotations?.savingToPdf == true;
-                final exportEnabled = signing != null &&
-                    signing.hasSignatures &&
-                    !signing.exporting &&
-                    !signing.saving &&
-                    !placement;
-                final saveAnnotationsEnabled =
-                    (_annotations?.hasAnnotations ?? false) &&
-                        !annotationsBusy &&
-                        !(signing?.exporting ?? false);
+                    _onExit();
+                  },
+                  icon: Icon(Icons.arrow_back, color: colors.text),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.book.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      Text(
+                        _pagesCount > 0
+                            ? '$_currentPage / $_pagesCount'
+                            : '$_currentPage',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: colors.textMuted,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: penTooltip,
+                  onPressed: _toggleAnnotationToolbox,
+                  style: IconButton.styleFrom(
+                    backgroundColor: toolboxVisible
+                        ? AppColors.ebonyAccent.withValues(alpha: 0.22)
+                        : null,
+                  ),
+                  icon: Icon(
+                    Icons.border_color,
+                    color: AppColors.ebonyAccent,
+                    size: toolboxVisible ? 24 : 22,
+                  ),
+                ),
+                if (!compact || placement)
+                  IconButton(
+                    tooltip:
+                        placement ? l10n.cancelPlacement : l10n.signDocument,
+                    onPressed: () {
+                      if (placement) {
+                        signing?.cancelPlacementMode();
+                        setState(() {});
+                        return;
+                      }
+                      _signDocument();
+                    },
+                    style: IconButton.styleFrom(
+                      backgroundColor: placement
+                          ? AppColors.ebonyAccent.withValues(alpha: 0.22)
+                          : null,
+                    ),
+                    icon: Icon(
+                      placement ? Icons.close : Icons.draw_outlined,
+                      color: AppColors.ebonyAccent,
+                    ),
+                  ),
+                if (!compact)
+                  IconButton(
+                    tooltip: l10n.scrollModeTooltip(
+                      _scrollMode.localizedLabel(l10n),
+                    ),
+                    onPressed: _toggleScrollMode,
+                    icon: Icon(
+                      _scrollMode.isVertical
+                          ? Icons.swap_vert
+                          : Icons.swap_horiz,
+                      color: colors.accent,
+                    ),
+                  ),
+                PopupMenuButton<_ReaderToolAction>(
+                  tooltip: l10n.options,
+                  icon: Icon(Icons.more_vert, color: colors.textMuted),
+                  onSelected: (action) {
+                    switch (action) {
+                      case _ReaderToolAction.bookmark:
+                        _toggleBookmark();
+                      case _ReaderToolAction.note:
+                        _editNote();
+                      case _ReaderToolAction.ebonyFilter:
+                        _toggleFilter();
+                      case _ReaderToolAction.hideControls:
+                        _toggleControls();
+                      case _ReaderToolAction.sign:
+                        if (placement) {
+                          signing?.cancelPlacementMode();
+                          setState(() {});
+                          return;
+                        }
+                        _signDocument();
+                      case _ReaderToolAction.share:
+                        unawaited(_shareDocument());
+                      case _ReaderToolAction.export:
+                        _exportSignedPdf();
+                      case _ReaderToolAction.saveAnnotations:
+                        unawaited(_promptSaveAnnotations());
+                      case _ReaderToolAction.scrollMode:
+                        unawaited(_toggleScrollMode());
+                    }
+                  },
+                  itemBuilder: (context) {
+                    final signBusy = signing?.saving == true ||
+                        signing?.loading == true ||
+                        signing?.exporting == true;
+                    final annotationsBusy = _annotations?.savingToPdf == true;
+                    final exportEnabled = signing != null &&
+                        signing.hasSignatures &&
+                        !signing.exporting &&
+                        !signing.saving &&
+                        !placement;
+                    final saveAnnotationsEnabled =
+                        (_annotations?.hasAnnotations ?? false) &&
+                            !annotationsBusy &&
+                            !(signing?.exporting ?? false);
 
-                return [
-                  PopupMenuItem(
-                    value: _ReaderToolAction.bookmark,
-                    child: _ReaderToolMenuRow(
-                      icon: isBookmarked
-                          ? Icons.bookmark
-                          : Icons.bookmark_border,
-                      label: isBookmarked
-                          ? l10n.removeBookmark
-                          : l10n.addBookmark,
-                      color: colors.accent,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: _ReaderToolAction.note,
-                    child: _ReaderToolMenuRow(
-                      icon: Icons.sticky_note_2_outlined,
-                      label: hasNote ? l10n.editPageNote : l10n.addNote,
-                      color: colors.accent,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: _ReaderToolAction.ebonyFilter,
-                    child: _ReaderToolMenuRow(
-                      icon: _ebonyFilter
-                          ? Icons.dark_mode
-                          : Icons.dark_mode_outlined,
-                      label: _ebonyFilter
-                          ? l10n.filterEbonyOff
-                          : l10n.filterEbonyOn,
-                      color: _ebonyFilter ? colors.accent : colors.textMuted,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: _ReaderToolAction.hideControls,
-                    child: _ReaderToolMenuRow(
-                      icon: Icons.fullscreen,
-                      label: l10n.hideControls,
-                      color: colors.textMuted,
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  PopupMenuItem(
-                    value: _ReaderToolAction.share,
-                    enabled: !annotationsBusy && !signBusy,
-                    child: _ReaderToolMenuRow(
-                      icon: Icons.ios_share_outlined,
-                      label: l10n.shareDocument,
-                      color: AppColors.ebonyAccent,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: _ReaderToolAction.saveAnnotations,
-                    enabled: saveAnnotationsEnabled,
-                    child: _ReaderToolMenuRow(
-                      icon: Icons.picture_as_pdf_outlined,
-                      label: l10n.saveAnnotations,
-                      color: saveAnnotationsEnabled
-                          ? AppColors.ebonyAccent
-                          : colors.textMuted,
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  PopupMenuItem(
-                    value: _ReaderToolAction.sign,
-                    enabled: !signBusy,
-                    child: _ReaderToolMenuRow(
-                      icon: placement ? Icons.close : Icons.draw_outlined,
-                      label: placement
-                          ? l10n.cancelPlacement
-                          : l10n.signDocument,
-                      color: AppColors.ebonyAccent,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: _ReaderToolAction.export,
-                    enabled: exportEnabled,
-                    child: _ReaderToolMenuRow(
-                      icon: Icons.verified_outlined,
-                      label: l10n.exportSignedPdf,
-                      color: exportEnabled
-                          ? AppColors.ebonyAccent
-                          : colors.textMuted,
-                    ),
-                  ),
-                ];
-              },
+                    return [
+                      PopupMenuItem(
+                        value: _ReaderToolAction.bookmark,
+                        child: _ReaderToolMenuRow(
+                          icon: isBookmarked
+                              ? Icons.bookmark
+                              : Icons.bookmark_border,
+                          label: isBookmarked
+                              ? l10n.removeBookmark
+                              : l10n.addBookmark,
+                          color: colors.accent,
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: _ReaderToolAction.note,
+                        child: _ReaderToolMenuRow(
+                          icon: Icons.sticky_note_2_outlined,
+                          label: hasNote ? l10n.editPageNote : l10n.addNote,
+                          color: colors.accent,
+                        ),
+                      ),
+                      if (compact)
+                        PopupMenuItem(
+                          value: _ReaderToolAction.scrollMode,
+                          child: _ReaderToolMenuRow(
+                            icon: _scrollMode.isVertical
+                                ? Icons.swap_vert
+                                : Icons.swap_horiz,
+                            label: l10n.scrollModeTooltip(
+                              _scrollMode.localizedLabel(l10n),
+                            ),
+                            color: colors.accent,
+                          ),
+                        ),
+                      if (compact && !placement)
+                        PopupMenuItem(
+                          value: _ReaderToolAction.sign,
+                          enabled: !signBusy,
+                          child: _ReaderToolMenuRow(
+                            icon: Icons.draw_outlined,
+                            label: l10n.signDocument,
+                            color: AppColors.ebonyAccent,
+                          ),
+                        ),
+                      PopupMenuItem(
+                        value: _ReaderToolAction.ebonyFilter,
+                        child: _ReaderToolMenuRow(
+                          icon: _ebonyFilter
+                              ? Icons.dark_mode
+                              : Icons.dark_mode_outlined,
+                          label: _ebonyFilter
+                              ? l10n.filterEbonyOff
+                              : l10n.filterEbonyOn,
+                          color:
+                              _ebonyFilter ? colors.accent : colors.textMuted,
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: _ReaderToolAction.hideControls,
+                        child: _ReaderToolMenuRow(
+                          icon: Icons.fullscreen,
+                          label: l10n.hideControls,
+                          color: colors.textMuted,
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      PopupMenuItem(
+                        value: _ReaderToolAction.share,
+                        enabled: !annotationsBusy && !signBusy,
+                        child: _ReaderToolMenuRow(
+                          icon: Icons.ios_share_outlined,
+                          label: l10n.shareDocument,
+                          color: AppColors.ebonyAccent,
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: _ReaderToolAction.saveAnnotations,
+                        enabled: saveAnnotationsEnabled,
+                        child: _ReaderToolMenuRow(
+                          icon: Icons.picture_as_pdf_outlined,
+                          label: l10n.saveAnnotations,
+                          color: saveAnnotationsEnabled
+                              ? AppColors.ebonyAccent
+                              : colors.textMuted,
+                        ),
+                      ),
+                      if (!compact) ...[
+                        const PopupMenuDivider(),
+                        PopupMenuItem(
+                          value: _ReaderToolAction.sign,
+                          enabled: !signBusy,
+                          child: _ReaderToolMenuRow(
+                            icon:
+                                placement ? Icons.close : Icons.draw_outlined,
+                            label: placement
+                                ? l10n.cancelPlacement
+                                : l10n.signDocument,
+                            color: AppColors.ebonyAccent,
+                          ),
+                        ),
+                      ],
+                      PopupMenuItem(
+                        value: _ReaderToolAction.export,
+                        enabled: exportEnabled,
+                        child: _ReaderToolMenuRow(
+                          icon: Icons.verified_outlined,
+                          label: l10n.exportSignedPdf,
+                          color: exportEnabled
+                              ? AppColors.ebonyAccent
+                              : colors.textMuted,
+                        ),
+                      ),
+                    ];
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -1829,11 +1879,26 @@ class _ReaderScreenState extends State<ReaderScreen>
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    activeTool.label(l10n),
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: AppColors.ebonyAccent,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        activeTool.label(l10n),
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: AppColors.ebonyAccent,
+                            ),
+                      ),
+                      if (activeTool.isMarkup)
+                        Text(
+                          l10n.drawingLocksScrollHint,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: colors.textMuted,
+                              ),
                         ),
+                    ],
                   ),
                 ),
                 IconButton(
@@ -1964,6 +2029,7 @@ enum _ReaderToolAction {
   saveAnnotations,
   sign,
   export,
+  scrollMode,
 }
 
 class _ReaderToolMenuRow extends StatelessWidget {

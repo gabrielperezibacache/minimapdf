@@ -83,11 +83,12 @@ void main() {
       find.text('Toca la página para anclar una chincheta.'),
       findsOneWidget,
     );
+    // Chincheta no bloquea el scroll: no mostrar el aviso de marcado.
     expect(
       find.text(
         'Herramienta activa: deselecciona para desplazarte o editar marcas.',
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.text('Deseleccionar'), findsOneWidget);
 
@@ -124,6 +125,12 @@ void main() {
 
     expect(find.text('Color'), findsOneWidget);
     expect(find.text('Grosor'), findsOneWidget);
+    expect(
+      find.text(
+        'Herramienta activa: deselecciona para desplazarte o editar marcas.',
+      ),
+      findsOneWidget,
+    );
     expect(find.byIcon(Icons.undo), findsOneWidget);
     expect(find.byIcon(Icons.redo), findsOneWidget);
 

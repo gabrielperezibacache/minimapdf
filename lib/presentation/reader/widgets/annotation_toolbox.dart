@@ -166,56 +166,70 @@ class AnnotationToolbox extends StatelessWidget {
                                 : colors.textMuted.withValues(alpha: 0.4),
                           ),
                         ),
-                        if (onSave != null)
-                          TextButton(
-                            onPressed: canSave && !saving
-                                ? () {
-                                    HapticFeedback.selectionClick();
-                                    onSave!();
-                                  }
-                                : null,
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.ebonyAccent,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            child: saving
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: AppColors.ebonyAccent,
-                                    ),
-                                  )
-                                : Text(l10n.saveAnnotations),
-                          ),
-                        if (activeTool != AnnotationTool.none &&
-                            onClearTool != null)
-                          TextButton(
-                            onPressed: saving
-                                ? null
-                                : () {
-                                    HapticFeedback.selectionClick();
-                                    onClearTool!();
-                                  },
-                            style: TextButton.styleFrom(
-                              foregroundColor: colors.textMuted,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            child: Text(l10n.releaseTool),
-                          ),
                         IconButton(
-                          tooltip: l10n.closeToolbox,
+                          tooltip: activeTool != AnnotationTool.none
+                              ? l10n.minimizeAnnotationTools
+                              : l10n.closeToolbox,
                           onPressed: onClose,
                           visualDensity: VisualDensity.compact,
                           icon: Icon(
-                            Icons.close,
+                            activeTool != AnnotationTool.none
+                                ? Icons.keyboard_arrow_down
+                                : Icons.close,
                             color: colors.textMuted,
                             size: 20,
                           ),
                         ),
                       ],
                     ),
+                    if (onSave != null ||
+                        (activeTool != AnnotationTool.none &&
+                            onClearTool != null)) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          if (onSave != null)
+                            TextButton(
+                              onPressed: canSave && !saving
+                                  ? () {
+                                      HapticFeedback.selectionClick();
+                                      onSave!();
+                                    }
+                                  : null,
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.ebonyAccent,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: saving
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.ebonyAccent,
+                                      ),
+                                    )
+                                  : Text(l10n.saveAnnotations),
+                            ),
+                          const Spacer(),
+                          if (activeTool != AnnotationTool.none &&
+                              onClearTool != null)
+                            TextButton(
+                              onPressed: saving
+                                  ? null
+                                  : () {
+                                      HapticFeedback.selectionClick();
+                                      onClearTool!();
+                                    },
+                              style: TextButton.styleFrom(
+                                foregroundColor: colors.textMuted,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: Text(l10n.releaseTool),
+                            ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -325,7 +339,7 @@ class AnnotationToolbox extends StatelessWidget {
                             color: colors.textMuted,
                           ),
                     ),
-                    if (activeTool != AnnotationTool.none) ...[
+                    if (activeTool.isMarkup) ...[
                       const SizedBox(height: 6),
                       Text(
                         AppLocalizations.of(context).drawingLocksScrollHint,
