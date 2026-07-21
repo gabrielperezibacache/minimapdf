@@ -1078,7 +1078,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                   Positioned(
                     right: 12,
                     bottom: _controlsVisible
-                        ? (toolboxVisible ? 168 : 64)
+                        ? (toolboxVisible ? 200 : 64)
                         : 16,
                     child: FloatingPageNote(
                       noteText: noteText,
@@ -1092,8 +1092,13 @@ class _ReaderScreenState extends State<ReaderScreen>
                     colors,
                     isBookmarked,
                     signing,
+                    hasNote: hasNote,
                     toolboxVisible: toolboxVisible,
                   ),
+                if (_controlsVisible &&
+                    signing?.placementMode == true &&
+                    !toolboxVisible)
+                  _buildPlacementBanner(),
                 if (_controlsVisible && !toolboxVisible)
                   _buildBottomBar(
                     colors,
@@ -1160,7 +1165,10 @@ class _ReaderScreenState extends State<ReaderScreen>
                       style: IconButton.styleFrom(
                         backgroundColor: colors.panel.withValues(alpha: 0.85),
                       ),
-                      icon: Icon(Icons.more_horiz, color: colors.accent),
+                      icon: Icon(
+                        Icons.fullscreen_exit,
+                        color: colors.accent,
+                      ),
                     ),
                   ),
                 // Acceso rápido al icono de acento aunque los controles estén ocultos.
@@ -1197,6 +1205,20 @@ class _ReaderScreenState extends State<ReaderScreen>
                       unawaited(_confirmDeleteAnnotation(a)),
                   onOpenAnnotation: _openAnnotation,
                   onDeleteSignature: _confirmDeleteSignature,
+                  onOpenAnnotationTools: () {
+                    setState(() => _sidebarVisible = false);
+                    if (!(annotations?.toolboxVisible ?? false)) {
+                      _toggleAnnotationToolbox();
+                    }
+                  },
+                  onStartSigning: () {
+                    setState(() => _sidebarVisible = false);
+                    _signDocument();
+                  },
+                  onAddBookmark: () {
+                    setState(() => _sidebarVisible = false);
+                    unawaited(_toggleBookmark());
+                  },
                 ),
               ],
             ),
@@ -1371,6 +1393,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     AppPalette colors,
     bool isBookmarked,
     DocumentSigningProvider? signing, {
+    required bool hasNote,
     required bool toolboxVisible,
   }) {
     final l10n = AppLocalizations.of(context);
@@ -1403,11 +1426,25 @@ class _ReaderScreenState extends State<ReaderScreen>
               icon: Icon(Icons.arrow_back, color: colors.text),
             ),
             Expanded(
-              child: Text(
-                widget.book.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.book.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  Text(
+                    _pagesCount > 0
+                        ? '$_currentPage / $_pagesCount'
+                        : '$_currentPage',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colors.textMuted,
+                        ),
+                  ),
+                ],
               ),
             ),
             // Icono bronce de anotación siempre visible.
@@ -1498,7 +1535,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     value: _ReaderToolAction.note,
                     child: _ReaderToolMenuRow(
                       icon: Icons.sticky_note_2_outlined,
-                      label: l10n.addNote,
+                      label: hasNote ? l10n.editPageNote : l10n.addNote,
                       color: colors.accent,
                     ),
                   ),
@@ -1536,13 +1573,14 @@ class _ReaderScreenState extends State<ReaderScreen>
                     value: _ReaderToolAction.saveAnnotations,
                     enabled: saveAnnotationsEnabled,
                     child: _ReaderToolMenuRow(
-                      icon: Icons.save_outlined,
+                      icon: Icons.picture_as_pdf_outlined,
                       label: l10n.saveAnnotations,
                       color: saveAnnotationsEnabled
                           ? AppColors.ebonyAccent
                           : colors.textMuted,
                     ),
                   ),
+                  const PopupMenuDivider(),
                   PopupMenuItem(
                     value: _ReaderToolAction.sign,
                     enabled: !signBusy,
@@ -1569,6 +1607,48 @@ class _ReaderScreenState extends State<ReaderScreen>
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlacementBanner() {
+    final l10n = AppLocalizations.of(context);
+    return Positioned(
+      top: 64,
+      left: 12,
+      right: 12,
+      child: Material(
+        color: AppColors.ebonyAccent.withValues(alpha: 0.95),
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              const Icon(Icons.touch_app, size: 18, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  l10n.placementModeBanner,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  _signing?.cancelPlacementMode();
+                  setState(() {});
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: Text(l10n.cancelPlacement),
+              ),
+            ],
+          ),
         ),
       ),
     );

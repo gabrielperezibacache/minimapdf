@@ -51,7 +51,7 @@ void main() {
     expect(find.text('Comentario'), findsOneWidget);
     expect(find.text('Anotación'), findsOneWidget);
     expect(
-      find.text('Elige una herramienta de acento bronce para anotar el PDF.'),
+      find.text('Elige Marcado o Subrayado y dibuja; o Nota para fijar un texto.'),
       findsOneWidget,
     );
 
@@ -60,7 +60,8 @@ void main() {
     expect(selected, AnnotationTool.underline);
   });
 
-  testWidgets('muestra hint y Soltar cuando hay herramienta activa', (tester) async {
+  testWidgets('muestra hint y Deseleccionar cuando hay herramienta activa',
+      (tester) async {
     var cleared = false;
 
     await tester.pumpWidget(
@@ -77,9 +78,13 @@ void main() {
     );
 
     expect(find.text('Toca la página para colocar una nota.'), findsOneWidget);
-    expect(find.text('Soltar'), findsOneWidget);
+    expect(
+      find.text('Herramienta activa: deselecciona para volver a desplazarte.'),
+      findsOneWidget,
+    );
+    expect(find.text('Deseleccionar'), findsOneWidget);
 
-    await tester.tap(find.text('Soltar'));
+    await tester.tap(find.text('Deseleccionar'));
     await tester.pump();
     expect(cleared, isTrue);
   });
@@ -134,7 +139,7 @@ void main() {
     expect(picked, isNotNull);
   });
 
-  testWidgets('muestra Guardar cuando hay anotaciones', (tester) async {
+  testWidgets('muestra Guardar en PDF cuando hay anotaciones', (tester) async {
     var saved = false;
 
     await tester.pumpWidget(
@@ -151,8 +156,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Guardar'), findsOneWidget);
-    await tester.tap(find.text('Guardar'));
+    expect(find.text('Guardar en PDF'), findsOneWidget);
+    await tester.tap(find.text('Guardar en PDF'));
     await tester.pump();
     expect(saved, isTrue);
   });

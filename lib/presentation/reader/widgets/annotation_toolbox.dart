@@ -327,6 +327,17 @@ class AnnotationToolbox extends StatelessWidget {
                             color: colors.textMuted,
                           ),
                     ),
+                    if (activeTool != AnnotationTool.none) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        AppLocalizations.of(context).drawingLocksScrollHint,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.ebonyAccent.withValues(
+                                alpha: 0.9,
+                              ),
+                            ),
+                      ),
+                    ],
                   ],
                 ),
               ),

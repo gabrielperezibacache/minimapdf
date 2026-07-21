@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
@@ -27,6 +28,9 @@ class ReaderSidebar extends StatelessWidget {
     this.onDeleteAnnotation,
     this.onOpenAnnotation,
     this.onDeleteSignature,
+    this.onOpenAnnotationTools,
+    this.onStartSigning,
+    this.onAddBookmark,
   });
 
   final bool visible;
@@ -41,6 +45,9 @@ class ReaderSidebar extends StatelessWidget {
   final ValueChanged<PageAnnotation>? onDeleteAnnotation;
   final ValueChanged<PageAnnotation>? onOpenAnnotation;
   final ValueChanged<DocumentSignature>? onDeleteSignature;
+  final VoidCallback? onOpenAnnotationTools;
+  final VoidCallback? onStartSigning;
+  final VoidCallback? onAddBookmark;
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +85,11 @@ class ReaderSidebar extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _SidebarHeader(onClose: onClose),
+                  _SidebarHeader(
+                    currentPage: currentPage,
+                    pagesCount: pagesCount,
+                    onClose: onClose,
+                  ),
                   Expanded(
                     child: DefaultTabController(
                       length: 4,
@@ -92,9 +103,18 @@ class ReaderSidebar extends StatelessWidget {
                             tabAlignment: TabAlignment.start,
                             tabs: [
                               Tab(text: AppLocalizations.of(context).tocTab),
-                              Tab(text: AppLocalizations.of(context).bookmarksTab),
-                              Tab(text: AppLocalizations.of(context).annotationsTab),
-                              Tab(text: AppLocalizations.of(context).signaturesTab),
+                              Tab(
+                                text:
+                                    AppLocalizations.of(context).bookmarksTab,
+                              ),
+                              Tab(
+                                text: AppLocalizations.of(context)
+                                    .annotationsTab,
+                              ),
+                              Tab(
+                                text:
+                                    AppLocalizations.of(context).signaturesTab,
+                              ),
                             ],
                           ),
                           Expanded(
@@ -110,6 +130,7 @@ class ReaderSidebar extends StatelessWidget {
                                   currentPage: currentPage,
                                   onOpenPage: onOpenPage,
                                   onDelete: onDeleteBookmark,
+                                  onAddBookmark: onAddBookmark,
                                 ),
                                 _AnnotationsPane(
                                   annotations: annotations,
@@ -117,12 +138,14 @@ class ReaderSidebar extends StatelessWidget {
                                   onOpenPage: onOpenPage,
                                   onDelete: onDeleteAnnotation,
                                   onOpen: onOpenAnnotation,
+                                  onOpenTools: onOpenAnnotationTools,
                                 ),
                                 _SignaturesPane(
                                   signatures: signatures,
                                   currentPage: currentPage,
                                   onOpenPage: onOpenPage,
                                   onDelete: onDeleteSignature,
+                                  onStartSigning: onStartSigning,
                                 ),
                               ],
                             ),
@@ -142,14 +165,22 @@ class ReaderSidebar extends StatelessWidget {
 }
 
 class _SidebarHeader extends StatelessWidget {
-  const _SidebarHeader({required this.onClose});
+  const _SidebarHeader({
+    required this.currentPage,
+    required this.pagesCount,
+    required this.onClose,
+  });
 
+  final int currentPage;
+  final int pagesCount;
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppPalette.of(context);
     final l10n = AppLocalizations.of(context);
+    final pageLabel =
+        pagesCount > 0 ? '$currentPage / $pagesCount' : '$currentPage';
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
@@ -158,19 +189,123 @@ class _SidebarHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(
-            l10n.navigation,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: colors.accent,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.navigation,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: colors.accent,
+                      ),
                 ),
+                const SizedBox(height: 2),
+                Text(
+                  l10n.pageNumber(currentPage),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colors.textMuted,
+                      ),
+                ),
+              ],
+            ),
           ),
-          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              border: Border.all(color: colors.border),
+            ),
+            child: Text(
+              pageLabel,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colors.accent,
+                  ),
+            ),
+          ),
           IconButton(
             tooltip: l10n.close,
             onPressed: onClose,
             icon: Icon(Icons.close, color: colors.textMuted),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SidebarEmptyState extends StatelessWidget {
+  const _SidebarEmptyState({
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+    this.icon = Icons.info_outline,
+  });
+
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppPalette.of(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 36, color: colors.textMuted.withValues(alpha: 0.7)),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.textMuted,
+                    height: 1.35,
+                  ),
+            ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 16),
+              FilledButton.tonal(
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  onAction!();
+                },
+                style: FilledButton.styleFrom(
+                  foregroundColor: AppColors.ebonyAccent,
+                ),
+                child: Text(actionLabel!),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CurrentBadge extends StatelessWidget {
+  const _CurrentBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.ebonyAccent.withValues(alpha: 0.18),
+        border: Border.all(
+          color: AppColors.ebonyAccent.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Text(
+        l10n.currentPageBadge,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppColors.ebonyAccent,
+              fontWeight: FontWeight.w600,
+            ),
       ),
     );
   }
@@ -193,17 +328,43 @@ class _TocPane extends StatefulWidget {
 
 class _TocPaneState extends State<_TocPane> {
   late final TextEditingController _pageController;
+  final ScrollController _listController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _pageController = TextEditingController();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToCurrent());
+  }
+
+  @override
+  void didUpdateWidget(covariant _TocPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentPage != widget.currentPage) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToCurrent());
+    }
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _listController.dispose();
     super.dispose();
+  }
+
+  void _scrollToCurrent() {
+    if (!_listController.hasClients) return;
+    final index = (widget.currentPage - 1).clamp(0, widget.pagesCount - 1);
+    if (widget.pagesCount <= 0) return;
+    const itemExtent = 48.0;
+    final target = (index * itemExtent) -
+        (_listController.position.viewportDimension / 2) +
+        (itemExtent / 2);
+    _listController.animateTo(
+      target.clamp(0.0, _listController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _jumpFromField() {
@@ -230,6 +391,7 @@ class _TocPaneState extends State<_TocPane> {
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     labelText: AppLocalizations.of(context).goToPage,
+                    hintText: pagesCount > 0 ? '1–$pagesCount' : null,
                     isDense: true,
                   ),
                   onSubmitted: (_) => _jumpFromField(),
@@ -259,6 +421,8 @@ class _TocPaneState extends State<_TocPane> {
         const SizedBox(height: 4),
         Expanded(
           child: ListView.builder(
+            controller: _listController,
+            itemExtent: 48,
             itemCount: pagesCount,
             itemBuilder: (context, index) {
               final l10n = AppLocalizations.of(context);
@@ -270,22 +434,33 @@ class _TocPaneState extends State<_TocPane> {
               return InkWell(
                 onTap: () => widget.onOpenPage(entry.pageNumber),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
                     color: selected ? colors.surface : null,
                     border: Border(
                       left: BorderSide(
                         color: selected ? colors.accent : Colors.transparent,
-                        width: 2,
+                        width: 3,
                       ),
                     ),
                   ),
-                  child: Text(
-                    entry.title,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: selected ? colors.accent : colors.text,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          entry.title,
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color:
+                                        selected ? colors.accent : colors.text,
+                                    fontWeight: selected
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                                  ),
                         ),
+                      ),
+                      if (selected) const _CurrentBadge(),
+                    ],
                   ),
                 ),
               );
@@ -303,12 +478,14 @@ class _BookmarksPane extends StatelessWidget {
     required this.currentPage,
     required this.onOpenPage,
     required this.onDelete,
+    this.onAddBookmark,
   });
 
   final List<Bookmark> bookmarks;
   final int currentPage;
   final ValueChanged<int> onOpenPage;
   final ValueChanged<Bookmark> onDelete;
+  final VoidCallback? onAddBookmark;
 
   @override
   Widget build(BuildContext context) {
@@ -316,15 +493,11 @@ class _BookmarksPane extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
 
     if (bookmarks.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            l10n.noBookmarks,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
+      return _SidebarEmptyState(
+        message: l10n.noBookmarks,
+        icon: Icons.bookmark_border,
+        actionLabel: onAddBookmark == null ? null : l10n.addBookmark,
+        onAction: onAddBookmark,
       );
     }
 
@@ -344,7 +517,15 @@ class _BookmarksPane extends StatelessWidget {
             hasNote ? Icons.sticky_note_2 : Icons.bookmark,
             color: colors.accent,
           ),
-          title: Text(l10n.pageNumber(bookmark.pageNumber)),
+          title: Row(
+            children: [
+              Expanded(child: Text(l10n.pageNumber(bookmark.pageNumber))),
+              if (selected) ...[
+                const SizedBox(width: 8),
+                const _CurrentBadge(),
+              ],
+            ],
+          ),
           subtitle: hasNote
               ? Text(
                   bookmark.noteText!,
@@ -371,6 +552,7 @@ class _AnnotationsPane extends StatelessWidget {
     required this.onOpenPage,
     this.onDelete,
     this.onOpen,
+    this.onOpenTools,
   });
 
   final List<PageAnnotation> annotations;
@@ -378,6 +560,7 @@ class _AnnotationsPane extends StatelessWidget {
   final ValueChanged<int> onOpenPage;
   final ValueChanged<PageAnnotation>? onDelete;
   final ValueChanged<PageAnnotation>? onOpen;
+  final VoidCallback? onOpenTools;
 
   @override
   Widget build(BuildContext context) {
@@ -385,15 +568,11 @@ class _AnnotationsPane extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
 
     if (annotations.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            l10n.noAnnotations,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
+      return _SidebarEmptyState(
+        message: l10n.noAnnotations,
+        icon: Icons.border_color,
+        actionLabel: onOpenTools == null ? null : l10n.emptyAnnotationsCta,
+        onAction: onOpenTools,
       );
     }
 
@@ -408,8 +587,18 @@ class _AnnotationsPane extends StatelessWidget {
           selected: selected,
           selectedColor: AppColors.ebonyAccent,
           leading: Icon(annotation.type.icon, color: AppColors.ebonyAccent),
-          title: Text(
-            '${annotation.type.label(l10n)} · ${l10n.pageAbbrev(annotation.pageNumber)}',
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${annotation.type.label(l10n)} · ${l10n.pageAbbrev(annotation.pageNumber)}',
+                ),
+              ),
+              if (selected) ...[
+                const SizedBox(width: 8),
+                const _CurrentBadge(),
+              ],
+            ],
           ),
           subtitle: annotation.hasText
               ? Text(
@@ -445,12 +634,14 @@ class _SignaturesPane extends StatelessWidget {
     required this.currentPage,
     required this.onOpenPage,
     this.onDelete,
+    this.onStartSigning,
   });
 
   final List<DocumentSignature> signatures;
   final int currentPage;
   final ValueChanged<int> onOpenPage;
   final ValueChanged<DocumentSignature>? onDelete;
+  final VoidCallback? onStartSigning;
 
   @override
   Widget build(BuildContext context) {
@@ -458,15 +649,11 @@ class _SignaturesPane extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
 
     if (signatures.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            l10n.noSignatures,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
+      return _SidebarEmptyState(
+        message: l10n.noSignatures,
+        icon: Icons.draw_outlined,
+        actionLabel: onStartSigning == null ? null : l10n.emptySignaturesCta,
+        onAction: onStartSigning,
       );
     }
 
@@ -486,7 +673,15 @@ class _SignaturesPane extends StatelessWidget {
                 : Icons.gesture,
             color: AppColors.ebonyAccent,
           ),
-          title: Text(signature.signerName),
+          title: Row(
+            children: [
+              Expanded(child: Text(signature.signerName)),
+              if (selected) ...[
+                const SizedBox(width: 8),
+                const _CurrentBadge(),
+              ],
+            ],
+          ),
           subtitle: Text(
             '${l10n.pageAbbrev(signature.pageNumber)} · ${signature.role.label(l10n)} '
             '#${signature.signingOrder}\n'
