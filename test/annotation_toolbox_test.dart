@@ -85,9 +85,7 @@ void main() {
     );
     // Chincheta no bloquea el scroll: no mostrar el aviso de marcado.
     expect(
-      find.text(
-        'Herramienta activa: deselecciona para desplazarte o editar marcas.',
-      ),
+      find.textContaining('Candado cerrado'),
       findsNothing,
     );
     expect(find.text('Deseleccionar'), findsOneWidget);
@@ -109,6 +107,8 @@ void main() {
         AnnotationToolbox(
           visible: true,
           activeTool: AnnotationTool.highlight,
+          navigationLocked: true,
+          onToggleNavigationLock: () {},
           inkColor: const Color(0xFFC89A5A),
           strokeSizeIndex: 2,
           canUndo: true,
@@ -126,9 +126,7 @@ void main() {
     expect(find.text('Color'), findsOneWidget);
     expect(find.text('Grosor'), findsOneWidget);
     expect(
-      find.text(
-        'Herramienta activa: deselecciona para desplazarte o editar marcas.',
-      ),
+      find.textContaining('Candado cerrado'),
       findsOneWidget,
     );
     expect(find.byIcon(Icons.undo), findsOneWidget);
@@ -149,6 +147,42 @@ void main() {
     await tester.tap(find.bySemanticsLabel('color').first);
     await tester.pump();
     expect(picked, isNotNull);
+  });
+
+  testWidgets('candado abre y cierra navegación en la caja de herramientas',
+      (tester) async {
+    var locked = true;
+
+    await tester.pumpWidget(
+      wrap(
+        StatefulBuilder(
+          builder: (context, setState) {
+            return AnnotationToolbox(
+              visible: true,
+              activeTool: AnnotationTool.underline,
+              navigationLocked: locked,
+              onToggleNavigationLock: () => setState(() => locked = !locked),
+              onSelectTool: (_) {},
+              onClose: () {},
+            );
+          },
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.lock), findsOneWidget);
+    expect(find.textContaining('Candado cerrado'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.lock));
+    await tester.pump();
+
+    expect(find.byIcon(Icons.lock_open), findsOneWidget);
+    expect(find.textContaining('Candado abierto'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.lock_open));
+    await tester.pump();
+
+    expect(find.byIcon(Icons.lock), findsOneWidget);
   });
 
   testWidgets('muestra Guardar en PDF cuando hay anotaciones', (tester) async {

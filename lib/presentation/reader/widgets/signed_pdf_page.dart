@@ -37,6 +37,7 @@ class SignedPdfPage extends StatefulWidget {
     this.documentGeneration = 0,
     this.inkColor,
     this.strokeWidthPx,
+    this.navigationLocked = true,
     this.onCreateAnnotation,
     this.onOpenAnnotation,
     this.onDeleteAnnotation,
@@ -64,6 +65,8 @@ class SignedPdfPage extends StatefulWidget {
   final int documentGeneration;
   final Color? inkColor;
   final double? strokeWidthPx;
+  /// Candado de navegación (scroll/zoom) con herramienta armada.
+  final bool navigationLocked;
   final Future<void> Function({
     required int pageNumber,
     required AnnotationTool tool,
@@ -196,6 +199,7 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
                 enabled: widget.annotationsEnabled && !widget.placementMode,
                 inkColor: widget.inkColor,
                 strokeWidthPx: widget.strokeWidthPx,
+                navigationLocked: widget.navigationLocked,
                 onCreateRect: ({
                   required AnnotationTool tool,
                   required double x,
@@ -227,6 +231,7 @@ class _SignedPdfPageState extends State<SignedPdfPage> {
                 enabled: widget.annotationsEnabled && !widget.placementMode,
                 inkColor: widget.inkColor,
                 strokeWidthPx: widget.strokeWidthPx,
+                navigationLocked: widget.navigationLocked,
                 onCreateRect: ({
                   required AnnotationTool tool,
                   required double x,

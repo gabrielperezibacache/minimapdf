@@ -1197,6 +1197,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     child: AnnotationToolbox(
                       visible: toolboxVisible,
                       activeTool: activeTool,
+                      navigationLocked: annotations?.navigationLocked ?? true,
                       isBookmarked: isBookmarked,
                       pageNumber: _currentPage,
                       annotationCount: pageAnnotations.length,
@@ -1215,6 +1216,10 @@ class _ReaderScreenState extends State<ReaderScreen>
                           _signing?.cancelPlacementMode();
                         }
                         annotations?.selectTool(tool);
+                        setState(() {});
+                      },
+                      onToggleNavigationLock: () {
+                        annotations?.toggleNavigationLock();
                         setState(() {});
                       },
                       onInkColorChanged: (color) {
@@ -1249,8 +1254,13 @@ class _ReaderScreenState extends State<ReaderScreen>
                   _buildArmedToolStrip(
                     colors,
                     activeTool: activeTool,
+                    navigationLocked: annotations?.navigationLocked ?? true,
                     canUndo: annotations?.canUndo ?? false,
                     onUndo: () => unawaited(annotations?.undo()),
+                    onToggleNavigationLock: () {
+                      annotations?.toggleNavigationLock();
+                      setState(() {});
+                    },
                     onClear: () => annotations?.clearTool(),
                     onExpand: () {
                       if (!_controlsVisible) {
@@ -1355,8 +1365,10 @@ class _ReaderScreenState extends State<ReaderScreen>
     final activeTool = annotations?.activeTool ?? AnnotationTool.none;
     final placementMode = signing?.placementMode ?? false;
     final annotationsLayerEnabled = !placementMode && !_sidebarVisible;
-    // Solo el marcado/subrayado bloquea el scroll; chinchetas permiten paginar.
-    final drawingLocksNavigation = activeTool.isMarkup;
+    final navigationLocked = annotations?.navigationLocked ?? true;
+    // Solo el marcado/subrayado con candado cerrado bloquea el scroll.
+    final drawingLocksNavigation =
+        activeTool.isMarkup && navigationLocked;
     final scaffoldBg =
         _ebonyFilter ? EbonyPdfFilter.background : colors.background;
 
@@ -1448,6 +1460,7 @@ class _ReaderScreenState extends State<ReaderScreen>
               annotationsEnabled: annotationsLayerEnabled,
               inkColor: annotations?.activeInkColor,
               strokeWidthPx: annotations?.activeStrokeWidthPx,
+              navigationLocked: navigationLocked,
               ebonyFilter: _ebonyFilter,
               // Solo la página actual acepta toques de colocación (scroll continuo).
               placementMode: placementOnPage,
@@ -1483,9 +1496,10 @@ class _ReaderScreenState extends State<ReaderScreen>
             ),
             // Debe coincidir con el SizedBox de SignedPdfPage (puntos PDF).
             childSize: pageSize,
-            // Evita que PhotoView robe el pan/zoom mientras se dibuja
-            // con dedo o S-Pen (en todas las páginas visibles).
-            disableGestures: pageTool != AnnotationTool.none || placementOnPage,
+            // Candado cerrado: sin pan/zoom PhotoView. Abierto: pinch/pan libres.
+            disableGestures:
+                (pageTool != AnnotationTool.none && navigationLocked) ||
+                    placementOnPage,
             initialScale: PhotoViewComputedScale.contained * 1.0,
             minScale: PhotoViewComputedScale.contained * 1.0,
             maxScale: PhotoViewComputedScale.contained * 3.0,
@@ -1852,12 +1866,17 @@ class _ReaderScreenState extends State<ReaderScreen>
   Widget _buildArmedToolStrip(
     AppPalette colors, {
     required AnnotationTool activeTool,
+    required bool navigationLocked,
     required bool canUndo,
     required VoidCallback onUndo,
+    required VoidCallback onToggleNavigationLock,
     required VoidCallback onClear,
     required VoidCallback onExpand,
   }) {
     final l10n = AppLocalizations.of(context);
+    final lockHint = navigationLocked
+        ? l10n.drawingLocksScrollHint
+        : l10n.drawingAllowsScrollHint;
     return Positioned(
       left: 0,
       right: 0,
@@ -1902,7 +1921,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                           ),
                           if (activeTool.isMarkup)
                             Text(
-                              l10n.drawingLocksScrollHint,
+                              lockHint,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context)
@@ -1913,6 +1932,18 @@ class _ReaderScreenState extends State<ReaderScreen>
                                   ),
                             ),
                         ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: navigationLocked
+                          ? l10n.unlockPageNavigation
+                          : l10n.lockPageNavigation,
+                      onPressed: onToggleNavigationLock,
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(
+                        navigationLocked ? Icons.lock : Icons.lock_open,
+                        size: 20,
+                        color: AppColors.ebonyAccent,
                       ),
                     ),
                     IconButton(

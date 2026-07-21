@@ -15,29 +15,75 @@ import '../../signing/ink_stroke_painter.dart';
 import '../annotation_ink.dart';
 import '../annotation_markup_geometry.dart';
 
-/// Gana la arena de inmediato (PageView/PhotoView no pueden cancelar el trazo).
+/// Gana o cede la arena según el candado de navegación.
 ///
-/// No usamos [PanGestureRecognizer]: durante el `setState` del preview el pan
-/// se recreaba/sincronizaba y a veces perdía frente al scroll del PdfView.
-class _ArenaWinningRecognizer extends OneSequenceGestureRecognizer {
-  _ArenaWinningRecognizer({
+/// - Candado cerrado ([lockNavigation]): acepta al tocar (el PDF no roba el trazo).
+/// - Candado abierto: cede si hay 2+ dedos (zoom/pan) y solo acepta con un dedo
+///   tras un pequeño movimiento.
+class _MarkupArenaRecognizer extends OneSequenceGestureRecognizer {
+  _MarkupArenaRecognizer({
+    required this.lockNavigation,
     super.debugOwner,
     super.supportedDevices,
   });
+
+  bool lockNavigation;
+
+  final Set<int> _pointers = <int>{};
+  Offset? _startPosition;
+  bool _resolved = false;
+
+  static const double _unlockAcceptSlop = 8.0;
 
   @override
   void addAllowedPointer(PointerDownEvent event) {
     if (event.kind == PointerDeviceKind.invertedStylus) {
       return;
     }
-    super.addAllowedPointer(event);
-    resolve(GestureDisposition.accepted);
+    _pointers.add(event.pointer);
+    if (!lockNavigation && _pointers.length > 1) {
+      _yieldToNavigation();
+      return;
+    }
+    startTrackingPointer(event.pointer, event.transform);
+    _startPosition ??= event.position;
+    if (lockNavigation) {
+      resolve(GestureDisposition.accepted);
+      _resolved = true;
+    }
+  }
+
+  void _yieldToNavigation() {
+    if (!_resolved) {
+      resolve(GestureDisposition.rejected);
+      _resolved = true;
+    }
+    for (final pointer in List<int>.from(_pointers)) {
+      stopTrackingPointer(pointer);
+    }
+    _pointers.clear();
+    _startPosition = null;
   }
 
   @override
   void handleEvent(PointerEvent event) {
+    if (!lockNavigation &&
+        !_resolved &&
+        event is PointerMoveEvent &&
+        _pointers.length == 1 &&
+        _startPosition != null) {
+      if ((event.position - _startPosition!).distance >= _unlockAcceptSlop) {
+        resolve(GestureDisposition.accepted);
+        _resolved = true;
+      }
+    }
     if (event is PointerUpEvent || event is PointerCancelEvent) {
+      _pointers.remove(event.pointer);
       stopTrackingPointer(event.pointer);
+      if (_pointers.isEmpty) {
+        _startPosition = null;
+        _resolved = false;
+      }
     }
   }
 
@@ -47,13 +93,18 @@ class _ArenaWinningRecognizer extends OneSequenceGestureRecognizer {
   @override
   void rejectGesture(int pointer) {
     stopTrackingPointer(pointer);
+    _pointers.remove(pointer);
+    if (_pointers.isEmpty) {
+      _startPosition = null;
+      _resolved = false;
+    }
   }
 
   @override
   void didStopTrackingLastPointer(int pointer) {}
 
   @override
-  String get debugDescription => 'arenaWinning';
+  String get debugDescription => 'markupArena';
 }
 
 /// Preview del trazo sin reconstruir el [RawGestureDetector] en cada move.
@@ -100,6 +151,7 @@ class PageAnnotationsLayer extends StatefulWidget {
     required this.onDeleteAnnotation,
     this.inkColor,
     this.strokeWidthPx,
+    this.navigationLocked = true,
   });
 
   final List<PageAnnotation> annotations;
@@ -117,6 +169,8 @@ class PageAnnotationsLayer extends StatefulWidget {
   final ValueChanged<PageAnnotation> onDeleteAnnotation;
   final Color? inkColor;
   final double? strokeWidthPx;
+  /// Candado cerrado: el trazo gana la arena. Abierto: cede al zoom/pan.
+  final bool navigationLocked;
 
   @override
   State<PageAnnotationsLayer> createState() => _PageAnnotationsLayerState();
@@ -129,6 +183,7 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
   int? _activePointer;
   PointerDeviceKind? _activeKind;
   int? _stylusPointer;
+  int _pointersDown = 0;
 
   bool get _captureGestures =>
       widget.enabled &&
@@ -225,6 +280,11 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
     _stylusPointer = null;
   }
 
+  void _abortDraftForNavigation() {
+    _clearStrokePointers();
+    _draft.clear();
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -277,14 +337,15 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
     );
   }
 
-  /// Recognizer que gana la arena; [Listener] recoge el path sin cancelaciones.
+  /// Recognizer que gana o cede la arena según el candado; [Listener] recoge el path.
   Widget _buildCaptureSurface(Size size) {
     return RawGestureDetector(
       behavior: HitTestBehavior.opaque,
       gestures: <Type, GestureRecognizerFactory>{
-        _ArenaWinningRecognizer:
-            GestureRecognizerFactoryWithHandlers<_ArenaWinningRecognizer>(
-          () => _ArenaWinningRecognizer(
+        _MarkupArenaRecognizer:
+            GestureRecognizerFactoryWithHandlers<_MarkupArenaRecognizer>(
+          () => _MarkupArenaRecognizer(
+            lockNavigation: widget.navigationLocked,
             debugOwner: this,
             supportedDevices: const {
               PointerDeviceKind.touch,
@@ -292,14 +353,22 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
               PointerDeviceKind.mouse,
             },
           ),
-          (_ArenaWinningRecognizer instance) {
-            // Sin callbacks: solo ocupa la arena para que PageView no gane.
+          (_MarkupArenaRecognizer instance) {
+            instance.lockNavigation = widget.navigationLocked;
           },
         ),
       },
       child: Listener(
         behavior: HitTestBehavior.opaque,
         onPointerDown: (event) {
+          _pointersDown++;
+          // Candado abierto + 2º dedo: ceder zoom/pan, no dibujar.
+          if (!widget.navigationLocked &&
+              _pointersDown > 1 &&
+              !_isStylus(event.kind)) {
+            _abortDraftForNavigation();
+            return;
+          }
           if (!_acceptPointerDown(event)) return;
 
           final stylus = _isStylus(event.kind);
@@ -318,6 +387,9 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
           if (event.pointer != _activePointer || _draft.points.isEmpty) {
             return;
           }
+          if (!widget.navigationLocked && _pointersDown > 1) {
+            return;
+          }
           final last = _draft.points.last;
           final delta = (event.localPosition - last).distance;
           if (delta < kStrokeSamplePx && _draft.points.length > 1) return;
@@ -327,10 +399,12 @@ class _PageAnnotationsLayerState extends State<PageAnnotationsLayer> {
           _draft.append(event.localPosition, markMoved: moved);
         },
         onPointerUp: (event) {
+          _pointersDown = (_pointersDown - 1).clamp(0, 32);
           if (event.pointer != _activePointer) return;
           unawaited(_completeStroke(event.localPosition, size));
         },
         onPointerCancel: (event) {
+          _pointersDown = (_pointersDown - 1).clamp(0, 32);
           if (event.pointer != _activePointer &&
               event.pointer != _stylusPointer) {
             return;

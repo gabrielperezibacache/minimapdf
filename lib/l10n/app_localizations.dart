@@ -129,6 +129,9 @@ class AppLocalizations {
   String get emptySignaturesCta => _t('emptySignaturesCta');
   String get currentPageBadge => _t('currentPageBadge');
   String get drawingLocksScrollHint => _t('drawingLocksScrollHint');
+  String get drawingAllowsScrollHint => _t('drawingAllowsScrollHint');
+  String get lockPageNavigation => _t('lockPageNavigation');
+  String get unlockPageNavigation => _t('unlockPageNavigation');
   String get strokeTooShortHint => _t('strokeTooShortHint');
   String get bookmarkThisPage => _t('bookmarkThisPage');
   String get pageAlreadyBookmarked => _t('pageAlreadyBookmarked');
@@ -546,7 +549,11 @@ const Map<String, Map<String, String>> _strings = {
     'emptySignaturesCta': 'Firmar documento',
     'currentPageBadge': 'Actual',
     'drawingLocksScrollHint':
-        'Herramienta activa: deselecciona para desplazarte o editar marcas.',
+        'Candado cerrado: sin scroll ni zoom. Ábrelo para mover la página con dos dedos.',
+    'drawingAllowsScrollHint':
+        'Candado abierto: zoom y pan con dos dedos; un dedo sigue dibujando.',
+    'lockPageNavigation': 'Bloquear scroll y zoom',
+    'unlockPageNavigation': 'Permitir scroll y zoom',
     'strokeTooShortHint': 'Arrastra el dedo o el S-Pen para marcar.',
     'bookmarkThisPage': 'Marcar esta página',
     'pageAlreadyBookmarked': 'Esta página ya está marcada.',
@@ -844,7 +851,11 @@ const Map<String, Map<String, String>> _strings = {
     'emptySignaturesCta': 'Sign document',
     'currentPageBadge': 'Current',
     'drawingLocksScrollHint':
-        'Tool active: deselect to scroll or edit marks.',
+        'Lock closed: no scroll or zoom. Open it to move the page with two fingers.',
+    'drawingAllowsScrollHint':
+        'Lock open: pinch-zoom and pan with two fingers; one finger still draws.',
+    'lockPageNavigation': 'Lock scroll and zoom',
+    'unlockPageNavigation': 'Allow scroll and zoom',
     'strokeTooShortHint': 'Drag your finger or S-Pen to mark.',
     'bookmarkThisPage': 'Bookmark this page',
     'pageAlreadyBookmarked': 'This page is already bookmarked.',
@@ -1141,7 +1152,11 @@ const Map<String, Map<String, String>> _strings = {
     'emptySignaturesCta': 'Assinar documento',
     'currentPageBadge': 'Atual',
     'drawingLocksScrollHint':
-        'Ferramenta ativa: desselecione para deslocar ou editar marcas.',
+        'Cadeado fechado: sem scroll nem zoom. Abra para mover a página com dois dedos.',
+    'drawingAllowsScrollHint':
+        'Cadeado aberto: zoom e pan com dois dedos; um dedo continua desenhando.',
+    'lockPageNavigation': 'Bloquear scroll e zoom',
+    'unlockPageNavigation': 'Permitir scroll e zoom',
     'strokeTooShortHint': 'Arraste o dedo ou o S-Pen para marcar.',
     'bookmarkThisPage': 'Marcar esta página',
     'pageAlreadyBookmarked': 'Esta página já está marcada.',
@@ -1436,7 +1451,11 @@ const Map<String, Map<String, String>> _strings = {
     'emptySignaturesCta': 'Signer le document',
     'currentPageBadge': 'Actuelle',
     'drawingLocksScrollHint':
-        'Outil actif : désélectionnez pour faire défiler ou modifier les marques.',
+        'Cadenas fermé : pas de défilement ni de zoom. Ouvrez-le pour déplacer la page à deux doigts.',
+    'drawingAllowsScrollHint':
+        'Cadenas ouvert : zoom et panoramique à deux doigts ; un doigt continue de dessiner.',
+    'lockPageNavigation': 'Verrouiller le défilement et le zoom',
+    'unlockPageNavigation': 'Autoriser le défilement et le zoom',
     'strokeTooShortHint': 'Glissez le doigt ou le S-Pen pour surligner.',
     'bookmarkThisPage': 'Marquer cette page',
     'pageAlreadyBookmarked': 'Cette page est déjà marquée.',
@@ -1733,7 +1752,11 @@ const Map<String, Map<String, String>> _strings = {
     'emptySignaturesCta': 'Dokument unterschreiben',
     'currentPageBadge': 'Aktuell',
     'drawingLocksScrollHint':
-        'Werkzeug aktiv: Abwählen, um zu scrollen oder Markierungen zu bearbeiten.',
+        'Schloss zu: kein Scrollen oder Zoomen. Öffnen, um die Seite mit zwei Fingern zu bewegen.',
+    'drawingAllowsScrollHint':
+        'Schloss offen: Zoomen und Schwenken mit zwei Fingern; ein Finger zeichnet weiter.',
+    'lockPageNavigation': 'Scrollen und Zoomen sperren',
+    'unlockPageNavigation': 'Scrollen und Zoomen erlauben',
     'strokeTooShortHint': 'Mit Finger oder S-Pen ziehen, um zu markieren.',
     'bookmarkThisPage': 'Diese Seite markieren',
     'pageAlreadyBookmarked': 'Diese Seite ist bereits markiert.',
@@ -2026,7 +2049,10 @@ const Map<String, Map<String, String>> _strings = {
     'emptyAnnotationsCta': '打开工具',
     'emptySignaturesCta': '签署文档',
     'currentPageBadge': '当前',
-    'drawingLocksScrollHint': '工具已启用：取消选择后即可滚动或编辑标记。',
+    'drawingLocksScrollHint': '锁已关闭：无法滚动或缩放。打开后可用双指移动页面。',
+    'drawingAllowsScrollHint': '锁已打开：双指缩放/平移；单指仍可绘制。',
+    'lockPageNavigation': '锁定滚动和缩放',
+    'unlockPageNavigation': '允许滚动和缩放',
     'strokeTooShortHint': '拖动手指或 S-Pen 进行标记。',
     'bookmarkThisPage': '标记此页',
     'pageAlreadyBookmarked': '此页已标记。',
@@ -2316,7 +2342,11 @@ const Map<String, Map<String, String>> _strings = {
     'emptySignaturesCta': 'Подписать документ',
     'currentPageBadge': 'Текущая',
     'drawingLocksScrollHint':
-        'Инструмент активен: снимите выбор, чтобы листать или править метки.',
+        'Замок закрыт: без прокрутки и масштаба. Откройте, чтобы двигать страницу двумя пальцами.',
+    'drawingAllowsScrollHint':
+        'Замок открыт: зум и панорама двумя пальцами; один палец по-прежнему рисует.',
+    'lockPageNavigation': 'Заблокировать прокрутку и масштаб',
+    'unlockPageNavigation': 'Разрешить прокрутку и масштаб',
     'strokeTooShortHint': 'Проведите пальцем или S-Pen, чтобы выделить.',
     'bookmarkThisPage': 'Добавить закладку на эту страницу',
     'pageAlreadyBookmarked': 'Эта страница уже в закладках.',

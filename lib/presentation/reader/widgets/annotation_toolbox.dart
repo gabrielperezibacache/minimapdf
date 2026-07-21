@@ -17,6 +17,8 @@ class AnnotationToolbox extends StatelessWidget {
     required this.onClose,
     this.onToggleBookmark,
     this.onClearTool,
+    this.onToggleNavigationLock,
+    this.navigationLocked = true,
     this.isBookmarked = false,
     this.pageNumber,
     this.annotationCount = 0,
@@ -39,6 +41,9 @@ class AnnotationToolbox extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback? onToggleBookmark;
   final VoidCallback? onClearTool;
+  final VoidCallback? onToggleNavigationLock;
+  /// Candado cerrado = sin scroll/zoom; abierto = permitir con dos dedos.
+  final bool navigationLocked;
   final bool isBookmarked;
   final int? pageNumber;
   final int annotationCount;
@@ -130,6 +135,24 @@ class AnnotationToolbox extends StatelessWidget {
                                   ?.copyWith(
                                     color: colors.textMuted,
                                   ),
+                            ),
+                          ),
+                        if (onToggleNavigationLock != null)
+                          IconButton(
+                            tooltip: navigationLocked
+                                ? l10n.unlockPageNavigation
+                                : l10n.lockPageNavigation,
+                            onPressed: () {
+                              HapticFeedback.selectionClick();
+                              onToggleNavigationLock!();
+                            },
+                            visualDensity: VisualDensity.compact,
+                            icon: Icon(
+                              navigationLocked
+                                  ? Icons.lock
+                                  : Icons.lock_open,
+                              size: 20,
+                              color: AppColors.ebonyAccent,
                             ),
                           ),
                         IconButton(
@@ -342,7 +365,9 @@ class AnnotationToolbox extends StatelessWidget {
                     if (activeTool.isMarkup) ...[
                       const SizedBox(height: 6),
                       Text(
-                        AppLocalizations.of(context).drawingLocksScrollHint,
+                        navigationLocked
+                            ? l10n.drawingLocksScrollHint
+                            : l10n.drawingAllowsScrollHint,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppColors.ebonyAccent.withValues(
                                 alpha: 0.9,

@@ -89,6 +89,8 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   List<PageAnnotation> _annotations = const [];
   AnnotationTool _activeTool = AnnotationTool.none;
   bool _toolboxVisible = false;
+  /// Con herramienta armada: si true, bloquea scroll del PdfView y zoom PhotoView.
+  bool _navigationLocked = true;
   bool _loading = false;
   int? _loadingGeneration;
   String? _error;
@@ -111,6 +113,9 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   bool get isDrawingToolActive => _activeTool != AnnotationTool.none;
   bool get savingToPdf => _savingToPdf;
   bool get hasAnnotations => _annotations.isNotEmpty;
+  /// Candado cerrado: sin scroll/zoom con la herramienta armada.
+  /// Candado abierto: se puede desplazar y hacer zoom (dos dedos).
+  bool get navigationLocked => _navigationLocked;
 
   Color get inkColor => _inkColor;
   int get strokeSizeIndex => _strokeSizeIndex;
@@ -284,6 +289,19 @@ class ReaderAnnotationsProvider extends ChangeNotifier {
   void clearTool() {
     if (_disposed || _activeTool == AnnotationTool.none) return;
     _activeTool = AnnotationTool.none;
+    _safeNotify();
+  }
+
+  void toggleNavigationLock() {
+    if (_disposed) return;
+    _navigationLocked = !_navigationLocked;
+    _safeNotify();
+  }
+
+  void setNavigationLocked(bool locked) {
+    if (_disposed) return;
+    if (_navigationLocked == locked) return;
+    _navigationLocked = locked;
     _safeNotify();
   }
 

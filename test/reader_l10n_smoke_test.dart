@@ -9,6 +9,9 @@ void main() {
       expect(l10n.minimizeAnnotationTools, isNot(equals('minimizeAnnotationTools')));
       expect(l10n.expandAnnotationTools, isNot(equals('expandAnnotationTools')));
       expect(l10n.drawingLocksScrollHint, isNot(equals('drawingLocksScrollHint')));
+      expect(l10n.drawingAllowsScrollHint, isNot(equals('drawingAllowsScrollHint')));
+      expect(l10n.lockPageNavigation, isNot(equals('lockPageNavigation')));
+      expect(l10n.unlockPageNavigation, isNot(equals('unlockPageNavigation')));
       expect(l10n.readerFirstTip, isNot(equals('readerFirstTip')));
       expect(l10n.previousPage, isNot(equals('previousPage')));
       expect(l10n.nextPage, isNot(equals('nextPage')));
